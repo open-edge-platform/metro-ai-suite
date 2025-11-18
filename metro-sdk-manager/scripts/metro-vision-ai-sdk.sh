@@ -18,8 +18,8 @@
 
 # Array of repositories to clone: "url|branch|directory"
 repositories=(
-  "https://github.com/open-edge-platform/edge-ai-libraries|v1.2.0|edge-ai-libraries"
-  "https://github.com/open-edge-platform/edge-ai-suites|v1.2.0|edge-ai-suites"
+  "https://github.com/open-edge-platform/edge-ai-libraries|release-2025.2.0|edge-ai-libraries"
+  "https://github.com/open-edge-platform/edge-ai-suites|release-2025.2.0|edge-ai-suites"
 )
 
 images=(
@@ -30,7 +30,6 @@ images=(
 )
 
 NAME="Metro Vision AI SDK"
-
 
 set -euo pipefail
 

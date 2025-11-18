@@ -18,7 +18,7 @@
 
 # Array of repositories to clone: "url|branch|directory"
 repositories=(
-  "https://github.com/open-edge-platform/edge-ai-suites|v1.2.0|edge-ai-suites"
+  "https://github.com/open-edge-platform/edge-ai-suites|release-2025.2.0|edge-ai-suites"
 )
 
 images=(
@@ -31,7 +31,6 @@ images=(
 )
 
 NAME="Visual AI Demo Kit"
-
 
 set -euo pipefail
 
