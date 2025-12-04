@@ -1,6 +1,6 @@
 # Release Notes
 
-## v<TBD> (Upcoming release)
+## v1.17.0
 
 ### Updates
 - Consumed latest SceneScape version 2025.2
