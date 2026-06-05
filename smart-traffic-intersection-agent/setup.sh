@@ -355,11 +355,18 @@ export_model_for_ovms() {
         curl -fsSL https://raw.githubusercontent.com/openvinotoolkit/model_server/refs/tags/v2026.1/demos/common/export_models/export_model.py -o export_model.py || exit 1
 
         echo -e "Creating Python virtual environment for model export..."
-        if ! dpkg-query -W -f='${Status}' python3-venv 2>/dev/null | grep -q "ok installed"; then
+        if ! python3 -m venv --help > /dev/null 2>&1; then
             echo -e "Installing python3-venv package..."
-            sudo apt install -y python3-venv || exit 1
+            if command -v apt-get > /dev/null 2>&1; then
+                sudo apt-get install -y python3-venv || exit 1
+            elif command -v dnf > /dev/null 2>&1; then
+                sudo dnf install -y python3 || exit 1
+            else
+                echo -e "${RED}ERROR: Unsupported package manager. Please install python3-venv manually.${NC}"
+                exit 1
+            fi
         else
-            echo -e "python3-venv is already installed, skipping installation"
+            echo -e "python3-venv is already available, skipping installation"
         fi
 
         python3 -m venv ovms_venv || exit 1
