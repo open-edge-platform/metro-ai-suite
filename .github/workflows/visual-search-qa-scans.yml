@@ -40,7 +40,7 @@ jobs:
           ls
           echo "=== Image Build Verification Complete ==="
       - name: Run Trivy Filesystem Scan
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@27276444a9bcf247a27369406686b689933bd1ff
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@aecadde81d72ac3e3ef5a52277539600621d3cb8
         id: trivy-fs
         with:
           scan_type: "fs"  
@@ -51,7 +51,7 @@ jobs:
           report_suffix: "-fs-vsqa-CT7"
 
       - name: Run trivy Scan -vsqa (HTML Report)
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@27276444a9bcf247a27369406686b689933bd1ff
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@aecadde81d72ac3e3ef5a52277539600621d3cb8
         id: vsqa-visual-html
         with:
           scan_type: "image"  
@@ -63,7 +63,7 @@ jobs:
           generate_sbom: "false"
           
       - name: Run trivy Scan - vsqa (SPDX SBOM)
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@27276444a9bcf247a27369406686b689933bd1ff
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@aecadde81d72ac3e3ef5a52277539600621d3cb8
         id: vsqa-visual-spdx
         with:
           scan_type: "image"  
@@ -76,7 +76,7 @@ jobs:
           generate_sbom: "false"
 
       - name: Scan Dockerfile with Trivy
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@27276444a9bcf247a27369406686b689933bd1ff
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@aecadde81d72ac3e3ef5a52277539600621d3cb8
         with:
           scan_type: "config"
           scan_target: "metro-ai-suite/visual-search-question-and-answering/src/"
@@ -100,7 +100,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run Bandit Scan
-        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@27276444a9bcf247a27369406686b689933bd1ff
+        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@aecadde81d72ac3e3ef5a52277539600621d3cb8
         id: bandit
         with:
           scan-scope: "all"  
@@ -125,7 +125,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run ClamAV Scan
-        uses: open-edge-platform/orch-ci/.github/actions/security/clamav@27276444a9bcf247a27369406686b689933bd1ff
+        uses: open-edge-platform/orch-ci/.github/actions/security/clamav@aecadde81d72ac3e3ef5a52277539600621d3cb8
         id: clamav
         with:
           scan-scope: "all"  
