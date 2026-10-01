@@ -48,7 +48,7 @@ jobs:
           ls
           echo "=== Image Build Verification Complete ==="
       - name: Run Trivy Filesystem Scan
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@27276444a9bcf247a27369406686b689933bd1ff
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@aecadde81d72ac3e3ef5a52277539600621d3cb8
         id: trivy-fs
         with:
           scan_type: "fs"  
@@ -60,7 +60,7 @@ jobs:
 
 
       - name: Run trivy Scan - vpp (HTML Report)
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@27276444a9bcf247a27369406686b689933bd1ff
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@aecadde81d72ac3e3ef5a52277539600621d3cb8
         id: vpp-html
         with:
           scan_type: "image"  
@@ -72,7 +72,7 @@ jobs:
           generate_sbom: "false"
 
       - name: Run trivy Scan - vpp (SPDX SBOM)
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@27276444a9bcf247a27369406686b689933bd1ff
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@aecadde81d72ac3e3ef5a52277539600621d3cb8
         id: vpp-spdx
         with:
           scan_type: "image"  
@@ -85,7 +85,7 @@ jobs:
           generate_sbom: "false"
 
       - name: Scan Dockerfile with Trivy
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@27276444a9bcf247a27369406686b689933bd1ff
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@aecadde81d72ac3e3ef5a52277539600621d3cb8
         with:
           scan_type: "config"
           scan_target: "metro-ai-suite/video-processing-for-nvr/docker/"
