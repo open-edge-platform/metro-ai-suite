@@ -29,7 +29,7 @@ jobs:
           persist-credentials: false
           
       - name: Run Bandit Scan
-        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@27276444a9bcf247a27369406686b689933bd1ff
+        uses: open-edge-platform/orch-ci/.github/actions/security/bandit@ccda485c43504937be8c1680c643c0ee2858c568
         id: bandit
         with:
           scan-scope: "all"  
@@ -70,7 +70,7 @@ jobs:
           echo "=== Image Build Verification Complete ==="
           
       - name: Run Trivy Filesystem Scan
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@27276444a9bcf247a27369406686b689933bd1ff
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@ccda485c43504937be8c1680c643c0ee2858c568
         id: trivy-fs
         with:
           scan_type: "fs"  
@@ -82,7 +82,7 @@ jobs:
 
 
       - name: Run trivy Scan - tfcc (HTML Report)
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@27276444a9bcf247a27369406686b689933bd1ff
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@ccda485c43504937be8c1680c643c0ee2858c568
         id: tfcc-html
         with:
           scan_type: "image"  
@@ -94,7 +94,7 @@ jobs:
           generate_sbom: "false"
 
       - name: Run trivy Scan - tfcc (SPDX SBOM)
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@27276444a9bcf247a27369406686b689933bd1ff
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@ccda485c43504937be8c1680c643c0ee2858c568
         id: tfcc-spdx
         with:
           scan_type: "image"  
@@ -107,7 +107,7 @@ jobs:
           generate_sbom: "false"
 
       - name: Scan Dockerfile with Trivy
-        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@27276444a9bcf247a27369406686b689933bd1ff
+        uses: open-edge-platform/orch-ci/.github/actions/security/trivy@ccda485c43504937be8c1680c643c0ee2858c568
         with:
           scan_type: "config"
           scan_target: "metro-ai-suite/sensor-fusion-for-traffic-management/docker/"
