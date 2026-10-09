@@ -71,7 +71,7 @@ That is everything. The export and quantize scripts reuse `mmdet3d`, `mmcv`, and
 
 ### 2.4 Clone the deploy repo and build it
 
-Clone [edge-ai-suites](https://github.com/open-edge-platform/metro-ai-suite.git) and follow its own documentation for the build:
+Clone [mwtro-ai-suite](https://github.com/open-edge-platform/metro-ai-suite.git) and follow its own documentation for the build:
 
 - `deploy/README.md` — top-level build instructions.
 - `deploy/docs/Prerequisites.md` — oneAPI + custom OpenVINO installation.
