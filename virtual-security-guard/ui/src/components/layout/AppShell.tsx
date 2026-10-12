@@ -1,0 +1,104 @@
+// SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+import { useEffect } from "react";
+import { matchPath, Outlet, useLocation } from "react-router";
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { keepAliveRoutes, navItems } from "@/config/navigation";
+import { AgentHub } from "@/features/agent/AgentHub";
+import { useCamerasStore } from "@/stores/cameras";
+import { Navigation } from "./Navigation";
+
+const keepAlive: Record<string, () => React.ReactElement> = {
+  "/argus": () => <AgentHub />,
+};
+
+function usePageTitle() {
+  const { pathname } = useLocation();
+  return navItems.find((i) => pathname.startsWith(i.url))?.pageTitle ?? "";
+}
+
+/** ViPPET-style shell: icon-collapsible sidebar, 60px header, content area. */
+export function AppShell() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const { pathname } = useLocation();
+  const title = usePageTitle();
+  const loadCameras = useCamerasStore((s) => s.load);
+
+  useEffect(() => {
+    void loadCameras();
+  }, [loadCameras]);
+
+  useEffect(() => {
+    document.title = title
+      ? `${title} | Virtual Security Guard`
+      : "Virtual Security Guard";
+  }, [title]);
+
+  const onKeepAlive = keepAliveRoutes.some((p) =>
+    matchPath({ path: p, end: true }, pathname),
+  );
+
+  return (
+    <TooltipProvider delayDuration={300}>
+      <div className="flex h-screen flex-col">
+        <SidebarProvider>
+          <Navigation />
+          <SidebarInset className="min-w-0">
+            <header className="flex h-[60px] shrink-0 items-center justify-between gap-2 border-b">
+              <div className="flex items-center gap-2 px-4">
+                <SidebarTrigger className="-ml-1" />
+                <Separator
+                  orientation="vertical"
+                  className="mr-2 data-[orientation=vertical]:h-4"
+                />
+                <h1 className="text-lg font-semibold">{title}</h1>
+              </div>
+              <div className="flex items-center gap-2 px-4">
+                <Button
+                  onClick={() =>
+                    setTheme(resolvedTheme === "dark" ? "light" : "dark")
+                  }
+                  aria-label="Toggle theme"
+                  variant="ghost"
+                  size="icon"
+                >
+                  {resolvedTheme === "dark" ? (
+                    <Sun className="size-5" />
+                  ) : (
+                    <Moon className="size-5" />
+                  )}
+                </Button>
+              </div>
+            </header>
+            <main className="relative flex min-h-0 flex-1 overflow-hidden">
+              {keepAliveRoutes.map((p) => {
+                const active = !!matchPath({ path: p, end: true }, pathname);
+                return (
+                  <div key={p} className="h-full w-full" hidden={!active}>
+                    {keepAlive[p]?.()}
+                  </div>
+                );
+              })}
+              {!onKeepAlive && (
+                <div className="h-full w-full overflow-auto">
+                  <Outlet />
+                </div>
+              )}
+            </main>
+          </SidebarInset>
+        </SidebarProvider>
+        <Toaster position="top-center" richColors />
+      </div>
+    </TooltipProvider>
+  );
+}

@@ -1,0 +1,47 @@
+{
+  "skill_name": "vsg-dev",
+  "evals": [
+    {
+      "id": 1,
+      "prompt_file": "example-prompts/01-argus-reply-not-shown.md",
+      "prompt": "Argus answered my report request but nothing shows up in the VSG UI. Fix it.",
+      "expected_output": "Checks gateway health, reads the Hermes transcript without printing the API key, confirms whether a valid vsg-report block exists, tests parsing with parseAgentText, then fixes rendering or ordering in Turns.tsx/MessageList.tsx, verifies with lint/tsc/vitest/build and redeploys.",
+      "files": [],
+      "expectations": [
+        "Runs the three health probes (/healthz, /hermes/health, /vss/manager/health) on the UI port.",
+        "Reads /api/sessions and /api/sessions/<id>/messages to inspect the raw assistant reply.",
+        "Never echoes or commits HERMES_API_KEY.",
+        "Distinguishes a parsing problem from a rendering/state problem before editing.",
+        "Runs format, lint, tsc, vitest and build from ui/ before claiming success.",
+        "Redeploys with docker compose --env-file deploy/.env -f deploy/compose.yaml up -d --build."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt_file": "example-prompts/02-add-vss-route.md",
+      "prompt": "Let the VSG UI call the VSS GET /manager/tags endpoint from a new filter dropdown.",
+      "expected_output": "Adds the call to the VSS adapter and its mock, confirms or adds a strict-regex nginx allowlist entry and dev proxy coverage, uses a stable Zustand/TanStack selector, adds SPDX headers to new files, and verifies.",
+      "files": [],
+      "expectations": [
+        "Edits ui/src/adapters/vss/http.ts and keeps ui/src/adapters/vss/mock.ts in sync.",
+        "Checks ui/nginx/templates/default.conf.template for an allowlist location before relying on the route.",
+        "Avoids selectors that return new arrays/objects each render.",
+        "Runs the verification commands from ui/."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt_file": "example-prompts/03-change-argus-behaviour.md",
+      "prompt": "Make Argus summarise confirmed sightings in a table before offering the live search.",
+      "expected_output": "Updates protocol/instructions.ts, hermes-skills/virtual-security-guard/SKILL.md and docs/user-guide/design.md together, and explains that the skills must be reinstalled on the Hermes host with make install-skills.",
+      "files": [],
+      "expectations": [
+        "Updates ui/src/protocol/instructions.ts.",
+        "Updates hermes-skills/virtual-security-guard/SKILL.md.",
+        "Updates docs/user-guide/design.md when the flow changes.",
+        "States that make install-skills must run on the Hermes host and a new Hermes session is needed.",
+        "Does not start a live watch without operator consent."
+      ]
+    }
+  ]
+}
