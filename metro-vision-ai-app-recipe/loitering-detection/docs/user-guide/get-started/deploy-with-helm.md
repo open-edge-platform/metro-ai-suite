@@ -93,18 +93,17 @@ Before you can deploy with Helm, you must clone the repository and download the 
 
 ```bash
 # Clone the repository
-git clone https://github.com/open-edge-platform/edge-ai-suites.git -b main
+git clone https://github.com/open-edge-platform/metro-ai-suite.git -b main
 
 # Navigate to the Metro AI Suite directory
-cd edge-ai-suites/metro-ai-suite/metro-vision-ai-app-recipe/
-
+cd metro-ai-suite/metro-vision-ai-app-recipe/
 ```
 
 Optional: Pull the Helm chart and replace the existing helm-chart folder with it
 
 > [!NOTE]
 > The Helm chart should be downloaded when you are not using the Helm chart provided
-> in `edge-ai-suites/metro-ai-suite/metro-vision-ai-app-recipe/loitering-detection/helm-chart`.
+> in `metro-ai-suite/metro-vision-ai-app-recipe/loitering-detection/helm-chart`.
 
 ```bash
 #Navigate to Loitering Detection directory
@@ -183,7 +182,7 @@ the Node IP. (Total 4 places)
        "destination": {
            "metadata": {
                "type": "mqtt",
-               "topic": "object_tracking_1",
+               "topic": "object_tracking/1",
                "publish_frame":false
            },
            "frame": {
@@ -209,7 +208,7 @@ the Node IP. (Total 4 places)
        "destination": {
            "metadata": {
                "type": "mqtt",
-               "topic": "object_tracking_2",
+               "topic": "object_tracking/2",
                "publish_frame":false
            },
            "frame": {
@@ -235,7 +234,7 @@ the Node IP. (Total 4 places)
        "destination": {
            "metadata": {
                "type": "mqtt",
-               "topic": "object_tracking_3",
+               "topic": "object_tracking/3",
                "publish_frame":false
            },
            "frame": {
@@ -261,7 +260,7 @@ the Node IP. (Total 4 places)
        "destination": {
            "metadata": {
                "type": "mqtt",
-               "topic": "object_tracking_4",
+               "topic": "object_tracking/4",
                "publish_frame":false
            },
            "frame": {
@@ -291,6 +290,20 @@ the Node IP. (Total 4 places)
 
    ![Example of Grafana and WebRTC streaming](../_assets/grafana.png)
    *Figure 1: Grafana and WebRTC streaming*
+
+   > [!TIP]
+   > The on-screen dwell-time overlay is REST-tunable via `loitering-watermark-properties` in
+   > the launch payload (see `sample_start.sh`), with no code or pipeline changes:
+   > `"loitering-threshold"` (seconds before the overlay turns red; default `5.0` — must be a
+   > JSON number, not a quoted string)
+   > and `"quiet-mode"` (`"true"` to suppress the on-screen text, e.g. to rely on the Grafana
+   > table only). Zone outlines/bounding boxes and the Grafana table are unaffected either way.
+
+   > [!NOTE]
+   > Detection (`gvadetect`) and tracking (`gvatrack`) always run on the full video frame —
+   > there is no element cropping input to the zone polygons. Only the `gvaanalytics` element
+   > restricts its output to the configured zones: objects outside every zone are still
+   > detected and tracked, just not reported as present/dwelling in a zone.
 
 ### Step 4: End the demonstration
 

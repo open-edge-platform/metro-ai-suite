@@ -7,7 +7,7 @@ performance level.
 
 ## Prerequisites
 
-- The `edge-ai-suites` repository must be cloned to your system.
+- The `metro-ai-suite` repository must be cloned to your system.
 - `curl`, `jq`, `gawk`, `ffmpeg`, and `bc` utilities installed
 
 ## Step 1: Understand the Benchmarking Script
@@ -83,12 +83,11 @@ similar characteristics. These are configurable parameters that can be adjusted 
 specific requirements:
 
 ```
-inference-region=1 inference-interval=3 batch-size=8 nireq=2 ie-config="GPU_THROUGHPUT_STREAMS=2" threshold=0.7
+inference-region=0 inference-interval=3 batch-size=8 nireq=2 ie-config="GPU_THROUGHPUT_STREAMS=2" threshold=0.7
 ```
 
 **Parameter Descriptions:**
-- `inference-region=1`: Use the region-of-interest (ROI) set by the `gvaattachroi` element for
-detection.
+- `inference-region=0`: Use full frame.
 - `inference-interval=3`: Run inference on every 3rd frame.
 - `batch-size=8`: Process 8 frames in a single batch for better GPU utilization.
 - `nireq=2`: Number of inference requests to run in parallel.
@@ -106,7 +105,7 @@ folder (e.g., [Get Started for Loitering Detection](../get-started.md)).
 2.  **Navigate to Script Directory:** Open a terminal and navigate to the `metro-vision-ai-app-recipe` directory.
 
     ```bash
-    cd edge-ai-suites/metro-ai-suite/metro-vision-ai-app-recipe/
+    cd metro-ai-suite/metro-vision-ai-app-recipe/
     ```
 
 3.  **Stop Existing Pipelines:** Ensure no other pipelines are running before you start the

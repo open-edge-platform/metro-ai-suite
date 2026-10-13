@@ -22,7 +22,7 @@ Prepare any subset of compatible local MP4 files. The RTSP pusher copies the sou
 
 ## Step 1 - Provide video paths
 
-Video files are not included in release artifacts. All four entries in [streams.yaml](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/agentic-smart-community/demo/quick-start/streams.yaml) default to `enabled: true`, but a stream will be automatically skipped with a warning when its environment variable is unset, empty, or points to an unreadable file.
+Video files are not included in release artifacts. All four entries in [streams.yaml](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/demo/quick-start/streams.yaml) default to `enabled: true`, but a stream will be automatically skipped with a warning when its environment variable is unset, empty, or points to an unreadable file.
 
 Export an absolute path for every stream you want to run. Omit variables for streams you do not have; no YAML edits are required.
 
@@ -33,7 +33,7 @@ export SMART_COMMUNITY_DEMO_ELDER_VIDEO=/absolute/path/elder-wakeup.mp4
 export SMART_COMMUNITY_DEMO_ELDER_2_VIDEO=/absolute/path/elder-wakeup-2.mp4
 ```
 
-To manually disable a stream even when its variable is available, set that stream's `enabled: false` in [streams.yaml](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/agentic-smart-community/demo/quick-start/streams.yaml).
+To manually disable a stream even when its variable is available, set that stream's `enabled: false` in [streams.yaml](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/demo/quick-start/streams.yaml).
 
 ## Step 2 - Start the demo
 
@@ -48,7 +48,7 @@ bash demo/quick-start/start-demo.sh
 
 This one-shot launcher pushes the demo RTSP streams, writes the demo config/monitors into `$SMART_COMMUNITY_DATA_DIR`, then brings the stack up with `setup_docker.sh --light` (reusing an already-warm `vllm-ipex-serving`) and reloads the `smart-community-mcp-server` container so it picks up the demo config. No separate MCP-server start is needed — it runs as a container in the stack.
 
-The launcher writes [config.demo.yaml](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/agentic-smart-community/demo/quick-start/config.demo.yaml) to `$SMART_COMMUNITY_DATA_DIR/config.yaml`. It filters [monitors.demo.yaml](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/agentic-smart-community/demo/quick-start/monitors.demo.yaml) to the active streams and writes the result to `$SMART_COMMUNITY_DATA_DIR/monitors.yaml`. The MCP server then starts with these two files.
+The launcher writes [config.demo.yaml](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/demo/quick-start/config.demo.yaml) to `$SMART_COMMUNITY_DATA_DIR/config.yaml`. It filters [monitors.demo.yaml](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/demo/quick-start/monitors.demo.yaml) to the active streams and writes the result to `$SMART_COMMUNITY_DATA_DIR/monitors.yaml`. The MCP server then starts with these two files.
 
 If either file changes, the previous version is backed up as `<filename>.YYYYMMDD-HHMMSS.bak`. Runtime configuration changes are written to the files in `$SMART_COMMUNITY_DATA_DIR`; the files under `demo/` remain unchanged.
 
@@ -74,7 +74,7 @@ If you are connecting Smart Community to OpenClaw and want an agent to proactive
 
 The adapter installer enables proactive alerts for this demo. It configures alert routes for `cam_child` and `cam_elder_bedroom`, imports the Smart Community skills, and provisions the Fridge, Child Safety, and Elder Wakeup agent personas.
 
-This OpenClaw adapter is built with the [Framework Adapter SDK](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/agentic-smart-community/packages/framework-adapter-sdk/README.md). For details about building the plugin and configuring alert routes, see the [OpenClaw adapter guide](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/agentic-smart-community/packages/framework-adapter-sdk/examples/openclaw/README.md).
+This OpenClaw adapter is built with the [Framework Adapter SDK](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/packages/framework-adapter-sdk/README.md). For details about building the plugin and configuring alert routes, see the [OpenClaw adapter guide](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/packages/framework-adapter-sdk/examples/openclaw/README.md).
 
 Run the installer from the component root:
 

@@ -17,10 +17,10 @@ platform, see [Docker Documentation](https://docs.docker.com/) for an introducti
    To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
 
    ```bash
-   git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/edge-ai-suites.git
-   cd edge-ai-suites
-   git sparse-checkout set metro-ai-suite
-   cd metro-ai-suite/smart-route-planning-agent
+   git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
+   cd metro-ai-suite
+   git sparse-checkout set smart-route-planning-agent
+   cd smart-route-planning-agent
    ```
 
 2. **Configure _Smart Traffic Intersection Agent_ Node Endpoints :**

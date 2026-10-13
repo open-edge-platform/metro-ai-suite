@@ -28,7 +28,7 @@ cloud-dependent deployments are not feasible.
 **Objective**: Create a complete offline deployment package containing all necessary components for the Smart Parking application.
 
 ```bash
-cd edge-ai-suites/metro-ai-suite/metro-vision-ai-app-recipe/smart-parking
+cd metro-ai-suite/metro-vision-ai-app-recipe/smart-parking
 
 ./offline-package-generator.sh
 ```

@@ -6,7 +6,7 @@
 
 ## Configure and deploy NPU pipelines
 
-In `edge-ai-suites/metro-ai-suite/metro-vision-ai-app-recipe/smart-intersection/src/dlstreamer-pipeline-server/config.json` the following NPU pipelines are available. Set `"auto_start": true` for each of them.
+In `metro-ai-suite/metro-vision-ai-app-recipe/smart-intersection/src/dlstreamer-pipeline-server/config.json` the following NPU pipelines are available. Set `"auto_start": true` for each of them.
 
 - intersection-cam1-npu
 - intersection-cam2-npu

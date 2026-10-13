@@ -24,7 +24,7 @@ Before You Begin, ensure the following:
 ## Pull the helm chart (Optional)
 
 > [!NOTE]
-> The helm chart should be downloaded when you are not using the helm chart provided in `edge-ai-suites/metro-ai-suite/image-based-video-search/chart`
+> The helm chart should be downloaded when you are not using the helm chart provided in `metro-ai-suite/image-based-video-search/chart`
 
 - Download helm chart with the following command
 
@@ -51,8 +51,8 @@ Before You Begin, ensure the following:
    - Clone the repo and go to helm directory
 
      ```bash
-     git clone https://github.com/open-edge-platform/edge-ai-suites.git -b main
-     cd edge-ai-suites/metro-ai-suite/image-based-video-search/chart
+     git clone https://github.com/open-edge-platform/metro-ai-suite.git -b main
+     cd metro-ai-suite/image-based-video-search/chart
      ```
 
 2. **Start the application**:

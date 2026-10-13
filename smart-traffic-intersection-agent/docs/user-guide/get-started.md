@@ -40,10 +40,10 @@ If you want to clone a specific release branch, replace `main` with the desired 
 To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
 
 ```bash
-git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/edge-ai-suites.git
-cd edge-ai-suites
-git sparse-checkout set metro-ai-suite
-cd metro-ai-suite/smart-traffic-intersection-agent/
+git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
+cd metro-ai-suite
+git sparse-checkout set smart-traffic-intersection-agent/
+cd smart-traffic-intersection-agent/
 ```
 
 ### 2. Set the required environment variables
@@ -135,8 +135,8 @@ locations on the same machine for `n` required instances.
 1. Clone the repository into a new directory:
 
    ```bash
-   git clone --depth 1 https://github.com/open-edge-platform/edge-ai-suites.git edge-ai-suites-instance1
-   cd edge-ai-suites-instance1/metro-ai-suite/smart-traffic-intersection-agent/
+   git clone --depth 1 https://github.com/open-edge-platform/metro-ai-suite.git metro-ai-suite-instance1
+   cd metro-ai-suite-instance1/smart-traffic-intersection-agent/
    ```
 
 2. Edit the deployment configuration file for instance #1:
@@ -183,8 +183,8 @@ locations on the same machine for `n` required instances.
 1. Open a new terminal window and move to new directory. Clone the repository into the new directory:
 
    ```bash
-   git clone --depth 1 https://github.com/open-edge-platform/edge-ai-suites.git edge-ai-suites-instance2
-   cd edge-ai-suites-instance2/metro-ai-suite/smart-traffic-intersection-agent/
+   git clone --depth 1 https://github.com/open-edge-platform/metro-ai-suite.git metro-ai-suite-instance2
+   cd metro-ai-suite-instance2/smart-traffic-intersection-agent/
    ```
 
 2. Edit the deployment configuration for instance #2:

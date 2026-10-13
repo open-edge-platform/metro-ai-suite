@@ -26,7 +26,7 @@ Verify that your development environment meets the following specifications:
 Execute the automated installation script to configure the complete development environment:
 
 ```bash
-curl https://raw.githubusercontent.com/open-edge-platform/edge-ai-suites/refs/heads/main/metro-ai-suite/metro-sdk-manager/scripts/oep-gen-ai-sdk.sh | bash
+curl https://raw.githubusercontent.com/open-edge-platform/metro-ai-suite/refs/heads/main/metro-sdk-manager/scripts/oep-gen-ai-sdk.sh | bash
 ```
 
 ![OEP Gen AI SDK Installation](images/oep-gen-ai-sdk-install.png)
@@ -82,7 +82,7 @@ http://localhost:8102
   \- Multimodal data ingestion and preparation workflows for retrieval
 - [Edge AI Libraries](https://docs.openedgeplatform.intel.com/dev/ai-libraries.html)
   \- Complete development toolkit documentation and microservice API references
-- [Edge AI Suites](https://docs.openedgeplatform.intel.com/dev/ai-suite-metro.html)
+- [Metro AI Suite](https://docs.openedgeplatform.intel.com/dev/ai-suite-metro.html)
   \- Comprehensive application suite documentation with Gen AI implementation examples
 
 ### Support Channels

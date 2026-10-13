@@ -1,6 +1,6 @@
 # Get Started
 
-The Agentic Predictive Maintenance (APM) blueprint lets you deploy an end-to-end industrial defect
+The Agentic Predictive Maintenance for Critical Infrastructure (APM) blueprint lets you deploy an end-to-end industrial defect
 detection pipeline with AI-driven analysis on Intel® edge hardware. This section shows how to set up, configure, and run the application.
 
 ## Prerequisites
@@ -62,8 +62,8 @@ agentic-predictive-maintenance-pipeline/
 ## Step 1 — Clone the Repository
 
 ```bash
-git clone https://github.com/open-edge-platform/edge-ai-suites.git
-cd edge-ai-suites/metro-ai-suite/agentic-predictive-maintenance-pipeline/
+git clone https://github.com/open-edge-platform/metro-ai-suite.git
+cd metro-ai-suite/agentic-predictive-maintenance-pipeline
 ```
 
 ## Step 2 — Configure the Environment

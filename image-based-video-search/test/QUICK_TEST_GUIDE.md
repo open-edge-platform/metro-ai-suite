@@ -5,7 +5,7 @@
 ### Setup (First Time Only)
 ```bash
 # Navigate to project directory
-cd /edge-ai-suites/metro-ai-suite/image-based-video-search
+cd /metro-ai-suite/image-based-video-search
 
 # Create and activate virtual environment
 python3 -m venv ./test-venv
@@ -112,7 +112,7 @@ google-chrome htmlcov/index.html
 - Python: 3.12.3
 - Pytest: 8.4.2
 - Virtual Env: test-venv
-- Working Directory: `/edge-ai-suites/metro-ai-suite/image-based-video-search`
+- Working Directory: `/metro-ai-suite/image-based-video-search`
 
 ## 📚 Additional Resources
 

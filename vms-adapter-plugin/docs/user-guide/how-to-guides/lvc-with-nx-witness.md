@@ -13,12 +13,11 @@ At the end of this tutorial, you will have:
 
 - A host machine running the Ubuntu OS (version 22.04 or 24.04) with Docker and Docker Compose
   installed.
-- The `edge-ai-suites` repository cloned:
+- The `metro-ai-suite` repository cloned:
 
   ```bash
-  git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/edge-ai-suites.git
-  cd edge-ai-suites
-  git sparse-checkout set metro-ai-suite
+  git clone --filter=blob:none --branch main https://github.com/open-edge-platform/metro-ai-suite.git
+  cd metro-ai-suite
   ```
 
 - At least one IP camera with an accessible RTSP stream.

@@ -41,10 +41,10 @@ starts, because VAP fetches the LVC OpenAPI schema at startup to build the analy
 configuration form:
 
 ```bash
-git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/edge-ai-suites.git
-cd edge-ai-suites
-git sparse-checkout set metro-ai-suite
-cd metro-ai-suite/live-video-analysis/live-video-captioning
+git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
+cd metro-ai-suite
+git sparse-checkout set live-video-analysis/live-video-captioning
+cd live-video-analysis/live-video-captioning
 ```
 
 Follow the [LVC Get Started guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/live-video-captioning/quick-start-guide.html)

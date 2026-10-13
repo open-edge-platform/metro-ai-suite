@@ -26,8 +26,9 @@ Verify that your development environment meets the following specifications:
 Execute the automated installation script to configure the complete development environment:
 
 ```bash
-curl https://raw.githubusercontent.com/open-edge-platform/edge-ai-suites/refs/heads/main/metro-ai-suite/metro-sdk-manager/scripts/oep-vision-ai-sdk.sh | bash
+curl https://raw.githubusercontent.com/open-edge-platform/metro-ai-suite/refs/heads/main/metro-sdk-manager/scripts/oep-vision-ai-sdk.sh | bash
 ```
+
 
 ![OEP Vision AI SDK Installation](images/oep-vision-ai-sdk-install.png)
 
@@ -177,12 +178,12 @@ Profiling and monitoring performance of OEP Vision AI workloads using command-li
   \- Model serving infrastructure documentation for production deployments
 - [Edge AI Libraries](https://docs.openedgeplatform.intel.com/dev/ai-libraries.html)
   \- Comprehensive development toolkit documentation and API references
-- [Edge AI Suites](https://docs.openedgeplatform.intel.com/dev/ai-suite-metro.html)
+- [Metro AI Suite](https://docs.openedgeplatform.intel.com/dev/ai-suite-metro.html)
   \- Complete application suite documentation with implementation examples
 
 ### Support Channels
 
-- [GitHub Issues](https://github.com/open-edge-platform/edge-ai-suites/issues)
+- [GitHub Issues](https://github.com/open-edge-platform/metro-ai-suite/issues)
   \- Technical issue tracking and community support
 
 <!--hide_directive

@@ -46,7 +46,7 @@ The AI Tolling system consists of several key components:
 Navigate to the OEP Vision AI recipe directory and create the AI tolling application by copying the Smart Parking template:
 
 ```bash
-cd ~/oep/edge-ai-suites/metro-ai-suite/metro-vision-ai-app-recipe
+cd ~/oep/metro-ai-suite/metro-vision-ai-app-recipe
 cp -r smart-parking/ ai-tolling/
 ```
 
@@ -230,7 +230,7 @@ if [ ! -f server.key ] || [ ! -f server.crt ]; then
 
 fi
 
-cd ~/oep/edge-ai-suites/metro-ai-suite/metro-vision-ai-app-recipe
+cd ~/oep/metro-ai-suite/metro-vision-ai-app-recipe
 
 # Verify the configuration
 grep SAMPLE_APP= .env
@@ -401,4 +401,4 @@ After successfully setting up the AI Tolling system, consider these enhancements
 ## Supporting Resources
 
 - [DL Streamer Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/index.html)
-- [Metro AI Solutions](https://github.com/open-edge-platform/edge-ai-suites/tree/main/metro-ai-suite)
+- [Metro AI Solutions](https://github.com/open-edge-platform/metro-ai-suite/tree/main)

@@ -51,7 +51,7 @@ cd ~/metro-ai-suite/agentic-smart-community
 
 ### Step 1 - Start all services
 
-The on-device stack is defined in [docker/compose.yaml](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/agentic-smart-community/docker/compose.yaml) and managed by [setup_docker.sh](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/agentic-smart-community/setup_docker.sh). All four services — including the MCP server — come up together:
+The on-device stack is defined in [docker/compose.yaml](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/docker/compose.yaml) and managed by [setup_docker.sh](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/setup_docker.sh). All four services — including the MCP server — come up together:
 
 | Service                          | Port                       | Role                                                                              |
 | -------------------------------- | -------------------------- | --------------------------------------------------------------------------------- |
@@ -147,7 +147,7 @@ Open `http://localhost:3100/` to use the Agentic Smart Community Web UI. It prov
 
 #### OpenClaw
 
-1. Install OpenClaw using the official [OpenClaw documentation](https://openclaw.ai/), or use [our validated platform guide](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/agentic-smart-community/scripts/openclaw/README.md).
+1. Install OpenClaw using the official [OpenClaw documentation](https://openclaw.ai/), or use [our validated platform guide](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/scripts/openclaw/README.md).
 
 2. Ensure that OpenClaw has a valid model provider configured, such as MiniMax, Kimi, DeepSeek, etc. Alternatively, run the following script to add the model served by `vllm-ipex-serving` from [Step 1 - Start all services](#step-1---start-all-services), into `~/.openclaw/openclaw.json`:
 
@@ -174,7 +174,7 @@ Open `http://localhost:3100/` to use the Agentic Smart Community Web UI. It prov
 
    ```bash
    mkdir -p ~/.openclaw/skills
-  cp -rf ~/metro-ai-suite/agentic-smart-community/skills/* ~/.openclaw/skills/
+   cp -rf ~/metro-ai-suite/agentic-smart-community/skills/* ~/.openclaw/skills/
    openclaw gateway restart
    ```
 
@@ -263,13 +263,13 @@ MCP Server subscriptions can deliver alert updates directly to connected clients
   Configure the system to push alerts from cam_test to this agent in real time.
   ```
 
-This OpenClaw adapter is built with the [Framework Adapter SDK](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/agentic-smart-community/packages/framework-adapter-sdk/README.md). For details about building the plugin and configuring alert routes, see the [OpenClaw adapter guide](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/agentic-smart-community/packages/framework-adapter-sdk/examples/openclaw/README.md).
+This OpenClaw adapter is built with the [Framework Adapter SDK](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/packages/framework-adapter-sdk/README.md). For details about building the plugin and configuring alert routes, see the [OpenClaw adapter guide](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/packages/framework-adapter-sdk/examples/openclaw/README.md).
 
 #### Other MCP clients
 
 Hermes, Claude Desktop, Cursor, and other compatible MCP clients can similarly use the same `http://localhost:3100/mcp` endpoint through their own MCP-server configuration. The client can use the server reactively without an adapter, or subscribe to monitor alert updates as described in [MCP Subscription Reference](./api-reference/api-reference-mcp-subscription.md).
 
-If your agent framework requires an adapter to route those updates into agent sessions or external channels, use the [Framework Adapter SDK](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/agentic-smart-community/packages/framework-adapter-sdk/README.md).
+If your agent framework requires an adapter to route those updates into agent sessions or external channels, use the [Framework Adapter SDK](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/packages/framework-adapter-sdk/README.md).
 
 ### Step 4 - Register a new use case
 
@@ -307,7 +307,7 @@ docker pull intel/videostream-analytics:2026.2.0
 ```
 
 > [!NOTE]
-> `setup_docker.sh` resolves each image as `${REGISTRY_URL}<service>:${TAG}`, which with the defaults in [docker/set_env.sh](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/agentic-smart-community/docker/set_env.sh). Export `TAG` before sourcing `docker/set_env.sh` so it matches the tag you pulled or built.
+> `setup_docker.sh` resolves each image as `${REGISTRY_URL}<service>:${TAG}`, which with the defaults in [docker/set_env.sh](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/docker/set_env.sh). Export `TAG` before sourcing `docker/set_env.sh` so it matches the tag you pulled or built.
 
 ## Use an existing model serving
 

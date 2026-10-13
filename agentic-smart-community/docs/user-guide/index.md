@@ -3,10 +3,10 @@
 <!--hide_directive
 ::::{container} component_header_row
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/edge-ai-suites/tree/main/metro-ai-suite/agentic-smart-community">
+  <a class="icon_github" href="https://github.com/open-edge-platform/metro-ai-suite/tree/main/agentic-smart-community">
      GitHub
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/agentic-smart-community/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/README.md">
      Readme
   </a>
 </div>
@@ -52,7 +52,7 @@ These demos are validated end-to-end. They are only a starting point — describ
 
 ## License
 
-See [LICENSE](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/agentic-smart-community/LICENSE).
+See [LICENSE](https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-smart-community/LICENSE).
 
 <!--hide_directive
 :::{toctree}

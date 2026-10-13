@@ -28,7 +28,7 @@ Verify that your development environment meets the following specifications:
 Execute the automated installation script to configure the complete development environment:
 
 ```bash
-curl -fsS https://raw.githubusercontent.com/open-edge-platform/edge-ai-suites/refs/heads/main/metro-ai-suite/metro-sdk-manager/scripts/uav-mission-compute-sdk.sh | bash
+curl -fsS https://raw.githubusercontent.com/open-edge-platform/metro-ai-suite/refs/heads/main/metro-sdk-manager/scripts/uav-mission-compute-sdk.sh | bash
 ```
 
 ![UAV Mission Compute SDK Installation](images/uav-script-start.png)
@@ -111,7 +111,7 @@ The UAV Mission Compute SDK integrates multiple technologies:
 After installation completes:
 
 1. Navigate to `$HOME/oep/edge-ai-suites/federal-and-aerospace-ai-suite/uav-mission-compute-sdk/` to explore the SDK
-2. Review the [Get Started](https://github.com/open-edge-platform/edge-ai-suites/blob/main/federal-and-aerospace-ai-suite/uav-mission-compute-sdk/docs/user-guide/get-started.md) section for USB camera setup and advanced configuration
+2. Review the [Get Started](https://github.com/open-edge-platform/federal-and-aerospace-ai-suite/blob/main/uav-mission-compute-sdk/docs/user-guide/get-started.md) section for USB camera setup and advanced configuration
 3. Access Grafana dashboards at **http://localhost:3000** (admin/admin)
 4. Explore the REST API at **http://localhost:8080** for flight control commands
 
@@ -123,10 +123,10 @@ After installation completes:
   \- Intel's cross-platform inference optimization toolkit
 - [Edge AI Libraries](https://docs.openedgeplatform.intel.com/dev/ai-libraries.html)
   \- Comprehensive development toolkit documentation and API references
-- [Edge AI Suites](https://docs.openedgeplatform.intel.com/dev/ai-suite-metro.html)
+- [Metro AI Suite](https://docs.openedgeplatform.intel.com/dev/ai-suite-metro.html)
   \- Complete application suite documentation with implementation examples
 
 ### Support Channels
 
-- [GitHub Issues](https://github.com/open-edge-platform/edge-ai-suites/issues)
+- [GitHub Issues](https://github.com/open-edge-platform/metro-ai-suite/issues)
   \- Technical issue tracking and community support

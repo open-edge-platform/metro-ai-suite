@@ -1,7 +1,7 @@
 # Troubleshooting
 
 This page provides troubleshooting steps for common issues. If you encounter a problem not
-listed here, check the [GitHub Issues](https://github.com/open-edge-platform/edge-ai-suites/issues)
+listed here, check the [GitHub Issues](https://github.com/open-edge-platform/metro-ai-suite/issues)
 board or file a new ticket.
 
 ## General
@@ -179,5 +179,5 @@ docker compose restart vms-adapter-backend
 ## Supporting Resources
 
 - [Get Started](./get-started.md)
-- [GitHub Issues](https://github.com/open-edge-platform/edge-ai-suites/issues)
+- [GitHub Issues](https://github.com/open-edge-platform/metro-ai-suite/issues)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)

@@ -104,7 +104,7 @@ Clone the repository containing the charts files:
 
 ```bash
 # Clone the mainline branch
-git clone https://github.com/open-edge-platform/edge-ai-suites.git edge-ai-suites -b main
+git clone https://github.com/open-edge-platform/metro-ai-suite.git -b main
 ```
 
 ##### Step 2: Navigate to the chart directory
@@ -112,7 +112,7 @@ git clone https://github.com/open-edge-platform/edge-ai-suites.git edge-ai-suite
 Navigate to the chart directory:
 
 ```bash
-cd edge-ai-suites/metro-ai-suite/live-video-analysis/live-video-captioning/charts
+cd metro-ai-suite/live-video-analysis/live-video-captioning/charts
 ```
 
 ### Select the target node
@@ -136,7 +136,7 @@ Other supporting services such as `mqtt-broker` do not require pinning to the sa
 
 For best performance, choose a worker node with a GPU. The chart can run with CPU-only inference, but a GPU-capable node is the preferred deployment target for DL Streamer and real-time media processing.
 
-In [values-override.yaml](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/live-video-analysis/live-video-captioning/charts/values-override.yaml), set `global.nodeName` to specify the target Kubernetes node. This value references the built-in `kubernetes.io/hostname` label and requires no additional node labeling permissions.
+In [values-override.yaml](https://github.com/open-edge-platform/metro-ai-suite/blob/main/live-video-analysis/live-video-captioning/charts/values-override.yaml), set `global.nodeName` to specify the target Kubernetes node. This value references the built-in `kubernetes.io/hostname` label and requires no additional node labeling permissions.
 
 Ensure you use the same node name as specified in your model-download chart deployment.
 

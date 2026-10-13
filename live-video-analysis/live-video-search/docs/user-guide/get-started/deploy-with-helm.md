@@ -53,8 +53,8 @@ cd live-video-search
 Clone the repository and navigate to the chart directory:
 
 ```bash
-git clone https://github.com/open-edge-platform/edge-ai-suites.git edge-ai-suites -b main
-cd edge-ai-suites/metro-ai-suite/live-video-analysis/live-video-search/chart
+git clone https://github.com/open-edge-platform/metro-ai-suite.git -b main
+cd metro-ai-suite/live-video-analysis/live-video-search/chart
 ```
 
 ### 2. Configure Required Values

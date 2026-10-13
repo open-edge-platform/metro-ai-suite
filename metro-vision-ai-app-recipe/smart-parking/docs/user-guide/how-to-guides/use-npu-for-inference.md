@@ -42,7 +42,7 @@ Examples of such elements are `vah264dec`, `vah264enc`, `vajpegdec`, etc.
 > This sample application already provides a default `compose-without-scenescape.yml`
 > file that includes the necessary NPU access to the containers.
 
-The pipeline `yolov11s_npu` in DL Streamer Pipeline Server's [config.json](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/config.json)
+The pipeline `yolov11s_npu` in DL Streamer Pipeline Server's [config.json](https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/config.json)
 contains NPU specific elements and uses NPU backend for inferencing. We can start the pipeline
 as follows:
 

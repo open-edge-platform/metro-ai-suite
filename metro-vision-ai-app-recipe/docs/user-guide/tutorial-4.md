@@ -46,7 +46,7 @@ We will use the [Smart Parking](https://docs.openedgeplatform.intel.com/dev/edge
 Navigate to the metro vision AI recipe directory and create the crowd-analytics application by copying the Smart Parking template:
 
 ```bash
-cd ./edge-ai-suites/metro-ai-suite/metro-vision-ai-app-recipe
+cd ./metro-ai-suite/metro-vision-ai-app-recipe
 cp -r smart-parking/ crowd-analytics/
 ```
 

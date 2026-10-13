@@ -10,9 +10,9 @@ the Smart Intersection Sample Application. It is divided into the following sect
 - **Troubleshooting Helm Deployments**: Guidance for resolving issues in Helm-based deployments.
 
 If you encounter any problems with the application not addressed here, check the
-[GitHub Issues](https://github.com/open-edge-platform/edge-ai-suites/issues) board. Feel free
+[GitHub Issues](https://github.com/open-edge-platform/metro-ai-suite/issues) board. Feel free
 to file new tickets there (after learning about the guidelines for
-[Contributing](https://github.com/open-edge-platform/edge-ai-suites/blob/main/CONTRIBUTING.md)).
+[Contributing](https://github.com/open-edge-platform/metro-ai-suite/blob/main/CONTRIBUTING.md)).
 
 ## 1. Common Issues
 

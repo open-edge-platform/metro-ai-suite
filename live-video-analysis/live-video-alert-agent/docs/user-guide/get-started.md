@@ -12,21 +12,22 @@ This guide covers the rapid deployment of the Live Video Alert Agent system usin
 1. Clone the suite:
 
    ```bash
-   git clone https://github.com/open-edge-platform/edge-ai-suites.git edge-ai-suites
+   git clone https://github.com/open-edge-platform/metro-ai-suite.git
    ```
 
 2. Navigate to the directory:
 
    ```bash
-   cd edge-ai-suites/metro-ai-suite/live-video-analysis/live-video-alert-agent
+   cd metro-ai-suite/live-video-analysis/live-video-alert-agent
    ```
 
    ```bash
-   git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/edge-ai-suites.git
-   cd edge-ai-suites
-   git sparse-checkout set metro-ai-suite
-   cd metro-ai-suite/live-video-analysis/live-video-alert-agent
+   git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
+   cd metro-ai-suite
+   git sparse-checkout set live-video-analysis/live-video-alert-agent
+   cd live-video-analysis/live-video-alert-agent
    ```
+
 
 3. Configure the image registry and tag variables:
 
@@ -66,7 +67,7 @@ This guide covers the rapid deployment of the Live Video Alert Agent system usin
    > [OpenVINO organization on Hugging Face](https://huggingface.co/OpenVINO)
    > for best compatibility. These models are optimized for OVMS and require no
    > additional conversion. Use models optimized for NPU while deploying on NPU.
-   
+
    **Agentic dispatch**
 
    The `alert-agent-service` microservice handles agentic dispatch automatically.

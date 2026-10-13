@@ -40,7 +40,7 @@ The AI Tolling system consists of several key components:
 Navigate to the `metro vision AI recipe` directory and create the AI tolling application by copying the Smart Parking template:
 
 ```bash
-cd ./edge-ai-suites/metro-ai-suite/metro-vision-ai-app-recipe
+cd ./metro-ai-suite/metro-vision-ai-app-recipe
 cp -r smart-parking/ ai-tolling/
 ```
 

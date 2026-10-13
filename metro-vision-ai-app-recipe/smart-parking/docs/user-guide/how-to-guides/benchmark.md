@@ -4,7 +4,7 @@ This document provides instructions on how to run performance benchmarks for the
 
 ## Prerequisites
 
-- The `edge-ai-suites` repository must be cloned to your system.
+- The `metro-ai-suite` repository must be cloned to your system.
 - `curl`, `jq`, `gawk`, `ffmpeg`, and `bc` utilities installed
 
 ## Step 1: Understand the Benchmarking Script
@@ -75,7 +75,7 @@ inference-region=1 inference-interval=3 batch-size=8 nireq=2 ie-config="GPU_THRO
 2.  **Navigate to Script Directory:** Open a terminal and navigate to the `metro-vision-ai-app-recipe` directory.
 
     ```bash
-    cd edge-ai-suites/metro-ai-suite/metro-vision-ai-app-recipe/
+    cd metro-ai-suite/metro-vision-ai-app-recipe/
     ```
 
 3.  **Stop Existing Pipelines:** Ensure no other pipelines are running before you start the benchmark. You can stop any running pipelines with the `sample_stop.sh` script.

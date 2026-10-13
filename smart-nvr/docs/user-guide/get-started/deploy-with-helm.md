@@ -26,6 +26,15 @@ Deploy these on separate devices:
 
 [VSS Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/video-search-and-summarization/get-started.html)
 
+### 2. VLM Microservice (Optional)
+
+Required only when enabling AI-powered event descriptions (`NVR_GENAI=true`):
+
+- Runs the VLM model defined in the Frigate [config file](https://github.com/open-edge-platform/metro-ai-suite/blob/main/smart-nvr/resources/frigate-config/config.yml)
+- Use `VLM_MAX_COMPLETION_TOKENS` to limit response length during deployment
+
+[VLM Serving Documentation](https://github.com/open-edge-platform/edge-ai-libraries/blob/release-2026.2.0/microservices/vlm-openvino-serving/docs/user-guide/get-started.md)
+
 ## Helm Chart Installation
 
 In order to setup the end-to-end application, we need to acquire the chart and install it
@@ -71,7 +80,7 @@ cd smart-nvr
 Clone the repository containing the Helm chart:
 
 ```bash
-git clone https://github.com/open-edge-platform/edge-ai-suites.git -b main
+git clone https://github.com/open-edge-platform/metro-ai-suite.git -b main
 ```
 
 ##### Step 2: Change to the Chart Directory
@@ -79,7 +88,7 @@ git clone https://github.com/open-edge-platform/edge-ai-suites.git -b main
 Navigate to the chart directory:
 
 ```bash
-cd edge-ai-suites/metro-ai-suite/smart-nvr
+cd metro-ai-suite/smart-nvr
 ```
 
 ### 2. Configure Required Values

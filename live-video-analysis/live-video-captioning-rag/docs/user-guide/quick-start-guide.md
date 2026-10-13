@@ -39,10 +39,10 @@ sudo usermod -aG docker $USER
 Open a terminal and run:
 
 ```bash
-git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/edge-ai-suites.git
-cd edge-ai-suites
-git sparse-checkout set metro-ai-suite
-cd metro-ai-suite/live-video-analysis/live-video-captioning-rag
+git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
+cd metro-ai-suite
+git sparse-checkout set live-video-analysis/live-video-captioning-rag
+cd live-video-analysis/live-video-captioning-rag
 ```
 
 ---

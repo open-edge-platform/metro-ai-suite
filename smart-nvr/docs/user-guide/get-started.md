@@ -34,10 +34,10 @@ If you want to clone a specific release branch, replace `main` with the desired 
 To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
 
 ```bash
-git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/edge-ai-suites.git
-cd edge-ai-suites
-git sparse-checkout set metro-ai-suite
-cd metro-ai-suite/smart-nvr
+git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
+cd metro-ai-suite
+git sparse-checkout set smart-nvr
+cd smart-nvr
 ```
 
 ### Step 2: Configure Environment

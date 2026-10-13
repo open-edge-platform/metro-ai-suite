@@ -18,8 +18,8 @@ images from source code.
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/open-edge-platform/edge-ai-suites.git
-cd edge-ai-suites/metro-ai-suite/agentic-predictive-maintenance-pipeline
+git clone https://github.com/open-edge-platform/metro-ai-suite.git
+cd metro-ai-suite/agentic-predictive-maintenance-pipeline
 ```
 
 ### 2. Configure the Build

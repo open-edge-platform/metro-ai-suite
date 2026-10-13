@@ -30,7 +30,7 @@ highest sustainable stream density.
 ### Recommended GPU Pipeline Settings
 
 Use the `object_tracking_gpu` pipeline as defined in
-[loitering-detection/benchmark_app_payload.json](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/metro-vision-ai-app-recipe/loitering-detection/benchmark_app_payload.json).
+[loitering-detection/benchmark_app_payload.json](https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/loitering-detection/benchmark_app_payload.json).
 The pipeline uses the original configuration; note that metro pipelines are latency-focused by
 default.
 
@@ -38,7 +38,7 @@ default.
 
 ```bash
 # Navigate to the metro-vision-ai-app-recipe directory
-cd edge-ai-suites/metro-ai-suite/metro-vision-ai-app-recipe/
+cd metro-ai-suite/metro-vision-ai-app-recipe/
 
 # Run GPU-only stream density benchmark: stream count is found automatically, target >= 28.5 FPS
 ./calc_stream_density.sh -p object_tracking_gpu -t 28.5
@@ -98,7 +98,7 @@ This section follows the same structure as Part 1, but for the NPU pipeline.
 ### Recommended NPU Pipeline Settings
 
 Use the `object_tracking_npu` pipeline as defined in
-[loitering-detection/benchmark_app_payload.json](https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/metro-vision-ai-app-recipe/loitering-detection/benchmark_app_payload.json).
+[loitering-detection/benchmark_app_payload.json](https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/loitering-detection/benchmark_app_payload.json).
 The pipeline uses the original configuration; note that metro pipelines are latency-focused by
 default.
 
@@ -106,7 +106,7 @@ default.
 
 ```bash
 # Navigate to the metro-vision-ai-app-recipe directory
-cd edge-ai-suites/metro-ai-suite/metro-vision-ai-app-recipe/
+cd metro-ai-suite/metro-vision-ai-app-recipe/
 
 # Run NPU-only stream density benchmark: stream count is found automatically, target >= 28.5 FPS
 ./calc_stream_density.sh -p object_tracking_npu -t 28.5
@@ -180,7 +180,7 @@ Run the combined workflow with 10 GPU streams and 3 NPU streams, using **nstream
 
 ```bash
 # Navigate to the metro-vision-ai-app-recipe directory
-cd edge-ai-suites/metro-ai-suite/metro-vision-ai-app-recipe/
+cd metro-ai-suite/metro-vision-ai-app-recipe/
 
 # Run GPU and NPU pipelines simultaneously with fixed stream counts: 10 GPU streams and 3 NPU streams, target >= 28.5 FPS
 ./calc_stream_density.sh -p object_tracking_gpu object_tracking_npu -nstreams 10 3 -t 28.5

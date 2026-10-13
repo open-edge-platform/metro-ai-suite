@@ -9,7 +9,7 @@ To build the Docker image for `Live Video Captioning` application, follow these 
 1. Ensure you are in the project directory:
 
       ```bash
-      cd edge-ai-suites/metro-ai-suite/live-video-analysis/live-video-captioning
+      cd metro-ai-suite/live-video-analysis/live-video-captioning
       ```
 
 2. [Optional] To include third-party copyleft source packages in the built images, export the environment variable before building:

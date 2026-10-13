@@ -47,7 +47,7 @@ INFLUX_DB_ADMIN_PASSWORD = os.getenv("INFLUX_DB_ADMIN_PASSWORD", get_password_fr
 NODE_RED_URL = os.getenv("NODE_RED_URL", "http://localhost:1880")
 NODE_RED_REMOTE_URL = os.getenv("NODE_RED_REMOTE_URL")
 
-PROJECT_GITHUB_URL = os.getenv("PROJECT_GITHUB_URL", "https://github.com/open-edge-platform/edge-ai-suites/tree/main/metro-ai-suite/metro-vision-ai-app-recipe/smart-intersection")
+PROJECT_GITHUB_URL = os.getenv("PROJECT_GITHUB_URL", "https://github.com/open-edge-platform/metro-ai-suite/tree/main/metro-vision-ai-app-recipe/smart-intersection")
 
 
 def start_remote_port_forwarding(service_name, remote_host, local_port, remote_port, namespace="smart-intersection"):

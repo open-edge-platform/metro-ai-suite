@@ -2,10 +2,10 @@
 
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/edge-ai-suites/tree/main/metro-ai-suite/enterprise-data-intelligence">
+  <a class="icon_github" href="https://github.com/open-edge-platform/metro-ai-suite/tree/main/enterprise-data-intelligence">
      GitHub
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/edge-ai-suites/blob/main/metro-ai-suite/enterprise-data-intelligence/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/metro-ai-suite/blob/main/enterprise-data-intelligence/README.md">
      Readme
   </a>
 </div>
@@ -43,7 +43,7 @@ produce professional deliverables (e.g., competitive-analysis reports).
 | `competitive_analysis_PDF_generator` | Competitive-analysis report generator — gathers product info from the local RAG knowledge base plus web search, then produces a professional Chinese HTML/PDF comparison report | Shipped (`SKILL.md` + `query_rag.sh`) |
 | `knowledgebase` | Generic RAG query skill — retrieves any information from the local EC-RAG knowledge base via a curl-based `ecrag` wrapper and generates structured reports, summaries, comparisons, or Q&A responses | Shipped (`SKILL.md` + `ecrag`) |
 
-See the [skills folder](https://github.com/open-edge-platform/edge-ai-suites/tree/main/metro-ai-suite/enterprise-data-intelligence/skills)
+See the [skills folder](https://github.com/open-edge-platform/metro-ai-suite/tree/main/enterprise-data-intelligence/skills)
 for the shipped Skills and the [Get Started guide](./get-started.md) for how to install and
 enable a Skill in OpenClaw.
 
@@ -65,7 +65,7 @@ base, while an LLM router (with a prompt compressor) fronts local and cloud mode
 - **OpenClaw** — the agent runtime that loads Skills, calls models via the router, and
   executes tasks (web search, RAG query, PDF generation).
 - **Skills** — reusable, self-contained task recipes under the
-  [skills folder](https://github.com/open-edge-platform/edge-ai-suites/tree/main/metro-ai-suite/enterprise-data-intelligence/skills)
+  [skills folder](https://github.com/open-edge-platform/metro-ai-suite/tree/main/enterprise-data-intelligence/skills)
   that agents load at runtime.
 
 ## Additional Resources

@@ -9,7 +9,7 @@ To build the Docker image for `Live Video Alert Agent` application, follow these
 1. Ensure you are in the project directory:
 
    ```bash
-   cd edge-ai-suites/metro-ai-suite/live-video-analysis/live-video-alert-agent
+   cd metro-ai-suite/live-video-analysis/live-video-alert-agent
    ```
 
 2. (Optional) To include third-party copyleft source packages in the image, export the environment variable before building:
