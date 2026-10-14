@@ -1,4 +1,4 @@
-# Get Started with SceneScape
+# Get Started with Smart Parking using SceneScape
 
 The Smart Parking application can optionally run with Intel® SceneScape. In this variant, the
 DL Streamer Pipeline Server sends vehicle detections to SceneScape, which tracks every vehicle on
