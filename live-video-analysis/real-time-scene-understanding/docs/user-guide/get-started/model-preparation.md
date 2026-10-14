@@ -1,6 +1,6 @@
 # Model Preparation
 
-Real Time Scene Understanding requires an alert VLM and a second, video-capable VLM for deep analysis under `ov_models/`.
+Real-Time Scene Understanding requires an alert VLM and a second, video-capable VLM for deep analysis under `ov_models/`.
 
 The provided helper uses the ephemeral model-download container flow from the [Model Download project](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/model-download/index.html) in Open Edge Platform. It starts a temporary container, downloads or converts the model, writes the files to this repository, and removes the container when finished. No separate model-download setup is required.
 
@@ -11,9 +11,9 @@ The provided helper uses the ephemeral model-download container flow from the [M
 - Commands are run from the `real-time-scene-understanding` directory.
 - For gated Hugging Face models, set a token first:
 
-	```bash
-	export HUGGINGFACEHUB_API_TOKEN="your-huggingface-token"
-	```
+  ```bash
+  export HUGGINGFACEHUB_API_TOKEN="your-huggingface-token"
+  ```
 
 ## Usage
 
@@ -21,13 +21,14 @@ Use the helper script with the following arguments:
 
 ```bash
 ./model_download_scripts/download_models.sh \
-	--model <huggingface-model-id> \
-	--type vlm \
-	--weight-format <int4|int8|fp16> \
-	--device <CPU|GPU|NPU>
+  --model <huggingface-model-id> \
+  --type vlm \
+  --weight-format <int4|int8|fp16> \
+  --device <CPU|GPU|NPU>
 ```
 
 **Parameters:**
+
 - `--model`: Hugging Face model identifier (for example, `Qwen/Qwen3-VL-2B-Instruct`).
 - `--type`: Model category. Use `vlm` for Vision Language Models.
 - `--weight-format`: Precision/quantization format. Supported values are `int4`, `int8`, and `fp16`.
@@ -37,57 +38,69 @@ Use the helper script with the following arguments:
 
 Supported weight formats are `int4`, `int8`, and `fp16`. The default is `int8`.
 
-| Format | Memory use | Accuracy | When to use |
-|--------|-----------|----------|-------------|
-| `int4` | Lowest | Lower | Memory-constrained systems |
-| `int8` | Medium | Good | Recommended default |
-| `fp16` | Highest | Best | Maximum accuracy, more RAM required |
+| Format | Memory use | Accuracy | When to use                         |
+| ------ | ---------- | -------- | ----------------------------------- |
+| `int4` | Lowest     | Lower    | Memory-constrained systems          |
+| `int8` | Medium     | Good     | Recommended default                 |
+| `fp16` | Highest    | Best     | Maximum accuracy, more RAM required |
 
 ## Download a VLM Model
 
 Use the following commands to run conversion for the desired target device. Generated models are stored under `ov_models/`.
 
-- For CPU:
+<!--hide_directive ::::{tab-set} hide_directive-->
+<!--hide_directive :::{tab-item} hide_directive--> **For CPU:**
+<!--hide_directive :sync: tab1 hide_directive-->
 
-	```bash
-	./model_download_scripts/download_models.sh \
-		--model Qwen/Qwen3-VL-2B-Instruct \
-		--type vlm \
-		--weight-format int4 \
-		--device CPU
-	```
+```bash
+./model_download_scripts/download_models.sh \
+  --model Qwen/Qwen3-VL-2B-Instruct \
+  --type vlm \
+  --weight-format int4 \
+  --device CPU
+```
 
-- For GPU:
+<!--hide_directive ::: hide_directive-->
+<!--hide_directive :::{tab-item} hide_directive--> **For GPU:**
+<!--hide_directive :sync: tab2 hide_directive-->
 
-	```bash
-	./model_download_scripts/download_models.sh \
-		--model Qwen/Qwen3-VL-8B-Instruct \
-		--type vlm \
-		--weight-format int4 \
-		--device GPU
-	```
+```bash
+./model_download_scripts/download_models.sh \
+  --model Qwen/Qwen3-VL-8B-Instruct \
+  --type vlm \
+  --weight-format int4 \
+  --device GPU
+```
 
-- For NPU, use `int4` quantization:
+<!--hide_directive ::: hide_directive-->
+<!--hide_directive :::{tab-item} hide_directive--> **For NPU (use `int4` quantization):**
+<!--hide_directive :sync: tab3 hide_directive-->
 
-	```bash
-	./model_download_scripts/download_models.sh \
-		--model Qwen/Qwen3-VL-2B-Instruct \
-		--type vlm \
-		--weight-format int4 \
-		--device NPU
-	```
+```bash
+./model_download_scripts/download_models.sh \
+  --model Qwen/Qwen3-VL-2B-Instruct \
+  --type vlm \
+  --weight-format int4 \
+  --device NPU
+```
 
-	> Note: NPU currently requires `int4` quantization for VLM conversion. If you pass `--device NPU` with `int8` or `fp16`, the script automatically overrides it to `int4`.
-	> Note: Use this NPU conversion only if `Qwen/Qwen3-VL-2B-Instruct` is supported for your hardware and OVMS/OpenVINO version. NPU support varies by model; check the [OpenVINO Model Support Page](https://docs.openvino.ai/2026/documentation/compatibility-and-support/supported-models.html) before converting.
+> [!NOTE]
+> NPU currently requires `int4` quantization for VLM conversion. If you pass `--device NPU` with `int8` or `fp16`, the script automatically overrides it to `int4`.
+> Use this NPU conversion only if `Qwen/Qwen3-VL-2B-Instruct` is supported for your hardware and OVMS/OpenVINO version. NPU support varies by model; check the [OpenVINO Model Support Page](https://docs.openvino.ai/2026/documentation/compatibility-and-support/supported-models.html) before converting.
+
+<!--hide_directive
+:::
+::::
+hide_directive-->
 
 You can also download and convert for multiple target devices in a single command by passing a comma-separated `--device` list:
 
 ```bash
 ./model_download_scripts/download_models.sh \
-	--model Qwen/Qwen3-VL-2B-Instruct \
-	--type vlm \
-	--weight-format int4 \
-	--device CPU,GPU
+  --model Qwen/Qwen3-VL-2B-Instruct \
+  --type vlm \
+  --weight-format int4 \
+  --device CPU,GPU
 ```
 
 Downloaded VLM models are stored under per-device directories in `ov_models/`.
@@ -98,26 +111,27 @@ The application loads each VLM from the device-specific directory that matches i
 
 Example:
 
-| `--device` flag | Example output directory | VLM device tag |
-|---|---|---|
-| `CPU` (or omitted) | `ov_models/cpu/Qwen3-VL-2B-Instruct` | `CPU` |
-| `GPU` | `ov_models/gpu/Qwen3-VL-8B-Instruct` | `GPU` |
-| `NPU` | `ov_models/npu/Qwen3-VL-2B-Instruct` | `NPU` |
+| `--device` flag    | Example output directory             | VLM device tag |
+| ------------------ | ------------------------------------ | -------------- |
+| `CPU` (or omitted) | `ov_models/cpu/Qwen3-VL-2B-Instruct` | `CPU`          |
+| `GPU`              | `ov_models/gpu/Qwen3-VL-8B-Instruct` | `GPU`          |
+| `NPU`              | `ov_models/npu/Qwen3-VL-2B-Instruct` | `NPU`          |
 
 ### Models Used in This Guide
 
 The setup examples use these VLMs:
 
-| Pipeline | Model Name | Device |
-| --- | --- | --- |
-| Alert VLM | Qwen/Qwen3-VL-2B-Instruct | CPU |
-| Deep analyzer | Qwen/Qwen3-VL-8B-Instruct | GPU |
+| Pipeline      | Model Name                | Device |
+| ------------- | ------------------------- | ------ |
+| Alert VLM     | Qwen/Qwen3-VL-2B-Instruct | CPU    |
+| Deep analyzer | Qwen/Qwen3-VL-8B-Instruct | GPU    |
 
-> Note: `OVMS_RELEASE_TAG` in `.env` controls the OVMS image version used by the model download/conversion flow. Consult the official OpenVINO documentation for supported models and corresponding OVMS versions. Using a different tag can change the bundled `transformers`/OpenVINO toolchain and may cause conversion failures.
+> [!NOTE]
+> `OVMS_RELEASE_TAG` in `.env` controls the OVMS image version used by the model download/conversion flow. Consult the official OpenVINO documentation for supported models and corresponding OVMS versions. Using a different tag can change the bundled `transformers`/OpenVINO toolchain and may cause conversion failures.
 >
-> Note: If you want to use newer Hugging Face models, you may need a newer OVMS/OpenVINO stack for conversion, which means updating `OVMS_RELEASE_TAG`.
+> If you want to use newer Hugging Face models, you may need a newer OVMS/OpenVINO stack for conversion, which means updating `OVMS_RELEASE_TAG`.
 
-As of the time of writing, the latest stable DL Streamer release is `2026.1.0`, built on top of OpenVINO `v2026.1`.
+This guide is based on the `2026.1.0` stable DL Streamer release, built on top of OpenVINO `v2026.1`.
 
 ## Troubleshooting
 
