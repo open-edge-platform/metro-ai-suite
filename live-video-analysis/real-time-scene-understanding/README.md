@@ -1,7 +1,6 @@
-# Real Time Scene Understanding
+# Real-Time Scene Understanding
 
-Real Time Scene Understanding is a real-time video monitoring application that ingests RTSP camera streams, renders low-latency browser playback over WebRTC, and runs AI-based alert detection with deep multi-frame analysis.
-
+Real-Time Scene Understanding is a real-time video monitoring application that ingests RTSP camera streams, renders low-latency browser playback over WebRTC, and runs AI-based alert detection with deep multi-frame analysis.
 
 ## Get Started
 
@@ -11,7 +10,6 @@ To see the system requirements and other installation, see the following guides:
 
 - [Get Started](./docs/user-guide/get-started.md): Step-by-step instructions to set up the application.
 - [Quick Start](./docs/user-guide/quick-start-guide.md): Deploy the application with the example model configuration.
-
 
 ## How It Works
 
@@ -51,5 +49,5 @@ For a detailed view of Real Time Scene Intelligence internal processing, see [do
 - [How It Works](./docs/user-guide/how-it-works.md) - Application architecture and data flow
 - [Build from Source](./docs/user-guide/get-started/build-from-source.md) - Custom build instructions
 - [API Reference](./docs/user-guide/api-reference.md) - REST API endpoints
-- [Known Issues](./docs/user-guide/known-issues.md) - Compatibility notes and troubleshooting
+- [Troubleshooting](./docs/user-guide/troubleshooting.md) - Compatibility notes and troubleshooting
 - [Release Notes](./docs/user-guide/release-notes.md) - Version history

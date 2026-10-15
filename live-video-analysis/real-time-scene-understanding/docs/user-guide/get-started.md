@@ -1,6 +1,6 @@
 # Get Started
 
-Real Time Scene Understanding is an AI-powered application for analyzing live RTSP video streams in real time using FFMpeg Python bindings (PyAV) and OpenVINO Vision Language Models (VLMs). By combining prompt-driven scene understanding with temporal reasoning across consecutive video frames, it provides both instant scene insights and context-aware event interpretation. The application enables users to process streaming video, perform natural language-based scene analysis, and monitor system and inference performance through an intuitive web dashboard.
+Real-Time Scene Understanding is an AI-powered application for analyzing live RTSP video streams in real time using FFMpeg Python bindings (PyAV) and OpenVINO Vision Language Models (VLMs). By combining prompt-driven scene understanding with temporal reasoning across consecutive video frames, it provides both instant scene insights and context-aware event interpretation. The application enables users to process streaming video, perform natural language-based scene analysis, and monitor system and inference performance through an intuitive web dashboard.
 
 This section shows how to:
 
@@ -12,11 +12,11 @@ This section shows how to:
 
 - Verify that your system meets the minimum requirements. See [System Requirements](./get-started/system-requirements.md) for details.
 - Install Docker platform: [Installation Guide](https://docs.docker.com/engine/install/). Install the Ubuntu platform version.
-- In case the sample application is used with RTSP streams, setup of the RTSP stream source (live camera or test feed) or simulated RTSP stream source using local video files should be done separately. Reference instructions are provided [here](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/live-video-captioning/get-started/simulated-rtsp-stream-guide.html).
+- In case the sample application is used with RTSP streams, setup of the RTSP stream source (live camera or test feed) or simulated RTSP stream source using local video files should be done separately. Reference instructions are provided in the [Simulated RTSP Stream Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/live-video-captioning/get-started/simulated-rtsp-stream-guide.html).
 
 ## Run the Application
 
-### 1. Clone the suite
+### 1. Clone the Suite
 
 ```bash
 git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
@@ -27,15 +27,15 @@ cd live-video-analysis/real-time-scene-understanding
 
 ### 2. Create `.env`
 
-Run the setup helper:
+Run the setup script:
 
 ```bash
 bash scripts/setup_env.sh
 ```
 
-The helper copies `.env.example` to `.env` and fills host-specific values such as `HOST_IP`, `WEBRTC_SIGNALING_URL`, and `RENDER_GROUP_ID`.
+The script copies `.env.example` to `.env` and fills host-specific values such as `HOST_IP`, `WEBRTC_SIGNALING_URL`, and `RENDER_GROUP_ID`.
 
-Use `--force` only if you want to overwrite an existing `.env`:
+Use `--force` only if you want to overwrite an existing `.env` file:
 
 ```bash
 bash scripts/setup_env.sh --force
@@ -44,7 +44,7 @@ bash scripts/setup_env.sh --force
 The setup template sets these important values:
 
 | Variable | Default | Purpose |
-|----------|---------|---------|
+| -------- | ------- | ------- |
 | `HOST_IP` | Detected automatically | Host address reachable by the browser for WebRTC signaling. |
 | `TAG` | `latest` | Docker image tag. |
 | `PORT` | `9100` | Host port for the dashboard and REST API. Add this to `.env` to change the published host port; the container port remains `9100`. |
@@ -62,14 +62,14 @@ The setup template sets these important values:
 | `SEGMENT_MAX_ON_DISK` | `50` | Maximum number of finalized segments retained on disk per stream. |
 | `HUGGINGFACEHUB_API_TOKEN` | *(empty)* | Required for downloading gated Hugging Face models. |
 
-### 3. Download Models (one-time)
+### 3. Download AI Models (one-time)
 
-You are required to download two Vision Language Models (VLMs) for real-time scene understanding:
+You need to download two Vision Language Models (VLMs) for real-time scene understanding:
 
 1. **ALERT_VLM_MODEL** - Used for initial single-frame based scene understanding.
 2. **DEEP_ANALYZER_MODEL** - Used for temporal-based understanding on consecutive frames.
 
-### Setting Hugging Face Token
+#### Set the Hugging Face Token
 
 If a model is gated on Hugging Face, set your token first:
 
@@ -77,44 +77,46 @@ If a model is gated on Hugging Face, set your token first:
 export HUGGINGFACEHUB_API_TOKEN="your-token"
 ```
 
-### Specifying the conversion device
+#### Specify the conversion device
 
 By default, conversion runs on CPU. To target another device:
 
 ```bash
 ./model_download_scripts/download_models.sh \
-	--model <model_name> \
-	--type <vlm|llm> \
-	--weight-format int8 \
-	--device <CPU|GPU|NPU>
+  --model <model_name> \
+  --type <vlm|llm> \
+  --weight-format int8 \
+  --device <CPU|GPU|NPU>
 ```
-> **Note:** NPU support currently only works with `int4` quantization when converting VLM models. If `--device NPU` is specified alongside `int8` or `fp16`, the script will automatically switch the quantization to `int4`.
-> **Note**: NPU compatibility varies by model. Before selecting a model, confirm NPU support in [OpenVINO Supported Models](https://docs.openvino.ai/2026/documentation/compatibility-and-support/supported-models.html).
 
-### Downloading the Models
+> [!NOTE]
+> NPU support currently only works with `int4` quantization when converting VLM models. If `--device NPU` is specified alongside `int8` or `fp16`, the script will automatically switch the quantization to `int4`.
+> NPU compatibility varies by model. Before selecting a model, confirm NPU support in [OpenVINO Supported Models](https://docs.openvino.ai/2026/documentation/compatibility-and-support/supported-models.html).
+
+#### Download the Models
 
 Run:
 
 ```bash
 # Download "ALERT_VLM_MODEL" for single-frame based scene understanding
 ./model_download_scripts/download_models.sh \
-	--model Qwen/Qwen3-VL-2B-Instruct \
-	--type vlm \
-	--weight-format int4 \
-	--device CPU
+  --model Qwen/Qwen3-VL-2B-Instruct \
+  --type vlm \
+  --weight-format int4 \
+  --device CPU
 
 # Download "DEEP_ANALYZER_MODEL" for temporal-based understanding on consecutive frames
-
 ./model_download_scripts/download_models.sh \
-	--model Qwen/Qwen3-VL-8B-Instruct \
-	--type vlm \
-	--weight-format int4 \
-	--device GPU
+  --model Qwen/Qwen3-VL-8B-Instruct \
+  --type vlm \
+  --weight-format int4 \
+  --device GPU
 ```
 
-> Note: `DEEP_ANALYZER_MODEL` must support video input because deep analysis relies on temporal understanding across consecutive frames. Support is model-specific in OpenVINO GenAI: some VLMs are image-only. Before choosing a model, verify it in the official [Supported Models (VLM)](https://openvinotoolkit.github.io/openvino.genai/docs/supported-models/#vision-language-models-vlms) page and review [Visual Processing Using VLMs](https://openvinotoolkit.github.io/openvino.genai/docs/use-cases/visual-processing/) for image/video input behavior.
+> [!NOTE]
+> `DEEP_ANALYZER_MODEL` must support video input because deep analysis relies on temporal understanding across consecutive frames. Support is model-specific in OpenVINO GenAI: some VLMs are image-only. Before choosing a model, verify it in the official [Supported Models (VLM)](https://openvinotoolkit.github.io/openvino.genai/docs/supported-models/#vision-language-models-vlms) page and review [Visual Processing Using VLMs](https://openvinotoolkit.github.io/openvino.genai/docs/use-cases/visual-processing/) for image/video input behavior.
 
-The model names and devices in `.env.example` match the downloads above. The converted model directories must be under `ov_models/<device-lowercase>/<model-name>/`.
+The downloaded model names and devices must match the settings in `.env`. The converted model directories must be under `ov_models/<device-lowercase>/<model-name>/`.
 
 ### 4. Start the Application
 
@@ -134,7 +136,7 @@ docker compose ps
 
 ### 5. Access the Application
 
-Once the services are ready, open the Real Time Scene Understanding dashboard in your web browser at:
+Once the services are ready, open the Real-Time Scene Understanding dashboard in your web browser at:
 
 ```text
 http://<YOUR_IP>:9100
@@ -179,4 +181,16 @@ Confirm that the network allows RTSP traffic between the RTSP video source and t
 - [Build from Source](./get-started/build-from-source.md)
 - [Run Unit Tests](./get-started/run-unit-tests.md)
 - [API Reference](./api-reference.md)
-- [Known Issues](./known-issues.md)
+- [Troubleshooting](./troubleshooting.md)
+
+<!--hide_directive
+:::{toctree}
+:hidden:
+
+get-started/system-requirements.md
+get-started/model-preparation.md
+get-started/build-from-source.md
+get-started/run-unit-tests.md
+
+:::
+hide_directive-->

@@ -1,16 +1,16 @@
 # System Requirements
 
-This page summarizes the recommended environment for running Real Time Scene Understanding.
+This page summarizes the recommended environment for running Real-Time Scene Understanding.
 
 ## Hardware Platforms used for validation
 
-- This application is specifically targeting Intel&reg; Core&trade; platforms. Intel&reg; Core&trade; Ultra 2 and 3 with integrated GPU are currently supported.
-- Intel&reg; Core&trade; Ultra platforms with integrated NPU can run compatible VLMs; model and resolution support vary by device.
-- While there is no hard restriction in using this application on Intel&reg; Xeon&reg; platforms with or without Intel&reg; Arc&trade; GPUs, users are requested to raise a feature ticket in case of any requirement.
+- This application is specifically targeting Intel® Core™ platforms. Intel® Core™ Ultra 2 and 3 with integrated GPU are currently supported.
+- Intel® Core™ Ultra platforms with integrated NPU can run compatible VLMs; model and resolution support vary by device.
+- While there is no hard restriction in using this application on Intel® Xeon® platforms with or without Intel® Arc™ GPUs, users are requested to raise a feature ticket in case of any requirement.
 
 ## Operating Systems used for validation
 
-- Ubuntu: Refer to the official [documentation](https://dgpu-docs.intel.com/devices/hardware-table.html) for details on required kernel version. For the listed hardware platforms, the kernel requirement translates to Ubuntu 24.04 or Ubuntu 24.10 depending on the GPU used.
+- Ubuntu: Refer to the official [documentation](https://dgpu-docs.intel.com/devices/hardware-table.html) for details on the required kernel version. For the listed hardware platforms, the kernel requirement translates to Ubuntu 24.04 or Ubuntu 24.10 depending on the GPU used.
 
 ## Minimum Requirements
 
@@ -22,7 +22,7 @@ This page summarizes the recommended environment for running Real Time Scene Und
 ## Software Requirements
 
 - Docker Engine and Docker Compose
-- Intel&reg; Graphics compute runtime (if using Intel GPU for inference acceleration)
+- Intel® Graphics compute runtime (if using Intel GPU for inference acceleration)
 - RTSP source reachable from the `real-time-scene-understanding` container (optional, can be added via UI)
 
 ## Network / Ports
@@ -55,7 +55,8 @@ These are the values in `.env.example` and match the model-preparation commands.
 
 Model files can also be prepared using the provided scripts and model directories in this repository (for example, `model_download_scripts/download_models.sh` and `ov_models/`). Please refer to the [Model Preparation Guide](./model-preparation.md) for the steps.
 
-> **Note:** Pre-converted OpenVINO IR VLMs can avoid local model conversion. When choosing one, verify compatibility with the OpenVINO GenAI runtime and target device used by this application. Browse models from the [OpenVINO organization on Hugging Face](https://huggingface.co/OpenVINO) and its [VLM collection](https://huggingface.co/collections/OpenVINO/visual-language-models).
+> [!NOTE]
+> Pre-converted OpenVINO IR VLMs can avoid local model conversion. When choosing one, verify compatibility with the OpenVINO GenAI runtime and target device used by this application. Browse models from the [OpenVINO organization on Hugging Face](https://huggingface.co/OpenVINO) and its [VLM collection](https://huggingface.co/collections/OpenVINO/visual-language-models).
 
 ## Validation
 

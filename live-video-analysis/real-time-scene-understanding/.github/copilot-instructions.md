@@ -3,11 +3,11 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Real Time Scene Understanding - AI agent instructions
+# Real-Time Scene Understanding - AI agent instructions
 
 ## What this project is
 
-Real Time Scene Understanding is a Python FastAPI application that ingests RTSP camera streams, relays low-latency video through MediaMTX and WebRTC, performs VLM-based alert detection, and runs temporal deep analysis over consecutive frames. SeaweedFS stores alert artifacts and the browser dashboard uses the backend REST API.
+Real-Time Scene Understanding is a Python FastAPI application that ingests RTSP camera streams, relays low-latency video through MediaMTX and WebRTC, performs VLM-based alert detection, and runs temporal deep analysis over consecutive frames. SeaweedFS stores alert artifacts and the browser dashboard uses the backend REST API.
 
 ## Repository map
 

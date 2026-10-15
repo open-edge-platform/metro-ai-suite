@@ -23,29 +23,6 @@ echo "Updating .env file..."
 sed -i 's/^SAMPLE_APP=.*/SAMPLE_APP=loitering-detection/' .env
 sed -i 's/^HOST_IP=.*/HOST_IP=127.0.0.1/' .env
 
-# This app's MQTT topic prefixes are not part of the shared .env (they're
-# loitering-detection-specific); set them here, idempotently, in a clearly
-# commented section of this script's own local .env copy.
-sed -i \
-  -e '/^# loitering-detection: MQTT topic prefixes/d' \
-  -e '/^# SOURCE_TOPIC_PREFIX -/d' \
-  -e '/^#   publishes to/d' \
-  -e '/^# DEST_TOPIC_PREFIX -/d' \
-  -e '/^#   to for the Grafana/d' \
-  -e '/^SOURCE_TOPIC_PREFIX=/d' \
-  -e '/^DEST_TOPIC_PREFIX=/d' \
-  .env
-cat >> .env <<'EOF'
-
-# loitering-detection: MQTT topic prefixes used by the mqtt-table-flattener sidecar.
-# SOURCE_TOPIC_PREFIX - prefix of the raw per-frame metadata topic gvametaconvert
-#   publishes to (<prefix>/<stream-id>); must match sample_start.sh's launch topics.
-# DEST_TOPIC_PREFIX - prefix the flattener republishes one-row-per-object summaries
-#   to for the Grafana MQTT table panel (<prefix>/<stream-id>).
-SOURCE_TOPIC_PREFIX=object_tracking
-DEST_TOPIC_PREFIX=loiter_status
-EOF
-
 # Update docker-compose.yml file
 # Remove "${SAMPLE_APP}/" from all image paths in docker-compose.yml
 echo "Updating docker-compose.yml file..."
@@ -64,16 +41,18 @@ sed -i '/^      - node-red$/d' docker-compose.yml
 sed -i '/^  node-red-node-modules:$/d' docker-compose.yml
 
 # Add the mqtt-table-flattener service (reshapes object_tracking/<N> into
-# loiter_status/<N> rows for the Grafana table); path has no ${SAMPLE_APP}/
-# prefix since this script flattens that prefix out of its local copy above.
+# object_tracking/<N>/<DEST_TOPIC_SUFFIX> rows for the Grafana table, filtered by
+# LOITERING_THRESHOLD_SEC); path has no ${SAMPLE_APP}/ prefix since this script
+# flattens that prefix out of its local copy above.
 # Reuses the dlstreamer-pipeline-server image (already pulled, already has
 # paho-mqtt) instead of adding a new one; values read from the local .env
 # copy, same as the DLSTREAMER_PIPELINE_SERVER_IMAGE substitution above.
 if ! grep -q '^  mqtt-table-flattener:' docker-compose.yml; then
   DLSPS_IMAGE=$(grep "^DLSTREAMER_PIPELINE_SERVER_IMAGE=" .env | cut -d'=' -f2)
   SRC_TOPIC_PREFIX=$(grep "^SOURCE_TOPIC_PREFIX=" .env | cut -d'=' -f2)
-  DST_TOPIC_PREFIX=$(grep "^DEST_TOPIC_PREFIX=" .env | cut -d'=' -f2)
-  awk -v image="$DLSPS_IMAGE" -v src_prefix="$SRC_TOPIC_PREFIX" -v dst_prefix="$DST_TOPIC_PREFIX" '
+  DEST_TOPIC_SUFFIX_VAL=$(grep "^DEST_TOPIC_SUFFIX=" .env | cut -d'=' -f2)
+  LOITERING_THRESHOLD_VAL=$(grep "^LOITERING_THRESHOLD_SEC=" .env | cut -d'=' -f2)
+  awk -v image="$DLSPS_IMAGE" -v src_prefix="$SRC_TOPIC_PREFIX" -v dest_suffix="$DEST_TOPIC_SUFFIX_VAL" -v threshold="$LOITERING_THRESHOLD_VAL" '
     /^networks:/ && !inserted {
       print "  mqtt-table-flattener:"
       print "    image: " image
@@ -82,10 +61,11 @@ if ! grep -q '^  mqtt-table-flattener:' docker-compose.yml; then
       print "      - MQTT_HOST=broker"
       print "      - MQTT_PORT=1883"
       print "      - SOURCE_TOPIC_PREFIX=" src_prefix
-      print "      - DEST_TOPIC_PREFIX=" dst_prefix
+      print "      - DEST_TOPIC_SUFFIX=" dest_suffix
+      print "      - LOITERING_THRESHOLD_SEC=" threshold
       print "    volumes:"
       print "      - \"./src/mqtt-table-flattener:/app:ro\""
-      print "    entrypoint: [\"python3\", \"/app/flatten.py\"]"
+      print "    entrypoint: [\"python3\", \"/app/flatten_and_filter.py\"]"
       print "    depends_on:"
       print "      - broker"
       print "    networks:"
