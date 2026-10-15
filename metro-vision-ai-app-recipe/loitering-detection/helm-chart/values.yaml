@@ -20,7 +20,8 @@ dlstreamer_pipeline_server:
 mqtt_table_flattener:
   # Reuses the dlstreamer_pipeline_server image above (already has paho-mqtt) instead of a new one.
   sourceTopicPrefix: object_tracking
-  destTopicPrefix: loiter_status
+  destTopicSuffix: loiterstatus
+  loiteringThresholdSec: 5.0
 grafana:
   image: grafana/grafana
   imageTag: 11.5.4

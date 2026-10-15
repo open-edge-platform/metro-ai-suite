@@ -7,7 +7,7 @@ performance level.
 
 ## Prerequisites
 
-- The `edge-ai-suites` repository must be cloned to your system.
+- The `metro-ai-suite` repository must be cloned to your system.
 - `curl`, `jq`, `gawk`, `ffmpeg`, and `bc` utilities installed
 
 ## Step 1: Understand the Benchmarking Script

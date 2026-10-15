@@ -19,7 +19,7 @@ with Nx Witness as the VMS. At the end of this tutorial, you will have:
   installed.
 - An Nx Witness server (version 5.x or above) accessible over the network from the VAP host.
   Nx Witness admin credentials are required.
-- The `edge-ai-suites` repository cloned (sparse or full):
+- The `metro-ai-suite` repository cloned (sparse or full):
 
   ```bash
   git clone --filter=blob:none --branch main https://github.com/open-edge-platform/metro-ai-suite.git
@@ -46,7 +46,7 @@ with Nx Witness as the VMS. At the end of this tutorial, you will have:
 
 ### 1.1 Configure the Loitering Detection Environment
 
-Clone the `edge-ai-suites` repository as instructed in the setup document, and install Loitering
+Clone the `metro-ai-suite` repository as instructed in the setup document, and install Loitering
 Detection according to the Loitering Detection
 [Get Started Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/loitering-detection/get-started.html#set-up-and-first-use).
 

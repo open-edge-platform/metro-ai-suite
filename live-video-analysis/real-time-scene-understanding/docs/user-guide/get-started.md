@@ -19,10 +19,10 @@ This section shows how to:
 ### 1. Clone the suite
 
 ```bash
-git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/edge-ai-suites.git
-cd edge-ai-suites
-git sparse-checkout set metro-ai-suite
-cd metro-ai-suite/live-video-analysis/real-time-scene-understanding
+git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
+cd metro-ai-suite
+git sparse-checkout set live-video-analysis/real-time-scene-understanding
+cd live-video-analysis/real-time-scene-understanding
 ```
 
 ### 2. Create `.env`

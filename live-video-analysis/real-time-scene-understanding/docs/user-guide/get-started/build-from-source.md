@@ -9,7 +9,7 @@ To build the Docker images for `Real Time Scene Understanding` application, foll
 1. Ensure you are in the project directory:
 
      ```bash
-     cd edge-ai-suites/metro-ai-suite/live-video-analysis/real-time-scene-understanding/
+     cd metro-ai-suite/live-video-analysis/real-time-scene-understanding/
      ```
 
 2. [Optional] To include third-party copyleft source packages in the built images, export the environment variable before building:

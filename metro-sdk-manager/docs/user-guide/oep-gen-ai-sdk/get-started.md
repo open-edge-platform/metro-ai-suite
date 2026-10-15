@@ -82,7 +82,7 @@ http://localhost:8102
   \- Multimodal data ingestion and preparation workflows for retrieval
 - [Edge AI Libraries](https://docs.openedgeplatform.intel.com/dev/ai-libraries.html)
   \- Complete development toolkit documentation and microservice API references
-- [Edge AI Suites](https://docs.openedgeplatform.intel.com/dev/ai-suite-metro.html)
+- [Metro AI Suite](https://docs.openedgeplatform.intel.com/dev/ai-suite-metro.html)
   \- Comprehensive application suite documentation with Gen AI implementation examples
 
 ### Support Channels

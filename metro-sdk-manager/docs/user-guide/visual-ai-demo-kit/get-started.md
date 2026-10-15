@@ -185,7 +185,7 @@ Create compelling visualization experiences for your AI applications. This tutor
   \- Model serving infrastructure documentation for production deployments
 - [Edge AI Libraries](https://docs.openedgeplatform.intel.com/dev/ai-libraries.html)
   \- Comprehensive development toolkit documentation and API references
-- [Edge AI Suites](https://docs.openedgeplatform.intel.com/dev/ai-suite-metro.html)
+- [Metro AI Suite](https://docs.openedgeplatform.intel.com/dev/ai-suite-metro.html)
   \- Complete application suite documentation with implementation examples
 
 ### Support Channels
