@@ -141,7 +141,7 @@ jobs:
         run: |
           project_status=0
           chart_status=0
-          trivy config --helm-set-string supass=trivy-scan-placeholder,pgpass=trivy-scan-placeholder --severity HIGH,CRITICAL --exit-code 1 --format json --output trivy-project-report.json metro-vision-ai-app-recipe || project_status=$?
+          trivy config --skip-dirs metro-vision-ai-app-recipe/smart-intersection/chart --helm-set-string supass=trivy-scan-placeholder,pgpass=trivy-scan-placeholder --severity HIGH,CRITICAL --exit-code 1 --format json --output trivy-project-report.json metro-vision-ai-app-recipe || project_status=$?
           trivy config --helm-set-string supass=trivy-scan-placeholder,pgpass=trivy-scan-placeholder --severity HIGH,CRITICAL --exit-code 1 --format json --output trivy-smart-intersection-report.json /tmp/trivy-smart-intersection-1.20.0.tgz || chart_status=$?
           jq -s '.[0] as $project | .[1] as $chart | $project | .Results = (($project.Results // []) + ($chart.Results // []))' trivy-project-report.json trivy-smart-intersection-report.json > trivy-config-report.json
           scan_status=$project_status
