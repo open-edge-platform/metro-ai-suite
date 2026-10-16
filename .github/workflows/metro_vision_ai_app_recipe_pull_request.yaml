@@ -102,7 +102,7 @@ jobs:
           name: shellcheck-report
           path: shellcheck_report.txt
 
-    trivy-config-helm-scan:
+  trivy-config-helm-scan:
     outputs:
       high_findings: ${{ steps.collect-trivy-high.outputs.has_high }}
     permissions:
