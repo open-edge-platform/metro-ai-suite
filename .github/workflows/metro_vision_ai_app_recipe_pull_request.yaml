@@ -58,21 +58,24 @@ jobs:
         with:
           persist-credentials: false
           submodules: false
+
       - name: Install ShellCheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
+
       - name: Run ShellCheck
         run: |
           cd metro-vision-ai-app-recipe
           echo "Scanning for .sh files and running ShellCheck..."
 
-          find . -type f -name "*.sh" -print0 > shell_files.txt
+          : > shellcheck_report.txt
 
-          if [ -s shell_files.txt ]; then
-            xargs -0 shellcheck -S error -f gcc < shell_files.txt > shellcheck_report.txt || scan_status=$?
-          else
-            : > shellcheck_report.txt
+          if find . -type f -name "*.sh" -print0 | grep -qz .; then
+            find . -type f -name "*.sh" -print0 \
+              | xargs -0 shellcheck -S error -f gcc > shellcheck_report.txt || scan_status=$?
           fi
+
           issue_count=$(wc -l < shellcheck_report.txt)
+
           {
             echo "### ShellCheck Results"
             echo "| File | Line | Column | Severity | Code | Finding |"
@@ -96,11 +99,13 @@ jobs:
             echo "Error-level findings: $issue_count"
             echo "Full report: shellcheck_report.txt"
           } >> "$GITHUB_STEP_SUMMARY"
+
           cp shellcheck_report.txt "${GITHUB_WORKSPACE}/shellcheck_report.txt"
           exit "${scan_status:-0}"
+
       - name: Upload ShellCheck report
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f #v6.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: shellcheck-report
           path: shellcheck_report.txt
@@ -127,9 +132,23 @@ jobs:
           sudo tee /etc/apt/sources.list.d/trivy.list > /dev/null
           sudo apt-get update
           sudo apt-get install -y trivy
+      - name: Package Smart Intersection chart for Trivy
+        run: |
+          mkdir -p /tmp/trivy-chart/smart-intersection
+          cp -a metro-vision-ai-app-recipe/smart-intersection/chart/. /tmp/trivy-chart/smart-intersection/
+          tar -czf /tmp/trivy-smart-intersection-1.20.0.tgz -C /tmp/trivy-chart smart-intersection
       - name: Trivy config scan
         run: |
-          trivy config --helm-set-string supass=trivy-scan-placeholder --severity HIGH,CRITICAL --exit-code 1 --format json --output trivy-config-report.json metro-vision-ai-app-recipe
+          project_status=0
+          chart_status=0
+          trivy config --helm-set-string supass=trivy-scan-placeholder,pgpass=trivy-scan-placeholder --severity HIGH,CRITICAL --exit-code 1 --format json --output trivy-project-report.json metro-vision-ai-app-recipe || project_status=$?
+          trivy config --helm-set-string supass=trivy-scan-placeholder,pgpass=trivy-scan-placeholder --severity HIGH,CRITICAL --exit-code 1 --format json --output trivy-smart-intersection-report.json /tmp/trivy-smart-intersection-1.20.0.tgz || chart_status=$?
+          jq -s '.[0] as $project | .[1] as $chart | $project | .Results = (($project.Results // []) + ($chart.Results // []))' trivy-project-report.json trivy-smart-intersection-report.json > trivy-config-report.json
+          scan_status=$project_status
+          if [ "$chart_status" -gt "$scan_status" ]; then
+            scan_status=$chart_status
+          fi
+          exit "$scan_status"
       - name: Summarize Trivy config findings
         if: always()
         run: |
