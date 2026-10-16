@@ -64,7 +64,14 @@ jobs:
         run: |
           cd metro-vision-ai-app-recipe
           echo "Scanning for .sh files and running ShellCheck..."
-          find . -type f -name "*.sh" | tee shell_files.txt | xargs -r shellcheck -S error -f gcc > shellcheck_report.txt || scan_status=$?
+
+          find . -type f -name "*.sh" -print0 > shell_files.txt
+
+          if [ -s shell_files.txt ]; then
+            xargs -0 shellcheck -S error -f gcc < shell_files.txt > shellcheck_report.txt || scan_status=$?
+          else
+            : > shellcheck_report.txt
+          fi
           issue_count=$(wc -l < shellcheck_report.txt)
           {
             echo "### ShellCheck Results"
@@ -356,6 +363,7 @@ jobs:
     permissions:
       actions: read
       pull-requests: write
+      contents: read
     steps:
       - name: Create or update HIGH findings comment
         env:
