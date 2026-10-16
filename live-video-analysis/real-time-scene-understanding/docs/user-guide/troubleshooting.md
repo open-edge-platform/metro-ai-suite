@@ -1,4 +1,4 @@
-# Known Issues and Troubleshooting
+# Troubleshooting
 
 ## NPU high-resolution inference may require token-length tuning
 

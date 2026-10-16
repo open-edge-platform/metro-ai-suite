@@ -23,7 +23,7 @@ spec:
       - name: mqtt-table-flattener
         image: {{ $.Values.dlstreamer_pipeline_server.image }}:{{ $.Values.dlstreamer_pipeline_server.imageTag }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
-        command: ["python3", "/app/flatten.py"]
+        command: ["python3", "/app/flatten_and_filter.py"]
         securityContext:
           runAsNonRoot: true
           readOnlyRootFilesystem: true
@@ -39,8 +39,10 @@ spec:
           value: "{{ $.Values.config.mqtt_broker.int.mqtt_port }}"
         - name: SOURCE_TOPIC_PREFIX
           value: {{ $.Values.mqtt_table_flattener.sourceTopicPrefix }}
-        - name: DEST_TOPIC_PREFIX
-          value: {{ $.Values.mqtt_table_flattener.destTopicPrefix }}
+        - name: DEST_TOPIC_SUFFIX
+          value: {{ $.Values.mqtt_table_flattener.destTopicSuffix }}
+        - name: LOITERING_THRESHOLD_SEC
+          value: "{{ $.Values.mqtt_table_flattener.loiteringThresholdSec }}"
         - name: http_proxy
           value: {{ $.Values.env.http_proxy }}
         - name: https_proxy
@@ -62,5 +64,5 @@ metadata:
   namespace: {{ .Values.namespace }}
   name: mqtt-table-flattener-config
 data:
-  flatten.py: |-
-{{ .Files.Get "config/mqtt-table-flattener/flatten.py" | indent 4 }}
+  flatten_and_filter.py: |-
+{{ .Files.Get "config/mqtt-table-flattener/flatten_and_filter.py" | indent 4 }}

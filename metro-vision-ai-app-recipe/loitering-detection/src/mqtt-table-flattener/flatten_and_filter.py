@@ -2,9 +2,12 @@
 """
 Subscribes to the raw per-frame DLSPS metadata topic (object_tracking/<id>,
 published verbatim by gvametaconvert - untouched) and republishes a lightweight,
-one-row-per-object summary to loiter_status/<id> so Grafana's MQTT table panel
-can render it directly (grafana-mqtt-datasource maps one MQTT message to one
-table row, so a nested "objects" array in a single message can't become rows).
+one-row-per-object summary to <source_topic>/<DEST_TOPIC_SUFFIX> so Grafana's MQTT
+table panel can render it directly (grafana-mqtt-datasource maps one MQTT message
+to one table row, so a nested "objects" array in a single message can't become rows).
+
+Only objects whose dwell time has reached LOITERING_THRESHOLD_SEC are republished,
+matching the same threshold loitering_watermark.py uses to color overlay text red.
 
 Publish cadence is decoupled from the DLSPS frame rate (~30fps) via a periodic
 timer; otherwise every still-dwelling object would republish every frame and
@@ -24,7 +27,10 @@ MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
 # Matches the topic prefixes sample_start.sh/benchmark_app_payload.json launch pipelines with;
 # override via env instead of editing code if those are ever changed.
 SOURCE_TOPIC_PREFIX = os.environ.get("SOURCE_TOPIC_PREFIX", "object_tracking")
-DEST_TOPIC_PREFIX = os.environ.get("DEST_TOPIC_PREFIX", "loiter_status")
+# Appended after the stream id, e.g. object_tracking/1 -> object_tracking/1/loiterstatus
+DEST_TOPIC_SUFFIX = os.environ.get("DEST_TOPIC_SUFFIX", "loiterstatus")
+# Must match the "loitering-threshold" value in the launch payload (sample_start.sh)
+LOITERING_THRESHOLD_SEC = float(os.environ.get("LOITERING_THRESHOLD_SEC", "5.0"))
 SOURCE_TOPIC = f"{SOURCE_TOPIC_PREFIX}/+"
 PUBLISH_INTERVAL_SEC = float(os.environ.get("PUBLISH_INTERVAL_SEC", "1.0"))
 # A pipeline publishes frames continuously (~30fps); once a stream has been
@@ -54,12 +60,15 @@ def on_message(client, userdata, msg):
         if not dwell_times:
             continue
         dwell = dwell_times[0]
+        dwell_sec = dwell.get("dwell_time_sec", 0)
+        if dwell_sec < LOITERING_THRESHOLD_SEC:
+            continue
         rows.append({
             "Stream": stream_id,
             "Track ID": obj.get("id"),
             "Type": obj.get("roi_type"),
             "Zone": dwell.get("zone_id"),
-            "Dwell Time (s)": round(dwell.get("dwell_time_sec", 0), 1),
+            "Dwell Time (s)": round(dwell_sec, 1),
         })
 
     with _lock:
@@ -79,7 +88,7 @@ def publish_loop(client):
             }
         for stream_id, rows in snapshot.items():
             for row in rows:
-                client.publish(f"{DEST_TOPIC_PREFIX}/{stream_id}", json.dumps(row), qos=0)
+                client.publish(f"{SOURCE_TOPIC_PREFIX}/{stream_id}/{DEST_TOPIC_SUFFIX}", json.dumps(row), qos=0)
 
 
 def main():

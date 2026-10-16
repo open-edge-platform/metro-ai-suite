@@ -1,4 +1,6 @@
 #!/bin/bash
+# "object_tracking" topic below must stay in sync with values.yaml's mqtt_table_flattener.sourceTopicPrefix
+# "loitering-threshold" below must stay in sync with values.yaml's mqtt_table_flattener.loiteringThresholdSec
 curl http://<HOST_IP>:30385/pipelines/user_defined_pipelines/object_tracking_1 -X POST -H 'Content-Type: application/json' -d '
 {
     "source": {

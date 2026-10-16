@@ -155,7 +155,7 @@
             "uid": "PBA9FB8DAC51D59B8"
           },
           "refId": "A",
-          "topic": "loiter_status/+"
+          "topic": "object_tracking/+/loiterstatus"
         }
       ],
       "title": "Loiter Table - All Streams",

@@ -1,4 +1,4 @@
-# Real Time Scene Understanding
+# Real-Time Scene Understanding
 
 <!--hide_directive
 <div class="component_card_widget">
@@ -11,7 +11,7 @@
 </div>
 hide_directive-->
 
-**Real Time Scene Understanding** deploys AI-powered live video analysis for RTSP streams with FFMpeg pythonic bindings, PyAV and OpenVINO Vision Language Models (VLMs). You can process streaming video, run prompt-driven scene understanding, and monitor both system and inference performance from a web dashboard.
+**Real-Time Scene Understanding** deploys AI-powered live video analysis for RTSP streams with FFMpeg pythonic bindings, PyAV and OpenVINO Vision Language Models (VLMs). You can process streaming video, run prompt-driven scene understanding, and monitor both system and inference performance from a web dashboard.
 
 The key features are:
 
@@ -42,14 +42,10 @@ The key features are:
 :hidden:
 
 get-started.md
-quick-start-guide.md
+Quick Start <quick-start-guide.md>
 how-it-works.md
 api-reference.md
-known-issues.md
-get-started/system-requirements.md
-get-started/model-preparation.md
-get-started/build-from-source.md
-get-started/run-unit-tests.md
+troubleshooting.md
 Release Notes <release-notes.md>
 
 :::

@@ -81,42 +81,14 @@ if [ -f ../docker-compose.yml ]; then
 fi
 
 ##############################################################################
-# This app's MQTT topic prefixes are not part of the shared .env (they're
-# loitering-detection-specific); set them here, idempotently, in a clearly
-# commented section rather than leaving them permanently defined for
-# sibling apps that don't use them.
-##############################################################################
-if [ -f ../.env ]; then
-  sed -i \
-    -e '/^# loitering-detection: MQTT topic prefixes/d' \
-    -e '/^# SOURCE_TOPIC_PREFIX -/d' \
-    -e '/^#   publishes to/d' \
-    -e '/^# DEST_TOPIC_PREFIX -/d' \
-    -e '/^#   to for the Grafana/d' \
-    -e '/^SOURCE_TOPIC_PREFIX=/d' \
-    -e '/^DEST_TOPIC_PREFIX=/d' \
-    ../.env
-  cat >> ../.env <<'EOF'
-
-# loitering-detection: MQTT topic prefixes used by the mqtt-table-flattener sidecar.
-# SOURCE_TOPIC_PREFIX - prefix of the raw per-frame metadata topic gvametaconvert
-#   publishes to (<prefix>/<stream-id>); must match sample_start.sh's launch topics.
-# DEST_TOPIC_PREFIX - prefix the flattener republishes one-row-per-object summaries
-#   to for the Grafana MQTT table panel (<prefix>/<stream-id>).
-SOURCE_TOPIC_PREFIX=object_tracking
-DEST_TOPIC_PREFIX=loiter_status
-EOF
-fi
-
-##############################################################################
 # Add the mqtt-table-flattener service: reshapes the raw object_tracking/<N>
 # metadata (published as-is by DLSPS/gvametaconvert, unmodified) into
-# loiter_status/<N> messages Grafana's MQTT table panel can render as rows
-# (one MQTT message = one table row). Reuses the dlstreamer-pipeline-server
-# image (already pulled, already has paho-mqtt) instead of adding a new one.
-# Loitering-detection-specific, so this is inserted only into the generated
-# compose file (before the top-level "networks:" key, since "services:" is
-# not the last section), not the shared template.
+# object_tracking/<N>/<DEST_TOPIC_SUFFIX> messages Grafana's MQTT table panel can
+# render as rows (one MQTT message = one table row), filtered by LOITERING_THRESHOLD_SEC.
+# Reuses the dlstreamer-pipeline-server image (already pulled, already has paho-mqtt)
+# instead of adding a new one. Loitering-detection-specific, so this is inserted only
+# into the generated compose file (before the top-level "networks:" key, since
+# "services:" is not the last section), not the shared template.
 ##############################################################################
 if [ -f ../docker-compose.yml ] && ! grep -q '^  mqtt-table-flattener:' ../docker-compose.yml; then
   awk '
@@ -128,10 +100,11 @@ if [ -f ../docker-compose.yml ] && ! grep -q '^  mqtt-table-flattener:' ../docke
       print "      - MQTT_HOST=broker"
       print "      - MQTT_PORT=1883"
       print "      - SOURCE_TOPIC_PREFIX=${SOURCE_TOPIC_PREFIX}"
-      print "      - DEST_TOPIC_PREFIX=${DEST_TOPIC_PREFIX}"
+      print "      - DEST_TOPIC_SUFFIX=${DEST_TOPIC_SUFFIX}"
+      print "      - LOITERING_THRESHOLD_SEC=${LOITERING_THRESHOLD_SEC}"
       print "    volumes:"
       print "      - \"./${SAMPLE_APP}/src/mqtt-table-flattener:/app:ro\""
-      print "    entrypoint: [\"python3\", \"/app/flatten.py\"]"
+      print "    entrypoint: [\"python3\", \"/app/flatten_and_filter.py\"]"
       print "    depends_on:"
       print "      - broker"
       print "    networks:"

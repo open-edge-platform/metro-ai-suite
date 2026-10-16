@@ -1,6 +1,6 @@
 ---
 name: rtsu-testing
-description: Run focused tests, the full Real Time Scene Understanding pytest suite, coverage, and runtime validation for code and configuration changes.
+description: Run focused tests, the full Real-Time Scene Understanding pytest suite, coverage, and runtime validation for code and configuration changes.
 license: Apache-2.0
 ---
 
@@ -9,7 +9,7 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Real Time Scene Understanding Testing
+# Real-Time Scene Understanding Testing
 
 Use this skill when changing Python backend code, routes, services, configuration behavior, or tests, and when the user asks to verify the project.
 
