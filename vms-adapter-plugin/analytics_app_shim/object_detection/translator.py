@@ -184,6 +184,10 @@ def translate_dls_metadata(
         attributes = [
             {"type": "String", "name": "label", "value": label, "confidence": confidence},
         ]
+        if obj_id is not None:
+            attributes.append(
+                {"type": "String", "name": "id", "value": str(obj_id), "confidence": confidence}
+            )
         if dwell_times:
             # Pure pass-through of the pipeline's own dwell computation - whether this
             # counts as "loitering" is decided upstream (gvaanalytics/loitering_watermark

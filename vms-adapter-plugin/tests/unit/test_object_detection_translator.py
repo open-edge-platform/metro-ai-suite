@@ -321,6 +321,21 @@ def test_dwell_attributes_attached_when_dwell_times_present():
     assert names["dwell_time_sec"] == "6.5"
 
 
+def test_id_attribute_attached_when_object_has_stable_id():
+    obj = _make_zone_obj(id_=37)
+    objects, _ = translate_dls_metadata({"objects": [obj]})
+    names = {a["name"]: a["value"] for a in objects[0]["attributes"]}
+    assert names["id"] == "37"
+
+
+def test_id_attribute_absent_when_object_has_no_id():
+    obj = _make_zone_obj()
+    obj.pop("id")
+    objects, _ = translate_dls_metadata({"objects": [obj]})
+    names = {a["name"] for a in objects[0]["attributes"]}
+    assert "id" not in names
+
+
 def test_no_loitering_attribute_is_ever_derived():
     """VMS never recomputes/duplicates the LD app's own threshold decision."""
     obj = _make_zone_obj(
@@ -335,7 +350,8 @@ def test_no_loitering_attribute_is_ever_derived():
 def test_no_dwell_attributes_when_no_dwell_times():
     obj = _make_zone_obj()
     objects, _ = translate_dls_metadata({"objects": [obj]})
-    assert len(objects[0]["attributes"]) == 1  # only "label"
+    names = {a["name"] for a in objects[0]["attributes"]}
+    assert names == {"label", "id"}
 
 
 # ── Zone marker boxes ─────────────────────────────────────────────────────────
