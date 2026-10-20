@@ -6,10 +6,7 @@
 from __future__ import annotations
 
 import json
-import time
-from datetime import datetime, timezone
-
-import pytest
+from datetime import datetime
 
 from analytics_app_shim.object_detection.mqtt_subscriber import MqttSubscriber
 
@@ -76,14 +73,12 @@ def _row(track_id=7, type_="pedestrian", zone="region1", dwell=6.2) -> bytes:
     }).encode()
 
 
-async def test_loiterstatus_pushes_bookmark_on_first_sighting(mock_vms_shim):
+async def test_loiterstatus_pushes_bookmark_for_every_message(mock_vms_shim):
+    """No dedup/cooldown - every row on the topic is bookmarked, pure pass-through."""
     subscriber = MqttSubscriber()
     shim_map = {"nx-main": mock_vms_shim}
-    notified: dict = {}
 
-    await subscriber._handle_loiterstatus_message(
-        "object_tracking/nx:cam1/loiterstatus", _row(), shim_map, notified, cooldown_seconds=10.0,
-    )
+    await subscriber._handle_loiterstatus_message("object_tracking/nx:cam1/loiterstatus", _row(), shim_map)
 
     mock_vms_shim.set_bookmark.assert_called_once()
     camera_id, timestamp, label = mock_vms_shim.set_bookmark.call_args.args
@@ -92,50 +87,33 @@ async def test_loiterstatus_pushes_bookmark_on_first_sighting(mock_vms_shim):
     assert "7" in label and "region1" in label
 
 
-async def test_loiterstatus_does_not_rebookmark_within_cooldown(mock_vms_shim):
+async def test_loiterstatus_pushes_bookmark_on_every_repeated_message(mock_vms_shim):
     subscriber = MqttSubscriber()
     shim_map = {"nx-main": mock_vms_shim}
-    notified: dict = {}
 
+    await subscriber._handle_loiterstatus_message("object_tracking/nx:cam1/loiterstatus", _row(), shim_map)
     await subscriber._handle_loiterstatus_message(
-        "object_tracking/nx:cam1/loiterstatus", _row(), shim_map, notified, cooldown_seconds=10.0,
+        "object_tracking/nx:cam1/loiterstatus", _row(dwell=7.5), shim_map,
     )
     await subscriber._handle_loiterstatus_message(
-        "object_tracking/nx:cam1/loiterstatus", _row(dwell=7.5), shim_map, notified, cooldown_seconds=10.0,
+        "object_tracking/nx:cam1/loiterstatus", _row(dwell=8.1), shim_map,
     )
 
-    assert mock_vms_shim.set_bookmark.call_count == 1
-
-
-async def test_loiterstatus_rebookmarks_after_cooldown_expires(mock_vms_shim):
-    subscriber = MqttSubscriber()
-    shim_map = {"nx-main": mock_vms_shim}
-    notified: dict = {}
-
-    await subscriber._handle_loiterstatus_message(
-        "object_tracking/nx:cam1/loiterstatus", _row(), shim_map, notified, cooldown_seconds=0.0,
-    )
-    # cooldown_seconds=0 means the very next message (any time later) re-bookmarks
-    await subscriber._handle_loiterstatus_message(
-        "object_tracking/nx:cam1/loiterstatus", _row(), shim_map, notified, cooldown_seconds=0.0,
-    )
-
-    assert mock_vms_shim.set_bookmark.call_count == 2
+    assert mock_vms_shim.set_bookmark.call_count == 3
 
 
 async def test_loiterstatus_distinguishes_tracks_and_cameras(mock_vms_shim):
     subscriber = MqttSubscriber()
     shim_map = {"nx-main": mock_vms_shim}
-    notified: dict = {}
 
     await subscriber._handle_loiterstatus_message(
-        "object_tracking/nx:cam1/loiterstatus", _row(track_id=1), shim_map, notified, cooldown_seconds=10.0,
+        "object_tracking/nx:cam1/loiterstatus", _row(track_id=1), shim_map,
     )
     await subscriber._handle_loiterstatus_message(
-        "object_tracking/nx:cam1/loiterstatus", _row(track_id=2), shim_map, notified, cooldown_seconds=10.0,
+        "object_tracking/nx:cam1/loiterstatus", _row(track_id=2), shim_map,
     )
     await subscriber._handle_loiterstatus_message(
-        "object_tracking/nx:cam2/loiterstatus", _row(track_id=1), shim_map, notified, cooldown_seconds=10.0,
+        "object_tracking/nx:cam2/loiterstatus", _row(track_id=1), shim_map,
     )
 
     assert mock_vms_shim.set_bookmark.call_count == 3
@@ -148,46 +126,21 @@ async def test_loiterstatus_skips_shim_without_set_bookmark():
         pass
 
     shim_map = {"nx-main": _NoBookmarkShim()}
-    notified: dict = {}
     # Should not raise even though the shim has no set_bookmark method.
-    await subscriber._handle_loiterstatus_message(
-        "object_tracking/nx:cam1/loiterstatus", _row(), shim_map, notified, cooldown_seconds=10.0,
-    )
+    await subscriber._handle_loiterstatus_message("object_tracking/nx:cam1/loiterstatus", _row(), shim_map)
 
 
 async def test_loiterstatus_ignores_malformed_topic(mock_vms_shim):
     subscriber = MqttSubscriber()
     shim_map = {"nx-main": mock_vms_shim}
-    notified: dict = {}
-    await subscriber._handle_loiterstatus_message(
-        "object_tracking/loiterstatus", _row(), shim_map, notified, cooldown_seconds=10.0,
-    )
+    await subscriber._handle_loiterstatus_message("object_tracking/loiterstatus", _row(), shim_map)
     mock_vms_shim.set_bookmark.assert_not_called()
 
 
 async def test_loiterstatus_ignores_unparseable_payload(mock_vms_shim):
     subscriber = MqttSubscriber()
     shim_map = {"nx-main": mock_vms_shim}
-    notified: dict = {}
     await subscriber._handle_loiterstatus_message(
-        "object_tracking/nx:cam1/loiterstatus", b"not json", shim_map, notified, cooldown_seconds=10.0,
+        "object_tracking/nx:cam1/loiterstatus", b"not json", shim_map,
     )
     mock_vms_shim.set_bookmark.assert_not_called()
-
-
-async def test_loiterstatus_prunes_stale_entries_once_cache_grows_large(mock_vms_shim):
-    subscriber = MqttSubscriber()
-    shim_map = {"nx-main": mock_vms_shim}
-    notified: dict = {}
-    # Seed the cache past the prune threshold with long-expired entries.
-    stale_time = time.monotonic() - 10_000.0
-    for i in range(600):
-        notified[(f"cam{i}", "trackX")] = stale_time
-
-    await subscriber._handle_loiterstatus_message(
-        "object_tracking/nx:cam1/loiterstatus", _row(), shim_map, notified, cooldown_seconds=10.0,
-    )
-
-    # Stale entries pruned; only the just-inserted (cam1, "7") key should remain.
-    assert len(notified) == 1
-    assert ("cam1", "7") in notified

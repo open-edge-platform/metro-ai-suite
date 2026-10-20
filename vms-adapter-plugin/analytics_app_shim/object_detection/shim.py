@@ -96,7 +96,6 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
                 metadata_topic_prefix=self._config.metadata_topic_prefix,
                 loiter_bookmark_enabled=self._config.loiter_bookmark_enabled,
                 loiter_status_topic_suffix=self._config.loiter_status_topic_suffix,
-                loiter_bookmark_cooldown_seconds=self._config.loiter_bookmark_cooldown_seconds,
             ),
             name=f"mqtt-subscriber-{self.app_id}",
         )

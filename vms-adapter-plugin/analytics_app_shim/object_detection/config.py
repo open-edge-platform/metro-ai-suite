@@ -92,16 +92,10 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
     # inside the DLSPS pipeline/app, not here) and republishes one row per
     # qualifying track to "<this app's metadata topic>/<loiter_status_topic_suffix>".
     # When enabled, the plugin subscribes to that dedicated topic and pushes an
-    # Nx bookmark the first time each track appears in it, instead of
-    # re-deriving "is this object loitering" from dwell_time_sec itself.
+    # Nx bookmark for every row received - no dedup/threshold logic of its own.
     loiter_bookmark_enabled: bool = False
     # Must match the mqtt-table-flattener's DEST_TOPIC_SUFFIX env var.
     loiter_status_topic_suffix: str = "loiterstatus"
-    # Minimum seconds between bookmarks for the same (camera, track) pair while
-    # it keeps reappearing in the loiterstatus stream, so a still-loitering
-    # object (republished every ~1s by the flattener) doesn't spam a bookmark
-    # every cycle. A gap longer than this is treated as a new loitering episode.
-    loiter_bookmark_cooldown_seconds: float = 10.0
 
     @model_validator(mode="after")
     def _normalize_and_validate_zones(self):

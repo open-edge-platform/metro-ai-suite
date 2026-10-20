@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import asyncio
 import ssl
-import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
@@ -44,11 +43,6 @@ if TYPE_CHECKING:
     from plugin.core.factory import VmsShimSet
 
 logger = structlog.get_logger(__name__)
-
-# Cap on the (camera, track) bookmark-dedup cache before opportunistically
-# pruning stale entries, so long-running deployments with high track churn
-# don't grow it unboundedly.
-_NOTIFIED_CACHE_PRUNE_THRESHOLD = 500
 
 
 class MqttSubscriber:
@@ -78,7 +72,6 @@ class MqttSubscriber:
         metadata_topic_prefix: str = "object_tracking",
         loiter_bookmark_enabled: bool = False,
         loiter_status_topic_suffix: str = "loiterstatus",
-        loiter_bookmark_cooldown_seconds: float = 10.0,
     ) -> None:
         """Subscribe to MQTT and dispatch messages until cancelled.
 
@@ -100,8 +93,6 @@ class MqttSubscriber:
 
         topic_filter = f"{metadata_topic_prefix}/+"
         loiter_topic_filter = f"{metadata_topic_prefix}/+/{loiter_status_topic_suffix}"
-        # (camera_id, track_id) -> time.monotonic() of the last bookmark pushed for it
-        notified: dict[tuple[str, str], float] = {}
 
         logger.info(
             "mqtt_subscriber_starting",
@@ -123,7 +114,7 @@ class MqttSubscriber:
                         parts = topic.lstrip("/").split("/")
                         if loiter_bookmark_enabled and len(parts) == 3 and parts[-1] == loiter_status_topic_suffix:  # noqa: PLR2004
                             await self._handle_loiterstatus_message(
-                                topic, message.payload, shim_map, notified, loiter_bookmark_cooldown_seconds,
+                                topic, message.payload, shim_map,
                             )
                         else:
                             await self._handle_message(
@@ -229,17 +220,12 @@ class MqttSubscriber:
         topic: str,
         payload: bytes,
         shim_map: dict[str, Any],
-        notified: dict[tuple[str, str], float],
-        cooldown_seconds: float,
     ) -> None:
-        """Push an Nx bookmark for a track reported on the LD app's own loiterstatus topic.
+        """Push an Nx bookmark for every row on the LD app's own loiterstatus topic.
 
-        This consumes the loitering-detection recipe's dedicated threshold-crossing
-        message (published by its mqtt-table-flattener sidecar once dwell time
-        exceeds the threshold configured INSIDE that app) instead of recomputing
-        that threshold check here. The flattener republishes one row per still-
-        qualifying track on every publish cycle (~1s), so bookmarks are deduped
-        per (camera, track) with a cooldown rather than firing on every row.
+        Pure pass-through: no dedup/cooldown/threshold logic here - the LD app
+        already decided this track crossed its loitering threshold (that's why
+        the row exists at all), so every message received is bookmarked as-is.
         """
         import json
 
@@ -263,19 +249,6 @@ class MqttSubscriber:
         track_id = row.get("Track ID")
         if track_id is None:
             return
-
-        key = (device_id, str(track_id))
-        now = time.monotonic()
-
-        if len(notified) > _NOTIFIED_CACHE_PRUNE_THRESHOLD:
-            cutoff = now - cooldown_seconds * 2
-            for stale_key in [k for k, t in notified.items() if t < cutoff]:
-                del notified[stale_key]
-
-        last_notified = notified.get(key)
-        notified[key] = now
-        if last_notified is not None and (now - last_notified) <= cooldown_seconds:
-            return  # still the same loitering episode - already bookmarked
 
         label = (
             f"{row.get('Type') or 'Object'} {track_id} loitering "

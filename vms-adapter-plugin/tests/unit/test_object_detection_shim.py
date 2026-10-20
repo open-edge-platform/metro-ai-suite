@@ -157,7 +157,6 @@ def test_loiter_bookmark_config_defaults():
     cfg = _make_config()
     assert cfg.loiter_bookmark_enabled is False
     assert cfg.loiter_status_topic_suffix == "loiterstatus"
-    assert cfg.loiter_bookmark_cooldown_seconds == 10.0
 
 
 # ── is_reachable ──────────────────────────────────────────────────────────────
