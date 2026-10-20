@@ -123,6 +123,43 @@ def test_control_params_include_only_configured_devices():
     assert device["default"] == "CPU"
 
 
+# ── zones config ──────────────────────────────────────────────────────────────
+
+def test_object_types_excludes_zone_type_id_when_no_zones():
+    cfg = _make_config(label_type_map={"pedestrian": "vap.pedestrian"})
+    assert cfg.object_types() == ["vap.pedestrian"]
+
+
+def test_object_types_includes_zone_type_id_when_zones_configured():
+    cfg = _make_config(
+        label_type_map={"pedestrian": "vap.pedestrian"},
+        zones={"region1": {"bounding_box": [0.0, 0.0, 0.5, 0.5]}},
+    )
+    assert cfg.object_types() == ["vap.pedestrian", "vap.zone"]
+
+
+def test_zones_bounding_box_normalized_to_tuple():
+    cfg = _make_config(zones={"region1": {"bounding_box": [0, 0.2, 0.3, 0.4]}})
+    assert cfg.zones["region1"]["bounding_box"] == (0.0, 0.2, 0.3, 0.4)
+
+
+def test_zone_missing_bounding_box_raises():
+    with pytest.raises(ValueError, match="bounding_box"):
+        _make_config(zones={"region1": {"label": "Zone"}})
+
+
+def test_zone_filter_enabled_defaults_false():
+    cfg = _make_config()
+    assert cfg.zone_filter_enabled is False
+
+
+def test_loiter_bookmark_config_defaults():
+    cfg = _make_config()
+    assert cfg.loiter_bookmark_enabled is False
+    assert cfg.loiter_status_topic_suffix == "loiterstatus"
+    assert cfg.loiter_bookmark_cooldown_seconds == 10.0
+
+
 # ── is_reachable ──────────────────────────────────────────────────────────────
 
 async def test_is_reachable_delegates_to_api_client():
@@ -159,7 +196,7 @@ async def test_start_creates_run():
         "dls_vision_pipeline",
         {
             "source": {"uri": "rtsp://cam:554/stream", "type": "uri", "properties": {"protocols": "tcp", "add-reference-timestamp-meta": True, "latency": 100}},
-            "destination": {"metadata": {"type": "mqtt", "topic": "nx/dls_vision/e3e9a385-7fe0-3ba5-5482-a86cde7faf48"}},
+            "destination": {"metadata": {"type": "mqtt", "topic": "object_tracking/nx:e3e9a385-7fe0-3ba5-5482-a86cde7faf48"}},
             "parameters": {},
         },
     )
@@ -185,10 +222,35 @@ async def test_start_uses_default_root_when_not_in_map():
         "some_pipeline",
         {
             "source": {"uri": "rtsp://cam/s", "type": "uri", "properties": {"protocols": "tcp", "add-reference-timestamp-meta": True, "latency": 100}},
-            "destination": {"metadata": {"type": "mqtt", "topic": "vap/dls_vision/unknown"}},
+            "destination": {"metadata": {"type": "mqtt", "topic": "object_tracking/vap:unknown"}},
             "parameters": {},
         },
     )
+
+
+async def test_start_sends_zone_config_path_when_configured():
+    shim = _make_shim(zone_config_path="/home/pipeline-server/zones/VIRAT_S_000101.json")
+    shim._pipeline_root_map = {"dls_vision_pipeline": "user_defined_pipelines"}
+    shim._api.start_run = AsyncMock(return_value={"instance_id": "abc123"})
+
+    params = MagicMock()
+    params.model_dump.return_value = {
+        "pipeline_name": "dls_vision_pipeline",
+        "camera_id": "rtsp://cam/s",
+        "camera_id_ref": "nx:abc",
+        "parameters": {},
+    }
+    await shim.start(params)
+
+    sent_payload = shim._api.start_run.call_args.args[2]
+    assert sent_payload["parameters"]["analytics-properties"]["config"] == (
+        "/home/pipeline-server/zones/VIRAT_S_000101.json"
+    )
+
+
+def test_build_mqtt_topic_uses_configured_prefix():
+    shim = _make_shim(metadata_topic_prefix="object_tracking")
+    assert shim._build_mqtt_topic("nx:abc123") == "object_tracking/nx:abc123"
 
 
 async def test_start_raises_on_missing_pipeline_name():
@@ -284,7 +346,7 @@ async def test_start_for_camera_uses_pipeline_for_selected_device():
             "destination": {
                 "metadata": {
                     "type": "mqtt",
-                    "topic": "nx/dls_vision/cam-1",
+                    "topic": "object_tracking/nx:cam-1",
                 },
             },
             "parameters": {"detection-properties": {"device": "GPU"}},

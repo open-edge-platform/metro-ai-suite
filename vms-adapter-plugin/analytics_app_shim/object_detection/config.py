@@ -29,6 +29,20 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
     mqtt_ca_bundle: str = ""
     mqtt_client_cert: str = ""
     mqtt_client_key: str = ""
+    # Topic prefix used to publish/subscribe inference metadata, matching the LD
+    # app's OWN existing topic convention (see loitering-detection's
+    # sample_start.sh: "${SOURCE_TOPIC_PREFIX:-object_tracking}/$x") instead of
+    # VMS inventing its own naming scheme. Must match whatever SOURCE_TOPIC_PREFIX
+    # the deployment's mqtt-table-flattener/.env is actually configured with.
+    # Final topic = "{metadata_topic_prefix}/{vendor}:{device_id}", e.g.
+    # "object_tracking/nx:e3e9a385-...".
+    metadata_topic_prefix: str = "object_tracking"
+    # Optional DLSPS-side zone config file path sent as the start payload's
+    # "analytics-properties.config" (gvaanalytics zones JSON) - see
+    # loitering-detection's sample_start.sh. Hardcoded/static for now (one zone
+    # file per deployment); empty disables sending it (pipeline's own
+    # config.json default is used instead).
+    zone_config_path: str = ""
     # Maps detection labels (case-insensitive) to Nx Witness object typeIds.
     # Any label not present here falls back to "python.detected.object".
     # These typeIds are also merged into the Nx analytics manifest at startup
@@ -49,6 +63,60 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
     # Per-device pipeline mapping used by Nx UI controls and run startup.
     # At least one of CPU/GPU/NPU must be configured with a non-empty value.
     pipeline: dict[str, str] = Field(default_factory=dict)
+
+    # Newer DLStreamer pipelines (gvaanalytics + zone config) compute zone
+    # membership/dwell-time natively and surface it per-object as
+    # "zone_violations" (list of zone ids) and "dwell_times" (list of
+    # {zone_id, dwell_time_sec}). When enabled, only objects currently inside a
+    # monitored zone are pushed to Nx — objects detected elsewhere in the
+    # (now full-frame) detection are dropped. Has no effect on pipelines that
+    # don't emit zone_violations/dwell_times (plain object-detection apps).
+    zone_filter_enabled: bool = False
+    # Static zone geometry to draw in Nx as a persistent marker box, since the
+    # pipeline no longer emits a fake detection object for the ROI. Keyed by
+    # zone id (must match the zone id in the DLSPS zones/<video>.json config).
+    # bounding_box is normalized [x_min, y_min, x_max, y_max] (0-1), matching
+    # the pixel polygon's bounding rect in that same zones JSON file.
+    # Example:
+    #   zones:
+    #     region1:
+    #       label: "Loitering Zone"
+    #       bounding_box: [0.0, 0.2778, 0.2344, 0.5556]
+    zones: dict[str, dict] = Field(default_factory=dict)
+    # Nx typeId used for the pushed zone marker box(es); auto-registered via
+    # object_types() when zones is non-empty.
+    zone_type_id: str = "vap.zone"
+
+    # The loitering-detection recipe's own mqtt-table-flattener sidecar already
+    # decides when a track has crossed ITS loitering threshold (configured
+    # inside the DLSPS pipeline/app, not here) and republishes one row per
+    # qualifying track to "<this app's metadata topic>/<loiter_status_topic_suffix>".
+    # When enabled, the plugin subscribes to that dedicated topic and pushes an
+    # Nx bookmark the first time each track appears in it, instead of
+    # re-deriving "is this object loitering" from dwell_time_sec itself.
+    loiter_bookmark_enabled: bool = False
+    # Must match the mqtt-table-flattener's DEST_TOPIC_SUFFIX env var.
+    loiter_status_topic_suffix: str = "loiterstatus"
+    # Minimum seconds between bookmarks for the same (camera, track) pair while
+    # it keeps reappearing in the loiterstatus stream, so a still-loitering
+    # object (republished every ~1s by the flattener) doesn't spam a bookmark
+    # every cycle. A gap longer than this is treated as a new loitering episode.
+    loiter_bookmark_cooldown_seconds: float = 10.0
+
+    @model_validator(mode="after")
+    def _normalize_and_validate_zones(self):
+        normalized: dict[str, dict] = {}
+        for zone_id, zone_cfg in (self.zones or {}).items():
+            zone_cfg = dict(zone_cfg or {})
+            bbox = zone_cfg.get("bounding_box")
+            if not bbox or len(bbox) != 4:
+                raise ValueError(
+                    f"Zone '{zone_id}' bounding_box must be [x_min, y_min, x_max, y_max]"
+                )
+            zone_cfg["bounding_box"] = tuple(float(v) for v in bbox)
+            normalized[str(zone_id)] = zone_cfg
+        self.zones = normalized
+        return self
 
     @model_validator(mode="after")
     def _normalize_and_validate_pipeline_map(self):
@@ -85,9 +153,14 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
 
         Derived from ``label_type_map`` values so a VMS shim can register them
         generically, without knowing this app exists. Apps that do not push
-        object detections simply omit this method.
+        object detections simply omit this method. Also includes
+        ``zone_type_id`` when zones are configured, since the zone marker
+        box(es) are pushed with that typeId.
         """
-        return sorted(set(self.label_type_map.values()))
+        types = set(self.label_type_map.values())
+        if self.zones:
+            types.add(self.zone_type_id)
+        return sorted(types)
 
     def control_params(self) -> list[dict]:
         """Declare this app's per-camera control knobs (VMS-neutral).

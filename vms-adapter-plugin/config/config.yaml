@@ -33,6 +33,15 @@ analytics_apps:
     mqtt_ca_bundle: "${MQTT_CA_BUNDLE:-}"
     mqtt_client_cert: "${MQTT_CLIENT_CERT:-}"
     mqtt_client_key: "${MQTT_CLIENT_KEY:-}"
+    # Topic prefix for publishing/subscribing inference metadata - matches the
+    # LD app's OWN existing convention (metro-vision-ai-app-recipe's
+    # SOURCE_TOPIC_PREFIX, see loitering-detection/sample_start.sh), so the
+    # recipe's mqtt-table-flattener (and its default .env) needs no changes.
+    metadata_topic_prefix: "${DLS_METADATA_TOPIC_PREFIX:-object_tracking}"
+    # DLSPS-side zone config file sent per-start via the Pipeline Server's own
+    # "analytics-properties.config" provision (see loitering-detection/
+    # sample_start.sh) - static/hardcoded for now, one zone file per deployment.
+    zone_config_path: "${DLS_ZONE_CONFIG_PATH:-/home/pipeline-server/zones/VIRAT_S_000101.json}"
     # DLS pipelines to run per selected Nx UI device option (CPU/GPU/NPU). 
     # At least one of these must be specified for the plugin to start successfully.
     pipeline:
@@ -47,6 +56,27 @@ analytics_apps:
       vehicle: vap.vehicle
       pedestrian: vap.pedestrian
       background: vap.background
+
+    # The DLSPS pipeline now runs detection full-frame (gvaanalytics zone/dwell
+    # analytics replaced the old gvaattachroi ROI-crop), so without filtering
+    # Nx would show a box for every detected person, not just loiterers inside
+    # the zone. Only objects with a "zone_violations"/"dwell_times" entry are
+    # pushed when enabled.
+    zone_filter_enabled: true
+    # Static zone geometry drawn as a persistent marker box in Nx (the pipeline
+    # no longer emits a fake ROI object to visualize). Keep bounding_box in
+    # sync with the pixel polygon in the DLSPS zones/VIRAT_S_000101.json file
+    # (roi 0,200,300,400 in a 1280x720 frame -> normalized below).
+    zones:
+      region1:
+        label: "Loitering Zone"
+        bounding_box: [0.0, 0.2778, 0.2344, 0.5556]
+
+    # Push an Nx bookmark the first time a track crosses the loitering-detection
+    # app's OWN threshold (decided entirely by that app, not recomputed here) -
+    # consumed from its dedicated mqtt-table-flattener topic
+    # "<this app's metadata topic>/loiterstatus".
+    loiter_bookmark_enabled: true
 
 api:
   host: "0.0.0.0"

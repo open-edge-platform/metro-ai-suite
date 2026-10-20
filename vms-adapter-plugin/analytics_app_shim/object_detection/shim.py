@@ -87,10 +87,16 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
                 mqtt_host=self._config.mqtt_host,
                 mqtt_port=self._config.mqtt_port,
                 vms_shim_sets=orchestrator.vms_shim_sets,
-                analytics_app_id=self.app_id,
                 label_type_map=self._config.label_type_map,
                 timestamp_offset_ms=self._config.metadata_timestamp_offset_ms,
                 tls_context=_make_tls_context(self._config),
+                zone_filter_enabled=self._config.zone_filter_enabled,
+                zones=self._config.zones,
+                zone_type_id=self._config.zone_type_id,
+                metadata_topic_prefix=self._config.metadata_topic_prefix,
+                loiter_bookmark_enabled=self._config.loiter_bookmark_enabled,
+                loiter_status_topic_suffix=self._config.loiter_status_topic_suffix,
+                loiter_bookmark_cooldown_seconds=self._config.loiter_bookmark_cooldown_seconds,
             ),
             name=f"mqtt-subscriber-{self.app_id}",
         )
@@ -167,17 +173,17 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
     def _build_mqtt_topic(self, camera_id_ref: str) -> str:
         """Build the MQTT publish topic from the original camera_id.
 
-        Format: ``{vendor_prefix}/{app_id}/{device_id}``
-        Example: ``nx/dls_vision/e3e9a385-7fe0-3ba5-5482-a86cde7faf48``
+        Format: ``{metadata_topic_prefix}/{vendor_prefix}:{device_id}``
+        Example: ``object_tracking/nx:e3e9a385-7fe0-3ba5-5482-a86cde7faf48``
 
-        The subscriber listens on ``+/{app_id}/+`` and uses prefix-match on
-        the first segment to find the right VMS shim (e.g. ``nx`` → ``nx-main``).
+        Uses the LD app's OWN existing topic convention (``metadata_topic_prefix``,
+        matching its ``SOURCE_TOPIC_PREFIX``) rather than a VMS-invented scheme, so
+        the recipe's mqtt-table-flattener needs no reconfiguration. The subscriber
+        listens on ``{metadata_topic_prefix}/+`` and splits the trailing
+        ``vendor:device_id`` segment to find the right VMS shim.
         """
-        if ":" in camera_id_ref:
-            vendor_prefix, device_id = camera_id_ref.split(":", 1)
-        else:
-            vendor_prefix, device_id = "vap", camera_id_ref or "unknown"
-        return f"{vendor_prefix}/{self._config.app_id}/{device_id}"
+        ref = camera_id_ref or "vap:unknown"
+        return f"{self._config.metadata_topic_prefix}/{ref}"
 
     async def is_reachable(self) -> bool:
         return await self._api.is_reachable()
@@ -215,14 +221,19 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
             pipeline_name = self._config.pipeline_for_device(device)
             extra_params = {"detection-properties": {"device": device}}
 
+        if self._config.zone_config_path:
+            extra_params = dict(extra_params)
+            extra_params["analytics-properties"] = {"config": self._config.zone_config_path}
+
         if not pipeline_name:
             raise ValueError("pipeline_name is required")
 
         pipeline_root = self._pipeline_root_map.get(pipeline_name, "user_defined_pipelines")
 
         # Build MQTT topic from the original camera_id (e.g. "nx:abc123")
-        # Topic format: "{vendor_prefix}/{app_id}/{device_id}" → matches subscriber filter "+/{app_id}+"
-        # e.g. "nx/dls_vision/e3e9a385-7fe0-3ba5-5482-a86cde7faf48"
+        # Topic format: "{metadata_topic_prefix}/{vendor_prefix}:{device_id}" → matches
+        # subscriber filter "{metadata_topic_prefix}/+"
+        # e.g. "object_tracking/nx:e3e9a385-7fe0-3ba5-5482-a86cde7faf48"
         mqtt_topic = self._build_mqtt_topic(camera_id_ref)
 
         payload: dict[str, Any] = {
