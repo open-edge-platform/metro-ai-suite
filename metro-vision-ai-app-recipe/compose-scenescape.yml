@@ -396,11 +396,11 @@ services:
       - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx
     restart: on-failure:5
 
-  # WebRTC video streaming, only started with COMPOSE_PROFILES=webrtc (smart-parking ss mode)
+  # WebRTC video streaming, only started with COMPOSE_PROFILES=smart-parking-scenescape (smart-parking ss mode)
   mediamtx:
     image: bluenviron/mediamtx:1.11.3
     container_name: mediamtx-server
-    profiles: ["webrtc"]
+    profiles: ["smart-parking-scenescape"]
     environment:
       - MTX_LOGLEVEL=debug
       - MTX_RTSP=no
@@ -419,7 +419,7 @@ services:
   coturn:
     image: coturn/coturn:4.12.0
     container_name: coturn
-    profiles: ["webrtc"]
+    profiles: ["smart-parking-scenescape"]
     command: ["-v", "--external-ip=$HOST_IP", "--user=${MTX_WEBRTCICESERVERS2_0_USERNAME}:${MTX_WEBRTCICESERVERS2_0_PASSWORD}", "--realm=turn.local", "--no-tls", "--no-dtls", "--lt-cred-mech"]
     ports:
       - "3478:3478/udp"

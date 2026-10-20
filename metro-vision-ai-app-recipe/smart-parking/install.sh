@@ -6,12 +6,12 @@ MODE="${2:-def}"
 # Link names mounted by the compose files -> "<default target>|<scenescape target>" (same dir).
 # An empty target means the link must not exist in that mode.
 declare -A CONFIG_LINKS=(
-  [src/dlstreamer-pipeline-server/config.json]="config_def.json|config_ss.json"
-  [src/grafana/datasources.yml]="datasources_def.yml|datasources_ss.yml"
-  [src/node-red/flows.json]="flows_def.json|flows_ss.json"
-  [src/node-red/install_package.sh]="install_package_def.sh|install_package_ss.sh"
-  [src/node-red/settings.js]="|settings_ss.js"
-  [src/node-red/flows_cred.json]="|flows_cred_ss.json"
+  [src/dlstreamer-pipeline-server/config.json]="config_without_scenescape.json|config_scenescape.json"
+  [src/grafana/datasources.yml]="datasources_without_scenescape.yml|datasources_scenescape.yml"
+  [src/node-red/flows.json]="flows_without_scenescape.json|flows_scenescape.json"
+  [src/node-red/install_package.sh]="install_package_without_scenescape.sh|install_package_scenescape.sh"
+  [src/node-red/settings.js]="|settings_scenescape.js"
+  [src/node-red/flows_cred.json]="|flows_cred_scenescape.json"
 )
 
 link_target() {
@@ -48,6 +48,42 @@ for link in "${!CONFIG_LINKS[@]}"; do
   ln -s "$target" "$link_path"
   echo "  ${link} -> ${target}"
 done
+
+host_timezone() {
+    local tz
+    tz=$(timedatectl show -p Timezone --value 2>/dev/null)
+    if [ -z "$tz" ] && [ -f /etc/timezone ]; then
+        tz=$(cat /etc/timezone)
+    fi
+    if [ -z "$tz" ]; then
+        tz=$(readlink -f /etc/localtime 2>/dev/null | sed -n 's|.*/zoneinfo/||p')
+    fi
+    echo "${tz:-UTC}"
+}
+
+# Configure or clean up smart-parking specific environment variables in the parent .env file
+ENV_FILE="${SCRIPT_DIR}/../.env"
+if [ -f "$ENV_FILE" ]; then
+  # Remove any existing smart-parking SceneScape settings first
+  sed -i -e '/^# SceneScape settings for smart-parking/d' \
+         -e '/^\(SCENESCAPE_ENABLED\|SS_SCENE_DB\|SS_INFLUX_BUCKET\|SS_MODELS_SRC\|SS_MODELS_TARGET\|SS_ENABLE_WEBRTC\|SS_TZ\|COMPOSE_PROFILES\)=/d' "$ENV_FILE"
+  sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$ENV_FILE"
+
+  if [ "$MODE" = "ss" ]; then
+    cat >> "$ENV_FILE" <<EOF
+
+# SceneScape settings for smart-parking
+SCENESCAPE_ENABLED=true
+SS_SCENE_DB=smart-parking-ri.tar.bz2
+SS_INFLUX_BUCKET=SS-Parking
+SS_MODELS_SRC=models
+SS_MODELS_TARGET=/home/pipeline-server/models
+SS_ENABLE_WEBRTC=true
+SS_TZ=$(host_timezone)
+COMPOSE_PROFILES=smart-parking-scenescape
+EOF
+  fi
+fi
 
 if [ "$MODE" = "ss" ]; then
   bash "${SCRIPT_DIR}/init-scenescape.sh"

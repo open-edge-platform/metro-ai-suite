@@ -9,18 +9,6 @@ if [ ! -f "$ENV_FILE" ]; then
     exit 1
 fi
 
-host_timezone() {
-    local tz
-    tz=$(timedatectl show -p Timezone --value 2>/dev/null)
-    if [ -z "$tz" ] && [ -f /etc/timezone ]; then
-        tz=$(cat /etc/timezone)
-    fi
-    if [ -z "$tz" ]; then
-        tz=$(readlink -f /etc/localtime 2>/dev/null | sed -n 's|.*/zoneinfo/||p')
-    fi
-    echo "${tz:-UTC}"
-}
-
 # Check and set SAMPLE_APP from first argument
 SAMPLE_APP_ARG="$1"
 if [ -z "$SAMPLE_APP_ARG" ]; then
@@ -33,10 +21,6 @@ fi
 SCENESCAPE_ENABLED=false
 HOST_IP_ARG="$2"
 if [ "$2" = "ss" ]; then
-    if [ "$SAMPLE_APP_ARG" != "smart-parking" ]; then
-        echo "Error: 'ss' mode is only supported for smart-parking."
-        exit 1
-    fi
     SCENESCAPE_ENABLED=true
     HOST_IP_ARG="$3"
 fi
@@ -77,31 +61,6 @@ if grep -q "^HOST_IP=" "$ENV_FILE"; then
 else
     # Add HOST_IP if it doesn't exist
     echo "HOST_IP=$HOST_IP" >> "$ENV_FILE"
-fi
-
-# SceneScape (smart-parking ss) settings live in .env only while that mode is installed
-SS_ENV_MARKER="# SceneScape variant settings, written by install.sh for 'smart-parking ss' (removed in other modes)"
-remove_ss_env() {
-    sed -i -e '/^# SceneScape variant settings, written by install.sh/d' \
-        -e '/^\(SCENESCAPE_ENABLED\|SS_SCENE_DB\|SS_INFLUX_BUCKET\|SS_MODELS_SRC\|SS_MODELS_TARGET\|SS_ENABLE_WEBRTC\|SS_TZ\|COMPOSE_PROFILES\)=/d' "$ENV_FILE"
-    # Drop trailing blank lines so repeated mode switches do not grow the file
-    sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$ENV_FILE"
-}
-
-remove_ss_env
-if [ "$SCENESCAPE_ENABLED" = "true" ]; then
-    cat >> "$ENV_FILE" <<EOF
-
-$SS_ENV_MARKER
-SCENESCAPE_ENABLED=true
-SS_SCENE_DB=smart-parking-ri.tar.bz2
-SS_INFLUX_BUCKET=SS-Parking
-SS_MODELS_SRC=models
-SS_MODELS_TARGET=/home/pipeline-server/models
-SS_ENABLE_WEBRTC=true
-SS_TZ=$(host_timezone)
-COMPOSE_PROFILES=webrtc
-EOF
 fi
 
 # Extract SAMPLE_APP variable from .env file

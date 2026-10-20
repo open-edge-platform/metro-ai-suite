@@ -92,7 +92,7 @@ By following this guide, you will learn how to:
    - Start video streams to run video inference pipelines. Pass `cpu`, `gpu` or `npu` to select the inference device:
 
      ```bash
-     ./sample_start.sh cpu
+     ./sample_start.sh gpu
      ```
 
      One pipeline is started for each of the four parking zones. Each pipeline publishes its detections to the
@@ -172,14 +172,18 @@ By following this guide, you will learn how to:
 ### **DL Streamer Pipeline Server**
 
 - **REST API**: `https://localhost/api/pipelines/status`
-- **WebRTC**: `https://localhost/mediamtx/object_detection_1/`
+- **WebRTC**:
+  - `https://localhost/mediamtx/object_detection_1/`
+  - `https://localhost/mediamtx/object_detection_2/`
+  - `https://localhost/mediamtx/object_detection_3/`
+  - `https://localhost/mediamtx/object_detection_4/`
 
 ## **Stop the Application**
 
 - To stop the application microservices, use the following command:
 
   ```bash
-  docker compose down
+  docker compose down -v
   ```
 
 ## Supporting Resources
