@@ -29,70 +29,38 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
     mqtt_ca_bundle: str = ""
     mqtt_client_cert: str = ""
     mqtt_client_key: str = ""
-    # Topic prefix used to publish/subscribe inference metadata, matching the LD
-    # app's OWN existing topic convention (see loitering-detection's
-    # sample_start.sh: "${SOURCE_TOPIC_PREFIX:-object_tracking}/$x") instead of
-    # VMS inventing its own naming scheme. Must match whatever SOURCE_TOPIC_PREFIX
-    # the deployment's mqtt-table-flattener/.env is actually configured with.
-    # Final topic = "{metadata_topic_prefix}/{vendor}:{device_id}", e.g.
-    # "object_tracking/nx:e3e9a385-...".
+    # Topic prefix for metadata pub/sub, matching the LD app's own SOURCE_TOPIC_PREFIX
+    # convention (not a VMS-invented scheme). Final topic:
+    # "{metadata_topic_prefix}/{vendor}:{device_id}". Part of the pipeline-start payload.
     metadata_topic_prefix: str = "object_tracking"
-    # Optional DLSPS-side zone config file path sent as the start payload's
-    # "analytics-properties.config" (gvaanalytics zones JSON) - see
-    # loitering-detection's sample_start.sh. Hardcoded/static for now (one zone
-    # file per deployment); empty disables sending it (pipeline's own
-    # config.json default is used instead).
+    # DLSPS zone config path, sent as the start payload's "analytics-properties.config".
+    # Empty = pipeline's own config.json default is used instead.
     zone_config_path: str = ""
-    # Maps detection labels (case-insensitive) to Nx Witness object typeIds.
-    # Any label not present here falls back to "python.detected.object".
-    # These typeIds are also merged into the Nx analytics manifest at startup
-    # so that Nx accepts pushed objects for all configured types.
-    # Example:
-    #   label_type_map:
-    #     car: vap.vehicle
-    #     truck: vap.vehicle
-    #     person: vap.person
-    #     forklift: custom.forklift
+    # Maps detection labels (case-insensitive) to Nx typeIds; unmapped labels fall
+    # back to "python.detected.object". Also merged into the Nx manifest at startup.
+    # Example: {car: vap.vehicle, person: vap.person}
     label_type_map: dict[str, str] = Field(default_factory=dict)
-    # Compensates for the delay between frame capture and MQTT message arrival
-    # (inference latency + pipeline overhead). A negative value shifts the pushed
-    # metadata timestamp backward so it aligns with the corresponding video frame
-    # in Nx. For example, -300 corrects for ~300 ms of inference latency.
-    # Has no effect when sender_ntp_unix_timestamp_ns is present in the payload.
+    # Shifts the pushed metadata timestamp (ms) to compensate for pipeline latency;
+    # ignored when sender_ntp_unix_timestamp_ns is present in the payload.
     metadata_timestamp_offset_ms: int = 0
     # Per-device pipeline mapping used by Nx UI controls and run startup.
     # At least one of CPU/GPU/NPU must be configured with a non-empty value.
     pipeline: dict[str, str] = Field(default_factory=dict)
 
-    # Newer DLStreamer pipelines (gvaanalytics + zone config) compute zone
-    # membership/dwell-time natively and surface it per-object as
-    # "zone_violations" (list of zone ids) and "dwell_times" (list of
-    # {zone_id, dwell_time_sec}). When enabled, only objects currently inside a
-    # monitored zone are pushed to Nx — objects detected elsewhere in the
-    # (now full-frame) detection are dropped. Has no effect on pipelines that
-    # don't emit zone_violations/dwell_times (plain object-detection apps).
+    # Only push objects with a "zone_violations"/"dwell_times" entry (gvaanalytics
+    # zone/dwell output); no-op on pipelines that don't emit those fields.
     zone_filter_enabled: bool = False
-    # Static zone geometry to draw in Nx as a persistent marker box, since the
-    # pipeline no longer emits a fake detection object for the ROI. Keyed by
-    # zone id (must match the zone id in the DLSPS zones/<video>.json config).
-    # bounding_box is normalized [x_min, y_min, x_max, y_max] (0-1), matching
-    # the pixel polygon's bounding rect in that same zones JSON file.
-    # Example:
-    #   zones:
-    #     region1:
-    #       label: "Loitering Zone"
-    #       bounding_box: [0.0, 0.2778, 0.2344, 0.5556]
+    # Zone geometry drawn as a persistent marker box in Nx (replaces the fake ROI
+    # object older pipelines emitted). bounding_box is normalized [x_min, y_min,
+    # x_max, y_max]; keyed by zone id, must match the DLSPS zones/<video>.json.
+    # Example: {region1: {label: "Loitering Zone", bounding_box: [0, 0.28, 0.23, 0.56]}}
     zones: dict[str, dict] = Field(default_factory=dict)
-    # Nx typeId used for the pushed zone marker box(es); auto-registered via
-    # object_types() when zones is non-empty.
+    # Nx typeId for the pushed zone marker box(es); auto-registered when zones is set.
     zone_type_id: str = "vap.zone"
 
-    # The loitering-detection recipe's own mqtt-table-flattener sidecar already
-    # decides when a track has crossed ITS loitering threshold (configured
-    # inside the DLSPS pipeline/app, not here) and republishes one row per
-    # qualifying track to "<this app's metadata topic>/<loiter_status_topic_suffix>".
-    # When enabled, the plugin subscribes to that dedicated topic and pushes an
-    # Nx bookmark for every row received - no dedup/threshold logic of its own.
+    # Subscribes to the LD recipe's dedicated loiterstatus topic (mqtt-table-flattener
+    # sidecar) and pushes an Nx bookmark for every row received - no dedup/threshold
+    # logic here, the LD app already decided the track is loitering.
     loiter_bookmark_enabled: bool = False
     # Must match the mqtt-table-flattener's DEST_TOPIC_SUFFIX env var.
     loiter_status_topic_suffix: str = "loiterstatus"
@@ -143,26 +111,14 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
         """Return configured pipeline name for a given device (case-insensitive)."""
         return self.pipeline.get(str(device or "").strip().upper(), "")
     def object_types(self) -> list[str]:
-        """Return the object type ids this app emits (VMS-neutral).
-
-        Derived from ``label_type_map`` values so a VMS shim can register them
-        generically, without knowing this app exists. Apps that do not push
-        object detections simply omit this method. Also includes
-        ``zone_type_id`` when zones are configured, since the zone marker
-        box(es) are pushed with that typeId.
-        """
+        """Object type ids this app emits (label_type_map values, plus zone_type_id if zones is set)."""
         types = set(self.label_type_map.values())
         if self.zones:
             types.add(self.zone_type_id)
         return sorted(types)
 
     def control_params(self) -> list[dict]:
-        """Declare this app's per-camera control knobs (VMS-neutral).
-
-        A ``bool`` named ``pipelineEnabled`` is the start/stop toggle; ``device``
-        selects the inference device. Only configured devices are exposed.
-        A VMS shim renders these into its own UI.
-        """
+        """Per-camera control knobs (VMS-neutral): pipelineEnabled toggle + device enum."""
         device_options = self.configured_pipeline_devices()
         return [
             {
