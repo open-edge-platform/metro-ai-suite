@@ -94,8 +94,8 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
                 zones=self._config.zones,
                 zone_type_id=self._config.zone_type_id,
                 metadata_topic_prefix=self._config.metadata_topic_prefix,
-                loiter_bookmark_enabled=self._config.loiter_bookmark_enabled,
-                loiter_status_topic_suffix=self._config.loiter_status_topic_suffix,
+                event_bookmark_enabled=self._config.event_bookmark_enabled,
+                event_topic_suffix=self._config.event_topic_suffix,
             ),
             name=f"mqtt-subscriber-{self.app_id}",
         )
@@ -219,10 +219,6 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
                 device = configured[0] if configured else device
             pipeline_name = self._config.pipeline_for_device(device)
             extra_params = {"detection-properties": {"device": device}}
-
-        if self._config.zone_config_path:
-            extra_params = dict(extra_params)
-            extra_params["analytics-properties"] = {"config": self._config.zone_config_path}
 
         if not pipeline_name:
             raise ValueError("pipeline_name is required")

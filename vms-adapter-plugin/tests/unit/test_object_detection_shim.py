@@ -153,10 +153,10 @@ def test_zone_filter_enabled_defaults_false():
     assert cfg.zone_filter_enabled is False
 
 
-def test_loiter_bookmark_config_defaults():
+def test_event_bookmark_config_defaults():
     cfg = _make_config()
-    assert cfg.loiter_bookmark_enabled is False
-    assert cfg.loiter_status_topic_suffix == "loiterstatus"
+    assert cfg.event_bookmark_enabled is False
+    assert cfg.event_topic_suffix == "loiterstatus"
 
 
 # ── is_reachable ──────────────────────────────────────────────────────────────
@@ -224,26 +224,6 @@ async def test_start_uses_default_root_when_not_in_map():
             "destination": {"metadata": {"type": "mqtt", "topic": "object_tracking/vap:unknown"}},
             "parameters": {},
         },
-    )
-
-
-async def test_start_sends_zone_config_path_when_configured():
-    shim = _make_shim(zone_config_path="/home/pipeline-server/zones/VIRAT_S_000101.json")
-    shim._pipeline_root_map = {"dls_vision_pipeline": "user_defined_pipelines"}
-    shim._api.start_run = AsyncMock(return_value={"instance_id": "abc123"})
-
-    params = MagicMock()
-    params.model_dump.return_value = {
-        "pipeline_name": "dls_vision_pipeline",
-        "camera_id": "rtsp://cam/s",
-        "camera_id_ref": "nx:abc",
-        "parameters": {},
-    }
-    await shim.start(params)
-
-    sent_payload = shim._api.start_run.call_args.args[2]
-    assert sent_payload["parameters"]["analytics-properties"]["config"] == (
-        "/home/pipeline-server/zones/VIRAT_S_000101.json"
     )
 
 

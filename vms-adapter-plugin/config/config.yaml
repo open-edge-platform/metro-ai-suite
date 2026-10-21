@@ -39,11 +39,6 @@ analytics_apps:
     # recipe's mqtt-table-flattener (and its default .env) needs no changes.
     # Part of payload when starting loitering app
     metadata_topic_prefix: "${DLS_METADATA_TOPIC_PREFIX:-object_tracking}"
-    # DLSPS-side zone config file sent per-start via the Pipeline Server's own
-    # "analytics-properties.config" provision (see loitering-detection/
-    # sample_start.sh) - static/hardcoded for now, one zone file per deployment.
-    # Part of payload when starting loitering app
-    zone_config_path: "${DLS_ZONE_CONFIG_PATH:-/home/pipeline-server/zones/VIRAT_S_000101.json}"
     # DLS pipelines to run per selected Nx UI device option (CPU/GPU/NPU). 
     # At least one of these must be specified for the plugin to start successfully.
     pipeline:
@@ -74,9 +69,9 @@ analytics_apps:
         label: "Loitering Zone"
         bounding_box: [0.0, 0.2778, 0.2344, 0.5556]
 
-    # Push an Nx bookmark for all messages on the loitering app mqtt topic
+    # Push an Nx bookmark for all messages on the app's status-event mqtt topic
     # "<this app's metadata topic>/loiterstatus".
-    loiter_bookmark_enabled: true
+    event_bookmark_enabled: true
 
 api:
   host: "0.0.0.0"

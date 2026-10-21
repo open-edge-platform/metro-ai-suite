@@ -33,9 +33,6 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
     # convention (not a VMS-invented scheme). Final topic:
     # "{metadata_topic_prefix}/{vendor}:{device_id}". Part of the pipeline-start payload.
     metadata_topic_prefix: str = "object_tracking"
-    # DLSPS zone config path, sent as the start payload's "analytics-properties.config".
-    # Empty = pipeline's own config.json default is used instead.
-    zone_config_path: str = ""
     # Maps detection labels (case-insensitive) to Nx typeIds; unmapped labels fall
     # back to "python.detected.object". Also merged into the Nx manifest at startup.
     # Example: {car: vap.vehicle, person: vap.person}
@@ -58,12 +55,14 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
     # Nx typeId for the pushed zone marker box(es); auto-registered when zones is set.
     zone_type_id: str = "vap.zone"
 
-    # Subscribes to the LD recipe's dedicated loiterstatus topic (mqtt-table-flattener
-    # sidecar) and pushes an Nx bookmark for every row received - no dedup/threshold
-    # logic here, the LD app already decided the track is loitering.
-    loiter_bookmark_enabled: bool = False
-    # Must match the mqtt-table-flattener's DEST_TOPIC_SUFFIX env var.
-    loiter_status_topic_suffix: str = "loiterstatus"
+    # Subscribes to the app's dedicated status-event topic (e.g. the loitering-
+    # detection recipe's mqtt-table-flattener sidecar) and pushes an Nx bookmark
+    # for every row received - no dedup/threshold logic here, the app already
+    # decided the event occurred.
+    event_bookmark_enabled: bool = False
+    # Must match the publisher's destination topic suffix (e.g. mqtt-table-flattener's
+    # DEST_TOPIC_SUFFIX env var).
+    event_topic_suffix: str = "loiterstatus"
 
     @model_validator(mode="after")
     def _normalize_and_validate_zones(self):
