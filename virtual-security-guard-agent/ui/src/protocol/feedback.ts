@@ -1,8 +1,25 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import { PROTOCOL_VERSION } from "./directives";
+import type { z } from "zod";
+import {
+  PROTOCOL_VERSION,
+  type contextDirective,
+  type feedbackDirective,
+} from "./directives";
 
-function block(fence: string, payload: Record<string, unknown>): string {
+/** Blocks the UI writes, typed by the schemas Argus's replies are read with. */
+interface UiBlocks {
+  "vsg-context": Omit<z.input<typeof contextDirective>, "v">;
+  "vsg-feedback": Omit<z.input<typeof feedbackDirective>, "v">;
+}
+
+/** Prompt used when the operator sends only a photo. */
+export const IMAGE_ONLY_PROMPT = "Find this person in the recorded footage.";
+
+function block<F extends keyof UiBlocks>(
+  fence: F,
+  payload: UiBlocks[F],
+): string {
   const clean = Object.fromEntries(
     Object.entries(payload).filter(
       ([, v]) =>
@@ -22,28 +39,18 @@ function block(fence: string, payload: Record<string, unknown>): string {
 export interface SearchRequest {
   text: string;
   imageUrl?: string;
-  tags?: string[];
-  start?: string;
-  end?: string;
   limit?: number;
 }
 
 /** Operator prompt + optional vsg-context block, sent as the Hermes run input. */
 export function buildSearchInput(req: SearchRequest): string {
-  const prose =
-    req.text.trim() ||
-    (req.imageUrl ? "Find this person in the recorded footage." : "");
-  const hasContext =
-    req.imageUrl || req.tags?.length || req.start || req.end || req.limit;
-  if (!hasContext) return prose;
+  const prose = req.text.trim() || (req.imageUrl ? IMAGE_ONLY_PROMPT : "");
+  if (!req.imageUrl && !req.limit) return prose;
   return [
     prose,
     "",
     block("vsg-context", {
       image_url: req.imageUrl,
-      tags: req.tags,
-      start: req.start,
-      end: req.end,
       limit: req.limit,
     }),
   ].join("\n");

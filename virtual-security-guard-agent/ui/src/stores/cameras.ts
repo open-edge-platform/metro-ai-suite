@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
+import { useEffect } from "react";
 import { create } from "zustand";
 import { getAdapters } from "@/adapters";
 import type { StreamInput, StreamPatch, VssStream } from "@/adapters/vss/types";
-import { cameraLabel } from "@/lib/utils";
 
 export type CameraStatus = "live" | "starting" | "paused" | "offline";
 
@@ -11,7 +11,7 @@ export type CameraStatus = "live" | "starting" | "paused" | "offline";
 export interface Camera extends VssStream {
   /** Same as streamId. */
   id: string;
-  /** Free-text location (the stream description). */
+  /** The stream's VSS description; show `useCameraLocation`, which prefers the plan zone. */
   location: string;
   /** Key used by hits (`cameraTag`) and the floorplan: the stream's VSS tag, else its id. */
   tag: string;
@@ -19,6 +19,9 @@ export interface Camera extends VssStream {
   /** Host (and port) parsed from the RTSP URL. */
   ip?: string;
 }
+
+/** How often pages that show camera status re-read the streams. */
+export const CAMERA_POLL_MS = 10_000;
 
 /** A running camera is offline once its frame clock stops advancing this long. */
 const STALE_MS = 60_000;
@@ -82,7 +85,8 @@ export const useCamerasStore = create<CamerasState>()((set, get) => ({
   async load() {
     try {
       const streams = await getAdapters().vss.listStreams();
-      set({ cameras: streams.map(toCamera), loaded: true, error: undefined });
+      const cameras = streams.map(toCamera);
+      set({ cameras, loaded: true, error: undefined });
     } catch (e) {
       set({ loaded: true, error: (e as Error).message });
     }
@@ -108,6 +112,9 @@ export const useCamerasStore = create<CamerasState>()((set, get) => ({
 export const selectHasLiveCamera = (s: CamerasState) =>
   s.cameras.some((c) => c.status === "live");
 
+export const selectLiveCameraCount = (s: CamerasState) =>
+  s.cameras.filter((c) => c.status === "live").length;
+
 /**
  * Camera for a hit's key: its VSS tag, or the stream id of a hit that carried
  * no tag. Streams sharing a tag are one camera; a live one wins.
@@ -121,9 +128,14 @@ export function selectCameraByTag(tag: string | undefined) {
   return (s: CamerasState) => (tag ? findCamera(s.cameras, tag) : undefined);
 }
 
-/** Display name for a hit's camera key: the stream's name, else a readable tag. */
-export function cameraName(tag: string | undefined): string {
-  if (!tag) return "Unknown camera";
-  const cam = findCamera(useCamerasStore.getState().cameras, tag);
-  return cam?.name ?? cameraLabel(tag);
+/** Keep the camera list fresh while a page shows it (only when visible). */
+export function useCameraPolling() {
+  const load = useCamerasStore((s) => s.load);
+  useEffect(() => {
+    void load();
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, CAMERA_POLL_MS);
+    return () => clearInterval(t);
+  }, [load]);
 }

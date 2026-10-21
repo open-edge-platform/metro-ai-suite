@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   ChevronDown,
+  ImagePlus,
   Loader2,
+  MessageSquare,
   RotateCw,
   SendHorizontal,
 } from "lucide-react";
@@ -12,19 +14,14 @@ import type { VssHit } from "@/adapters/vss/types";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { noteForHit, resolveRefs, scoreCutoff, segmentKey } from "@/lib/hits";
+import { hitKey, noteForHit, resolveRefs, scoreCutoff } from "@/lib/hits";
 import type { MatchesDirective } from "@/protocol/directives";
-import { inlineReviewKey } from "@/stores/investigation.logic";
-import {
-  sameVerdicts,
-  splitVerdicts,
-  useConfirmedSightings,
-  useHitlStore,
-  type Verdict,
-} from "@/stores/hitl";
-import { useInvestigationStore } from "@/stores/investigation";
+import { useRoute } from "@/hooks/useRoute";
+import { sameVerdicts, splitVerdicts, type Verdict } from "@/stores/case";
+import { latestGridId, useInvestigationStore } from "@/stores/investigation";
 import { useSettingsStore } from "@/stores/settings";
 import { ClipPlayerDialog } from "./ClipPlayerDialog";
+import { ATTACH_INPUT_ID, PROMPT_ID } from "./Composer";
 import { MatchCard } from "./MatchCard";
 import { useDirectiveHits } from "./useDirectiveHits";
 import { useSubmitReview } from "./useSubmitReview";
@@ -33,7 +30,7 @@ const EMPTY: Record<string, Verdict> = {};
 
 interface Props {
   data: MatchesDirective;
-  /** Agent turn that emitted the grid; keys inline-only results. */
+  /** Agent turn that emitted the grid; keys its review. */
   turnId: string;
   /** False while Argus is busy: verdicts can still change, sending waits. */
   interactive: boolean;
@@ -47,24 +44,22 @@ const MAX_FINDINGS = 20;
 /**
  * Human-in-the-loop review of Argus's potential matches: the top six, with
  * "Show more findings" revealing up to twenty. The operator only confirms;
- * every shown match left unconfirmed is sent as a false positive. Every grid
- * of the session stays reviewable, so sightings found by later searches (e.g.
- * after cropping the person) add to the same confirmed list, which becomes
- * the time-ordered route and the report.
+ * every shown match left unconfirmed is sent as a false positive. Only the
+ * latest grid can be changed; earlier grids show what was sent. Sightings
+ * confirmed in any grid form the time-ordered route and the report.
  */
 export function ValidationGrid({ data, turnId, interactive }: Props) {
-  const { hits, source, query, queryId, isLoading, isRunning, error, refetch } =
-    useDirectiveHits(data, turnId);
+  const { hits, queryId, unreadable, isLoading, error, retry } =
+    useDirectiveHits(turnId);
   const minScore = useSettingsStore((s) => s.minTraceScore);
-  const setSubject = useInvestigationStore((s) => s.setSubject);
   const send = useInvestigationStore((s) => s.send);
-  const key = queryId ?? inlineReviewKey(turnId);
-  const verdicts = useHitlStore((s) => s.verdicts[key] ?? EMPTY);
-  const sent = useHitlStore((s) => s.sent[key]);
-  const toggle = useHitlStore((s) => s.toggle);
-  const replace = useHitlStore((s) => s.replace);
-  const registerHits = useHitlStore((s) => s.registerHits);
-  const session = useConfirmedSightings();
+  const editable = useInvestigationStore(
+    (s) => latestGridId(s.turns) === turnId,
+  );
+  const review = useInvestigationStore((s) => s.reviews[turnId]);
+  const setVerdicts = useInvestigationStore((s) => s.setVerdicts);
+  const sent = review?.sent;
+  const route = useRoute();
   const [playing, setPlaying] = useState<VssHit>();
   // Only hits at or above the operator's cut-off (relative to the peak score).
   const cutoff = useMemo(() => scoreCutoff(hits, minScore), [hits, minScore]);
@@ -79,44 +74,37 @@ export function ValidationGrid({ data, turnId, interactive }: Props) {
   const sentCount = sent ? Object.keys(sent).length : 0;
   const count = Math.min(total, Math.max(visible, sentCount));
   const shown = useMemo(() => eligible.slice(0, count), [eligible, count]);
-  const picks = useMemo(
-    () => resolveRefs(data.keep, hits) ?? new Set<string>(),
-    [data.keep, hits],
-  );
-  const { submit, sending } = useSubmitReview(key, queryId, hits);
+  // A badge on every card says nothing, so it only marks a subset.
+  const picks = useMemo(() => {
+    const p = resolveRefs(data.keep, hits) ?? new Set<string>();
+    return eligible.every((h) => p.has(h.matchId)) ? new Set<string>() : p;
+  }, [data.keep, hits, eligible]);
+  const { submit, sending } = useSubmitReview(turnId, queryId, hits);
 
-  // Let the session's confirmed list resolve this grid's refs to sightings.
-  useEffect(() => {
-    if (hits.length) registerHits(key, hits);
-  }, [key, hits, registerHits]);
-
-  /** Segments confirmed in other grids show as confirmed here too. */
-  const confirmedElsewhere = useMemo(
-    () => new Set(session.map(segmentKey)),
-    [session],
-  );
-  const verdictFor = (h: VssHit): Verdict | undefined =>
-    verdicts[h.matchId] ??
-    (confirmedElsewhere.has(segmentKey(h)) ? "confirm" : undefined);
+  // An unreviewed grid starts with the sightings already on the route.
+  const verdicts = useMemo(() => {
+    if (!editable) return sent ?? EMPTY;
+    if (review) return review.verdicts;
+    const onRoute = new Set(route.map((s) => hitKey(s.hit)));
+    const out: Record<string, Verdict> = {};
+    for (const h of hits)
+      if (onRoute.has(hitKey(h))) out[h.matchId] = "confirm";
+    return out;
+  }, [editable, sent, review, route, hits]);
+  const verdictFor = (h: VssHit): Verdict | undefined => verdicts[h.matchId];
 
   /** What saving would send: shown + unconfirmed = false positive. */
   const next = useMemo(() => {
     const out: Record<string, Verdict> = {};
     for (const h of shown)
-      out[h.matchId] =
-        (verdicts[h.matchId] ??
-          (confirmedElsewhere.has(segmentKey(h)) ? "confirm" : undefined)) ===
-        "confirm"
-          ? "confirm"
-          : "reject";
+      out[h.matchId] = verdicts[h.matchId] === "confirm" ? "confirm" : "reject";
     return out;
-  }, [shown, verdicts, confirmedElsewhere]);
+  }, [shown, verdicts]);
   const confirmed = splitVerdicts(next).confirm.length;
   const changed = !sent || !sameVerdicts(next, sent);
 
-  /** A frame was cropped and stored in VSS: make it the subject, then search for it. */
-  function onCropSubject(image: { previewUrl: string; imageUrl: string }) {
-    setSubject(image);
+  /** A frame was cropped and stored in VSS: search the footage for it. */
+  function onCrop(image: { previewUrl: string; imageUrl: string }) {
     toast.success("Cropped person saved to VSS", {
       description: "Searching the footage for that person…",
     });
@@ -132,28 +120,27 @@ export function ValidationGrid({ data, turnId, interactive }: Props) {
       return;
     }
     if (confirmed === 0) {
-      // Nothing matches: no automatic re-search; the operator retries.
+      // Nothing matches: nothing is sent; the operator retries from the composer.
       setNoMatch(true);
       return;
     }
     setNoMatch(false);
-    replace(key, next);
-    void submit();
+    void submit(next);
   }
 
   function onVerdict(h: VssHit) {
-    // A sighting confirmed in another grid is "confirm" here until changed.
-    if (verdicts[h.matchId] === undefined && verdictFor(h) === "confirm")
-      useHitlStore.getState().setVerdict(key, h.matchId, "reject");
-    else toggle(key, h.matchId, "confirm");
+    const out = { ...verdicts };
+    if (out[h.matchId] === "confirm") delete out[h.matchId];
+    else out[h.matchId] = "confirm";
+    setVerdicts(turnId, out);
   }
 
-  if (isLoading || isRunning)
+  if (isLoading)
     return (
       <section className="border bg-card p-3" aria-busy>
         <p className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> Loading potential matches
-          from VSS
+          from the search result
         </p>
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
           {Array.from({ length: PAGE }).map((_, i) => (
@@ -168,9 +155,9 @@ export function ValidationGrid({ data, turnId, interactive }: Props) {
       <section className="status-error flex items-center gap-3 border border-[var(--status-border)] bg-[var(--status-bg)] p-3 text-sm text-[var(--status-fg)]">
         <AlertTriangle className="size-4 shrink-0" />
         <span className="flex-1">
-          Couldn't load search {queryId} from VSS: {error.message}
+          Couldn't read the search results from the transcript: {error}
         </span>
-        <Button size="sm" variant="outline" onClick={() => refetch()}>
+        <Button size="sm" variant="outline" onClick={retry}>
           <RotateCw /> Retry
         </Button>
       </section>
@@ -179,21 +166,15 @@ export function ValidationGrid({ data, turnId, interactive }: Props) {
   if (!shown.length)
     return (
       <section className="border border-dashed bg-card p-4 text-sm text-muted-foreground">
-        VSS returned no sightings for this search. Try a wider time window, more
-        cameras or a different description.
+        {unreadable
+          ? unreadableText(unreadable)
+          : "VSS returned no sightings for this search. Try a wider time window, more cameras or a different description."}
       </section>
     );
 
   return (
     <section className="border bg-card" aria-label="Potential matches">
       <header className="flex items-center gap-3 border-b px-3 py-2">
-        {query?.image && (
-          <img
-            src={query.image}
-            alt="Search image"
-            className="size-9 shrink-0 object-cover"
-          />
-        )}
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold">
             {shown.length} potential match{shown.length === 1 ? "" : "es"}
@@ -205,23 +186,18 @@ export function ValidationGrid({ data, turnId, interactive }: Props) {
             )}
           </h3>
           <p className="truncate text-xs text-muted-foreground">
-            {sent && !changed
-              ? "Review sent to Argus. You can still confirm more sightings."
-              : "Confirm the sightings that show the subject. Unconfirmed ones count as false positives."}
+            {!editable
+              ? "Earlier search. Only the latest results can be changed."
+              : sent && !changed
+                ? "Review sent to Argus. You can still confirm more sightings."
+                : "Confirm the sightings that show the subject. Unconfirmed ones count as false positives."}
           </p>
         </div>
-        {queryId ? (
+        {queryId && (
           <span className="font-mono text-[0.6875rem] text-muted-foreground">
             {queryId}
           </span>
-        ) : source === "inline" ? (
-          <span
-            className="text-[0.6875rem] text-muted-foreground"
-            title="These matches were copied by the agent and could not be checked against VSS."
-          >
-            unverified
-          </span>
-        ) : null}
+        )}
       </header>
 
       <div className="grid grid-cols-2 gap-2.5 p-3 sm:grid-cols-3">
@@ -233,11 +209,18 @@ export function ValidationGrid({ data, turnId, interactive }: Props) {
             picked={picks.has(h.matchId)}
             note={noteForHit(data.notes, h)}
             minScore={cutoff}
+            readOnly={!editable}
             onVerdict={() => onVerdict(h)}
             onPlay={() => setPlaying(h)}
           />
         ))}
       </div>
+
+      {unreadable > 0 && (
+        <p className="px-3 pb-2 text-xs text-muted-foreground">
+          {unreadableText(unreadable)}
+        </p>
+      )}
 
       {total > shown.length && (
         <div className="flex justify-center px-3 pb-3">
@@ -254,58 +237,90 @@ export function ValidationGrid({ data, turnId, interactive }: Props) {
         </div>
       )}
 
-      {noMatch && confirmed === 0 && (
-        <p
-          role="status"
-          className="border-t px-3 py-2 text-xs text-muted-foreground"
-        >
-          No match found. Try again with a different image (for example a
-          cropped, clearer one) or a more specific description.
-        </p>
-      )}
-
-      <footer className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t bg-card/95 px-3 py-2.5 backdrop-blur">
-        <p
-          className="shrink-0 text-xs whitespace-nowrap text-muted-foreground"
-          aria-live="polite"
-        >
-          <span className="font-semibold text-confirm">
-            {confirmed} confirmed
-          </span>{" "}
-          of {shown.length}
-          {session.length > 0 && (
-            <span> · {session.length} in this session</span>
+      {editable && (
+        <footer className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t bg-card/95 px-3 py-2.5 backdrop-blur">
+          {!(noMatch && confirmed === 0) && (
+            <p
+              className="shrink-0 text-xs whitespace-nowrap text-muted-foreground"
+              aria-live="polite"
+            >
+              <span className="font-semibold text-confirm">
+                {confirmed} confirmed
+              </span>{" "}
+              of {shown.length}
+              {route.length > 0 && (
+                <span> · {route.length} in this session</span>
+              )}
+            </p>
           )}
-        </p>
-        <Button
-          size="sm"
-          className="ml-auto shrink-0 whitespace-nowrap"
-          disabled={sending || !interactive || !changed}
-          title={
-            !interactive ? "Argus is busy; send when it finishes" : undefined
-          }
-          onClick={save}
-        >
-          {sending ? <Loader2 className="animate-spin" /> : <SendHorizontal />}
-          {!changed
-            ? "Review sent"
-            : confirmed
-              ? sent
-                ? `Update review (${confirmed} confirmed)`
-                : `Save ${confirmed} confirmed`
-              : revealFirst
-                ? `None match, show ${total - shown.length} more`
-                : "None match"}
-        </Button>
-      </footer>
+          {noMatch && confirmed === 0 ? (
+            <div
+              role="status"
+              className="flex flex-1 flex-wrap items-center gap-2 text-xs"
+            >
+              <span className="min-w-48 flex-1 text-muted-foreground">
+                None match. Describe clothing, cameras or a time range, or try
+                another photo.
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  document.getElementById(ATTACH_INPUT_ID)?.click()
+                }
+              >
+                <ImagePlus /> Try another photo
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => document.getElementById(PROMPT_ID)?.focus()}
+              >
+                <MessageSquare /> Refine in chat
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              variant={confirmed || !changed ? "default" : "outline"}
+              className="ml-auto shrink-0 whitespace-nowrap"
+              disabled={sending || !interactive || !changed}
+              title={
+                !interactive
+                  ? "Argus is busy; send when it finishes"
+                  : undefined
+              }
+              onClick={save}
+            >
+              {sending ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <SendHorizontal />
+              )}
+              {!changed
+                ? "Review sent"
+                : confirmed
+                  ? sent
+                    ? `Update review (${confirmed} confirmed)`
+                    : `Save ${confirmed} confirmed`
+                  : revealFirst
+                    ? `None match, show ${total - shown.length} more`
+                    : "None match"}
+            </Button>
+          )}
+        </footer>
+      )}
 
       <ClipPlayerDialog
         hit={playing}
         onOpenChange={(o) => !o && setPlaying(undefined)}
         verdict={playing ? verdictFor(playing) : undefined}
-        onVerdict={playing ? () => onVerdict(playing) : undefined}
-        onCropSubject={onCropSubject}
+        onVerdict={playing && editable ? () => onVerdict(playing) : undefined}
+        onCropSearch={onCrop}
       />
     </section>
   );
 }
+
+const unreadableText = (n: number) =>
+  `${n} result${n === 1 ? "" : "s"} couldn't be read.`;

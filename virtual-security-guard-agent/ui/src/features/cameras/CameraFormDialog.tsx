@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import type { StreamInput } from "@/adapters/vss/types";
 import { Button } from "@/components/ui/button";
@@ -14,26 +14,42 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import type { Camera } from "@/stores/cameras";
+import {
+  freePlanTags,
+  placedTags,
+  placementInput,
+  planCamera,
+} from "@/features/map/tags";
+import { useTags } from "@/hooks/queries";
+import { useCamerasStore, type Camera } from "@/stores/cameras";
+import { useFloorplanStore } from "@/stores/floorplan";
 
 interface FormState {
   streamUrl: string;
-  name: string;
-  location: string;
-  tags: string;
+  /** Floorplan camera key: the stream's name and its one VSS tag. */
+  tag: string;
   frameInterval: string;
   objectDetection: boolean;
 }
 
-const empty = (): FormState => ({
+const empty = (tag = ""): FormState => ({
   streamUrl: "",
-  name: "",
-  location: "",
-  tags: "",
+  tag,
   frameInterval: "15",
   objectDetection: true,
 });
+
+const NO_ZONE = "Other";
 
 function validateStream(f: FormState, editing: boolean) {
   const errors: Partial<Record<keyof FormState, string>> = {};
@@ -43,31 +59,37 @@ function validateStream(f: FormState, editing: boolean) {
     else if (!/^rtsps?:\/\/[^\s/]+/i.test(url))
       errors.streamUrl = "Use an rtsp:// or rtsps:// URL.";
   }
-  if (f.name.length > 120) errors.name = "Keep the name under 120 characters.";
+  if (!editing && !f.tag)
+    errors.tag = "Choose where this camera is on the floorplan.";
   const n = Number(f.frameInterval);
   if (!Number.isInteger(n) || n < 1 || n > 60)
     errors.frameInterval = "Choose a whole number from 1 to 60.";
   return errors;
 }
 
-const splitTags = (s: string) =>
-  s
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean);
-
-/** Add a live RTSP camera to VSS, or edit one. */
+/**
+ * Add a live RTSP camera to VSS, or edit its indexing. A new camera is placed
+ * on a free floorplan camera: its key becomes the stream's name and only VSS
+ * tag, and its zone the description. The position can't change afterwards;
+ * remove the camera and add it again to move it.
+ */
 export function CameraFormDialog({
   open,
   onOpenChange,
   camera,
+  tag: initialTag,
   onSave,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   camera?: Camera;
+  /** Floorplan camera (tag) to preselect for a new camera. */
+  tag?: string;
   onSave: (input: StreamInput) => Promise<void>;
 }) {
+  const plan = useFloorplanStore((s) => s.plan);
+  const cameras = useCamerasStore((s) => s.cameras);
+  const loadCameras = useCamerasStore((s) => s.load);
   const [form, setForm] = useState<FormState>(empty);
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -76,26 +98,43 @@ export function CameraFormDialog({
 
   useEffect(() => {
     if (!open) return;
+    void loadCameras();
     setTouched(false);
     setSaveError(undefined);
     setForm(
       camera
         ? {
             streamUrl: camera.url,
-            name: camera.name,
-            location: camera.location,
-            tags: camera.tags.join(", "),
+            tag: camera.tag,
             frameInterval: String(camera.frameInterval ?? 15),
             objectDetection: camera.objectDetection ?? true,
           }
-        : empty(),
+        : empty(initialTag),
     );
-  }, [open, camera]);
+  }, [open, camera, initialTag, loadCameras]);
+
+  /** Plan cameras that already have a live stream. */
+  const taken = useMemo(() => placedTags(plan, cameras), [cameras, plan]);
+
+  const byZone = useMemo(() => {
+    const groups = new Map<string, string[]>();
+    for (const [k, c] of Object.entries(plan.cameras)) {
+      const zone = c.zone ?? NO_ZONE;
+      groups.set(zone, [...(groups.get(zone) ?? []), k]);
+    }
+    return [...groups].sort(([a], [b]) => a.localeCompare(b));
+  }, [plan]);
+  const free = freePlanTags(plan, cameras).length;
 
   const errors = validateStream(form, editing);
   const set =
     (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm((f) => ({ ...f, [k]: e.target.value }));
+  const tag = form.tag;
+  const node = tag ? planCamera(plan, tag) : undefined;
+  const vssTags = useTags().data;
+  // The position once had a stream: its recorded footage shares the tag.
+  const hasFootage = !editing && !!tag && !!vssTags?.includes(tag);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -104,14 +143,13 @@ export function CameraFormDialog({
     setSaving(true);
     setSaveError(undefined);
     try {
-      await onSave({
-        streamUrl: form.streamUrl.trim(),
-        name: form.name.trim() || undefined,
-        description: form.location.trim() || undefined,
-        tags: splitTags(form.tags),
-        frameInterval: Number(form.frameInterval),
-        objectDetection: form.objectDetection,
-      });
+      await onSave(
+        placementInput(plan, tag, {
+          streamUrl: form.streamUrl.trim(),
+          frameInterval: Number(form.frameInterval),
+          objectDetection: form.objectDetection,
+        }),
+      );
       onOpenChange(false);
     } catch (err) {
       setSaveError((err as Error).message);
@@ -146,7 +184,7 @@ export function CameraFormDialog({
         <form onSubmit={submit} className="grid gap-4" noValidate>
           <DialogHeader>
             <DialogTitle>
-              {editing ? `Edit ${camera.name}` : "Add live camera"}
+              {editing ? `Edit ${camera.tag}` : "Add live camera"}
             </DialogTitle>
             <DialogDescription>
               {editing
@@ -160,11 +198,73 @@ export function CameraFormDialog({
             autoFocus: !editing,
             spellCheck: false,
           })}
-          <div className="grid gap-4 sm:grid-cols-2">
-            {field("name", "Name", { placeholder: "Lobby entrance" })}
-            {field("location", "Location", { placeholder: "Level 4, lobby" })}
-          </div>
-          {field("tags", "Tags", { placeholder: "lobby, entry" })}
+          {editing ? (
+            <div className="grid gap-1.5">
+              <Label>Camera</Label>
+              <p className="text-sm">
+                <span className="font-mono text-xs">{camera.tag}</span>
+                {node?.zone && <>, zone {node.zone}</>}
+              </p>
+              {!node && (
+                <p className="text-xs text-pending">
+                  This camera isn't on the floorplan.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-1.5">
+              <Label htmlFor="cam-tag">Camera</Label>
+              <Select
+                value={form.tag}
+                onValueChange={(v) => setForm((f) => ({ ...f, tag: v }))}
+              >
+                <SelectTrigger
+                  id="cam-tag"
+                  className="w-full"
+                  aria-invalid={touched && !!errors.tag}
+                >
+                  <SelectValue
+                    placeholder={
+                      free
+                        ? `Choose a camera on ${plan.name ?? "the plan"} (${free} free)`
+                        : "Every camera on the plan has a live stream"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {byZone.map(([zone, keys]) => (
+                    <SelectGroup key={zone}>
+                      <SelectLabel>{zone}</SelectLabel>
+                      {keys.map((k) => (
+                        <SelectItem
+                          key={k}
+                          value={k}
+                          disabled={taken.has(k)}
+                          description={
+                            taken.has(k) ? "Has a live stream" : undefined
+                          }
+                        >
+                          <span className="font-mono text-xs">{k}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
+              {touched && errors.tag ? (
+                <p className="text-xs text-destructive">{errors.tag}</p>
+              ) : (
+                tag && (
+                  <p className="text-xs text-muted-foreground">
+                    {node?.zone && <>Zone {node.zone}. </>}
+                    This name is also the VSS tag used for search.
+                    {hasFootage &&
+                      " This camera already has recorded footage; the live stream joins it."}
+                  </p>
+                )
+              )}
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             {field("frameInterval", "Index every N frames", {
               type: "number",

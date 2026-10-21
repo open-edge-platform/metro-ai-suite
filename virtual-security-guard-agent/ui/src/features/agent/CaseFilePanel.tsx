@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
+import { subjectImageOf, subjectTextOf } from "@/stores/investigation.logic";
+import { RouteStopList } from "@/features/map/RouteStopList";
 import { useMemo } from "react";
 import { Link } from "react-router";
 import {
@@ -12,17 +14,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { downloadReport } from "@/features/reports/useReportGenerator";
 import { SpatialMap } from "@/features/map/SpatialMap";
-import { formatClock, timeAgo } from "@/lib/time";
+import { timeAgo } from "@/lib/time";
 import { useFloorplanStore } from "@/stores/floorplan";
-import { useConfirmedSightings, useHitlStore } from "@/stores/hitl";
-import {
-  useInvestigationStore,
-  type OperatorTurn,
-} from "@/stores/investigation";
+import { useRoute } from "@/hooks/useRoute";
+import { useInvestigationStore } from "@/stores/investigation";
 import { useReportsStore } from "@/stores/reports";
-import { useTraceStore } from "@/stores/trace";
-import { PhaseStepper } from "./PhaseStepper";
-import { cameraName } from "@/stores/cameras";
+import { useKnownTags } from "@/hooks/queries";
 
 function Section({
   title,
@@ -44,13 +41,12 @@ function Section({
 /** Right-hand summary of the open investigation. */
 export function CaseFilePanel() {
   const turns = useInvestigationStore((s) => s.turns);
-  const phase = useInvestigationStore((s) => s.phase);
   const sessionId = useInvestigationStore((s) => s.sessionId);
-  const subjectImage = useInvestigationStore((s) => s.subjectImage);
-  const verdicts = useHitlStore((s) => s.verdicts);
-  const trace = useTraceStore((s) => s.latest);
+  const subjectImage = useInvestigationStore((s) => subjectImageOf(s.turns));
+  const reviews = useInvestigationStore((s) => s.reviews);
+  const stops = useRoute();
   const plan = useFloorplanStore((s) => s.plan);
-  const keyMap = useFloorplanStore((s) => s.keyMap);
+  const vssTags = useKnownTags();
   const allReports = useReportsStore((s) => s.reports);
   const reports = useMemo(
     () =>
@@ -58,18 +54,14 @@ export function CaseFilePanel() {
     [allReports, sessionId],
   );
 
-  const brief = turns.find(
-    (t): t is OperatorTurn => t.role === "operator" && t.kind === "search",
-  )?.text;
-  const session = useConfirmedSightings();
+  const brief = subjectTextOf(turns);
   const counts = useMemo(() => {
     let reject = 0;
-    for (const q of Object.values(verdicts))
-      for (const v of Object.values(q)) if (v === "reject") reject++;
-    // Confirmed = unique sightings across every grid of the session.
-    return { confirm: session.length, reject };
-  }, [verdicts, session]);
-  const hasReport = reports.length > 0 || phase === "reporting";
+    for (const r of Object.values(reviews))
+      for (const v of Object.values(r.sent ?? {})) if (v === "reject") reject++;
+    // Confirmed = unique sightings on the route (every grid and live).
+    return { confirm: stops.length, reject };
+  }, [reviews, stops]);
 
   return (
     <aside
@@ -102,15 +94,6 @@ export function CaseFilePanel() {
         )}
       </Section>
 
-      <Section title="Progress">
-        <PhaseStepper
-          phase={phase}
-          started={turns.length > 0}
-          hasReport={hasReport}
-          orientation="vertical"
-        />
-      </Section>
-
       <Section title="Review">
         <div className="flex gap-4 text-sm">
           <span className="flex items-center gap-1.5">
@@ -125,7 +108,7 @@ export function CaseFilePanel() {
       </Section>
 
       <Section title="Route">
-        {trace?.stops.length ? (
+        {stops.length ? (
           <div className="grid gap-2">
             <Link
               to="/floorplan"
@@ -134,37 +117,13 @@ export function CaseFilePanel() {
             >
               <SpatialMap
                 plan={plan}
-                keyMap={keyMap}
-                stops={trace.stops}
+                vssTags={vssTags}
+                stops={stops}
                 animate={false}
                 labels="none"
               />
             </Link>
-            <ol className="grid gap-1 text-xs">
-              {trace.stops.slice(0, 8).map((s) => (
-                <li
-                  key={s.order + s.hit.matchId}
-                  className="flex items-center gap-2"
-                >
-                  <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-track text-[0.625rem] font-bold text-white">
-                    {s.order}
-                  </span>
-                  <span className="w-12 shrink-0 tabular-nums text-muted-foreground">
-                    {formatClock(s.at)}
-                  </span>
-                  <span className="truncate">
-                    {s.hit.cameraTag
-                      ? cameraName(s.hit.cameraTag)
-                      : s.hit.videoName}
-                  </span>
-                </li>
-              ))}
-              {trace.stops.length > 8 && (
-                <li className="text-muted-foreground">
-                  and {trace.stops.length - 8} more
-                </li>
-              )}
-            </ol>
+            <RouteStopList stops={stops} max={8} size="sm" />
           </div>
         ) : (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">

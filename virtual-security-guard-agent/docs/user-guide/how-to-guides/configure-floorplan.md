@@ -6,17 +6,32 @@ SPDX-License-Identifier: Apache-2.0
 # Configure the Floorplan
 
 The **Floorplan** page draws your cameras, their fields of view and the
-subject's route. VSG ships with a **Level 4 (sample)** plan. Upload your own
-plan as JSON; it is stored in the browser.
+subject's route.
+
+The default plan is a file on the host, in `deploy/floorplans/`. It is mounted
+read-only into the container and served as `/floorplan.json`. Two plans ship
+there:
+
+- `simple.json`: **Simple (4 cameras)**, one camera per zone, keyed
+  `camera_1` to `camera_4`. This is the default.
+- `level4.json`: **Level 4 (sample)**, a full floor with Level 4 VSS camera
+  tags.
+
+To use your own plan, put it in `deploy/floorplans/` (for example
+`site-a.json`), set `VSG_FLOORPLAN=site-a` in `deploy/.env` and run `make up`.
+No rebuild is needed. After you edit the file, refresh the browser. The
+container does not start if the file is missing. `npm run dev` serves the same
+folder (set `VSG_FLOORPLAN` in `ui/.env.local`).
+
+You can also upload a plan on the **Floorplan** page. It is stored in that
+browser and replaces the default there; **Use default** goes back.
 
 ![Floorplan page with the sample plan](../_assets/floorplan.jpg "Floorplan")
 
 ## 1. Get a template
 
-Click **Samples** and download either:
-
-- **Minimal example (3 cameras)**, or
-- **Level 4 sample with zones**.
+Copy `deploy/floorplans/simple.json`, or click **Download JSON** on the
+**Floorplan** page to save the plan you are viewing.
 
 ## 2. Write the plan
 
@@ -34,14 +49,12 @@ Coordinates are SVG units, origin top-left, `y` pointing down.
 
 | Field | Required | Meaning |
 |---|---|---|
-| `cameras.<key>` | yes | One entry per camera. Use the VSS camera tag as the key, or set `camera_id`. |
+| `cameras.<key>` | yes | One entry per camera. The key is the camera's name and its VSS tag, for example `P_Lev_4_Main_Entry_ip_54`. |
 | `cameras.<key>.x`, `.y` | yes | Camera position. |
 | `cameras.<key>.zone` | no | Zone name shown on the map and in reports. |
 | `cameras.<key>.fov_angle` | no | Field-of-view width in degrees (1–360). |
 | `cameras.<key>.heading` | no | Viewing direction in degrees: `0` = right/east, `90` = down/south. |
 | `cameras.<key>.range` | no | Length of the field-of-view wedge. |
-| `cameras.<key>.camera_id` | no | VSS camera tag, when the key is not the tag. |
-| `cameras.<key>.label` | no | Display label. |
 | `name` | no | Plan name. |
 | `canvas` | no | `{ "width": …, "height": … }`. |
 | `background` | no | `data:image/…` URI or a same-origin path. Remote URLs are rejected. |
@@ -50,16 +63,36 @@ Coordinates are SVG units, origin top-left, `y` pointing down.
 
 Plans are limited to 5 MB.
 
-## 3. Upload and map cameras
+## 3. Upload the plan
 
 1. Click **Upload JSON** and choose the file.
-2. Cameras whose key (or `camera_id`) is exactly a VSS tag are linked
-   automatically; nothing is matched by similar names. Click **Map cameras**
-   and, for each other **Plan camera**, pick the **VSS camera** it represents
-   (or **Not mapped**), then **Done**.
-3. Click a camera on the map to see its details. Click **Use sample** to go
-   back to the sample plan.
+2. Each plan camera's key is its VSS tag. Nothing is matched by similar
+   names. The map shows each camera as:
+
+   | Look | State |
+   |---|---|
+   | Green, pulsing | **Live**: a live camera on this tag is sending frames. |
+   | Solid blue | **Mapped**: VSS has footage under this tag. |
+   | Hollow ring | **Empty**: nothing in VSS yet. Not an error; use **Add live camera here**. |
+
+3. The header counts VSS cameras that are not a camera key on the plan; click
+   it to list them, with **Copy** next to each name. To draw one, add it to
+   the file as a camera key and upload the file again. Camera names are set
+   only in the file.
+4. Click a camera on the map to see its zone and name, or to add a live
+   camera there. The legend below the map shows live, recorded and no-footage
+   cameras and the route. Click **Use default** to go back to the plan set by
+   `VSG_FLOORPLAN`; **Undo** in the notice brings the upload back.
+5. A plan must use plain JSON numbers for positions, and each zone needs
+   exactly one of `points` or `rect`. A saved upload that no longer validates
+   is dropped with a notice, and the default plan is used.
+
+A removed live camera's key stays on the plan, so its recorded footage is
+still drawn at the same place.
 
 Camera tags come from VSS video tags (for example
 `P_Lev_4_Entry_Way_ip_107`). A sighting is drawn only if its camera is on the
-plan.
+plan. Live cameras take their tag from the plan: see
+[Manage Live Cameras](./manage-live-cameras.md). Every camera's location
+(reports, match cards, the **Live cameras** page) is the zone from the plan;
+VSS is not changed.

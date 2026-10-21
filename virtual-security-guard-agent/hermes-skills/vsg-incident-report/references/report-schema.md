@@ -14,11 +14,11 @@ Mirrors `reportDirective` in `ui/src/protocol/directives.ts`.
 | `preset` | `"handover"` \| `"escalation"` \| `"brief"` | no | `handover` | Unknown values fall back to `handover`. |
 | `summary` | string | no | `""` | 1–3 sentences of plain text (the PDF does not render Markdown). |
 | `subject` | string | no | `""` | Visual description only: clothing, items. |
-| `timeline` | `{ref?, note}[]` | no | `[]` | `ref` = a confirmed sighting's `<video_id>@<start_s>` from the run instructions' time-ordered list (old sessions: `m<rank>` from the latest `vsg-track`). One entry per sighting, in time order. Entries without a matching ref are listed as "Additional notes". |
+| `timeline` | `{ref?, note}[]` | no | `[]` | `ref` = a confirmed sighting's `<video_id>@<start_s>` from the run instructions' time-ordered list. One entry per sighting, in time order. Entries without a matching ref are listed as "Additional notes". |
 | `observations` | string[] | no | `[]` | Facts seen in the footage. |
 | `actions` | string[] | no | `[]` | Recommended next steps. |
 | `confidence` | `"low"` \| `"medium"` \| `"high"` | no | `medium` | See the rubric in `SKILL.md`. |
-| `vss_query_id` | string | no | | Rarely needed: timeline refs (`<video_id>@<start_s>`) do not depend on a query. Old sessions: the query of the `vsg-track` refs. |
+| `vss_query_id` | string | no | | Rarely needed: timeline refs (`<video_id>@<start_s>`) do not depend on a query. |
 
 ## Presets
 

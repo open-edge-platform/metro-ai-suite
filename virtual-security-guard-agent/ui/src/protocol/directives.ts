@@ -8,12 +8,11 @@ import { z } from "zod";
  * Argus (the Hermes agent) embeds small fenced JSON blocks in its replies:
  *
  *   ```vsg-matches
- *   {"v":1,"vss_query_id":"…","keep":["m1","m3"],"note":"…"}
+ *   {"v":1,"keep":["m1","m3"],"note":"…"}
  *   ```
  *
- * Directives carry references only (m<rank> refs, optionally a stored VSS query
- * id); the UI resolves the hits from VSS or from the vss_search_video result in
- * the session transcript (see grounding.ts). Keep this file in sync with
+ * Directives carry references only (m<rank> refs); the UI reads the hits from
+ * the vss_search_video result in the session transcript (see grounding.ts). Keep this file in sync with
  * hermes-skills/virtual-security-guard/references/directive-protocol.md.
  */
 export const PROTOCOL_VERSION = 1;
@@ -30,7 +29,6 @@ export const matchRef = z
   .trim()
   .regex(/^m\d+$/i, "expected a match ref like m3")
   .transform((s) => s.toLowerCase());
-export type MatchRef = z.infer<typeof matchRef>;
 
 /**
  * Agent-supplied ref: m<rank> preferred, but a video id or `<video_id>@<start_s>`
@@ -50,20 +48,6 @@ const refList = z
   .default([])
   .transform((xs) => xs.map((x) => (typeof x === "number" ? `m${x}` : x)));
 
-/** Legacy fallback: hits copied inline by the agent (least trusted source). */
-export const inlineMatch = z.object({
-  match_id: matchRef.optional().catch(undefined),
-  video_id: z.string().min(1).max(128),
-  video_name: z.string().optional(),
-  camera: z.string().optional(),
-  start_s: z.coerce.number().optional(),
-  end_s: z.coerce.number().optional(),
-  seek_s: z.coerce.number().optional(),
-  score: z.coerce.number().optional(),
-  url: z.string().optional(),
-});
-export type InlineMatch = z.infer<typeof inlineMatch>;
-
 export const phaseSchema = z.enum([
   "search",
   "validate",
@@ -71,7 +55,6 @@ export const phaseSchema = z.enum([
   "report",
   "idle",
 ]);
-export type DirectivePhase = z.infer<typeof phaseSchema>;
 
 export const statusDirective = z.object({
   v: version,
@@ -79,51 +62,16 @@ export const statusDirective = z.object({
   message: z.string().optional(),
 });
 
-/** Hint only: the UI verifies it and otherwise uses the transcript's tool result. */
-const queryIdHint = z
-  .string()
-  .trim()
-  .min(1)
-  .max(160)
-  .optional()
-  .catch(undefined);
-
-/** Inline matches are a fallback; drop malformed entries instead of the block. */
-const inlineList = z
-  .array(z.unknown())
-  .optional()
-  .transform((xs) =>
-    xs
-      ?.map((x) => inlineMatch.safeParse(x))
-      .filter((r) => r.success)
-      .map((r) => r.data),
-  );
-
 /**
- * `{"v":1,"keep":["m1"],"note":"…"}` is enough: hits come from the latest
- * vss_search_video result (or `vss_query_id` when it resolves).
+ * `{"v":1,"keep":["m1"],"note":"…"}`: refs into the vss_search_video result of
+ * the same reply, which is where the UI reads the hits from (grounding.ts).
+ * Older fields (`vss_query_id`, inline `matches`) are ignored.
  */
 export const matchesDirective = z.object({
   v: version,
-  vss_query_id: queryIdHint,
   keep: refList,
   note: z.string().optional(),
   notes: z.record(z.string(), z.string()).optional().default({}),
-  matches: inlineList,
-});
-
-export const trackAnchor = z.union([
-  looseRef,
-  z.object({ video_id: z.string().min(1).max(128), seek_s: z.coerce.number() }),
-]);
-
-export const trackDirective = z.object({
-  v: version,
-  vss_query_id: queryIdHint,
-  anchor: trackAnchor.optional().catch(undefined),
-  keep: refList,
-  note: z.string().optional(),
-  matches: inlineList,
 });
 
 export const reportPreset = z.enum(["handover", "escalation", "brief"]);
@@ -132,7 +80,7 @@ export const confidence = z.enum(["low", "medium", "high"]);
 export const reportDirective = z.object({
   v: version,
   title: z.string().min(1).max(160),
-  preset: reportPreset.catch("handover").default("handover"),
+  preset: reportPreset.default("handover"),
   summary: z.string().default(""),
   subject: z.string().default(""),
   timeline: z
@@ -145,7 +93,7 @@ export const reportDirective = z.object({
     .default([]),
   observations: z.array(z.string()).default([]),
   actions: z.array(z.string()).default([]),
-  confidence: confidence.catch("medium").default("medium"),
+  confidence: confidence.default("medium"),
   vss_query_id: z.string().optional(),
 });
 
@@ -155,23 +103,17 @@ export const feedbackDirective = z.object({
   vss_query_id: z.string().optional(),
   confirm: z.array(matchRef).default([]),
   reject: z.array(matchRef).default([]),
-  /** Legacy operator note; the UI no longer sends it. */
-  text: z.string().optional(),
 });
 
 /** UI -> agent: structured search context attached to an operator prompt. */
 export const contextDirective = z.object({
   v: version,
   image_url: z.string().optional(),
-  tags: z.array(z.string()).optional(),
-  start: z.string().optional(),
-  end: z.string().optional(),
   limit: z.coerce.number().int().positive().optional(),
 });
 
 export type StatusDirective = z.infer<typeof statusDirective>;
 export type MatchesDirective = z.infer<typeof matchesDirective>;
-export type TrackDirective = z.infer<typeof trackDirective>;
 export type ReportDirective = z.infer<typeof reportDirective>;
 export type FeedbackDirective = z.infer<typeof feedbackDirective>;
 export type ContextDirective = z.infer<typeof contextDirective>;
@@ -179,18 +121,16 @@ export type ContextDirective = z.infer<typeof contextDirective>;
 export type Directive =
   | { type: "status"; data: StatusDirective }
   | { type: "matches"; data: MatchesDirective }
-  | { type: "track"; data: TrackDirective }
   | { type: "report"; data: ReportDirective }
   | { type: "feedback"; data: FeedbackDirective }
   | { type: "context"; data: ContextDirective };
 
 export type DirectiveType = Directive["type"];
 
-/** Fence info-string -> schema. `vsg-tick` is reserved for live tracking and ignored. */
+/** Fence info-string -> schema. Other vsg-* fences (e.g. the retired vsg-track) are dropped. */
 export const DIRECTIVE_SCHEMAS = {
   "vsg-status": { type: "status", schema: statusDirective },
   "vsg-matches": { type: "matches", schema: matchesDirective },
-  "vsg-track": { type: "track", schema: trackDirective },
   "vsg-report": { type: "report", schema: reportDirective },
   "vsg-feedback": { type: "feedback", schema: feedbackDirective },
   "vsg-context": { type: "context", schema: contextDirective },

@@ -160,10 +160,84 @@
   .vsg-sweep {
     animation: vsg-sweep 2.4s linear infinite;
   }
+  /* Live timeline: a new sighting is tinted, its badge fades, a grown count flashes. */
+  @keyframes vsg-new {
+    from {
+      background-color: color-mix(in oklab, var(--color-brand-accent) 12%, transparent);
+      box-shadow: inset 3px 0 0 var(--color-brand-accent);
+    }
+    to {
+      background-color: transparent;
+      box-shadow: inset 3px 0 0 transparent;
+    }
+  }
+  .vsg-new {
+    animation: vsg-new 6s ease-out forwards;
+  }
+  @keyframes vsg-fade-out {
+    0%,
+    75% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      visibility: hidden;
+    }
+  }
+  .vsg-fade-out {
+    animation: vsg-fade-out 6s forwards;
+  }
+  @keyframes vsg-flash {
+    from {
+      color: var(--color-brand-accent);
+    }
+  }
+  .vsg-flash {
+    animation: vsg-flash 1.2s ease-out;
+  }
+  /* Argus's eye while a live search runs: scan left and right, blink now and then. */
+  @keyframes vsg-eye-scan {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    20%,
+    35% {
+      transform: translateX(-2.6px);
+    }
+    55%,
+    70% {
+      transform: translateX(2.6px);
+    }
+  }
+  .vsg-eye-scan {
+    animation: vsg-eye-scan 3s ease-in-out infinite;
+  }
+  @keyframes vsg-eye-blink {
+    0%,
+    94%,
+    100% {
+      transform: scaleY(1);
+    }
+    97% {
+      transform: scaleY(0.1);
+    }
+  }
+  .vsg-eye-blink {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: vsg-eye-blink 9s infinite;
+  }
   @media (prefers-reduced-motion: reduce) {
     .vsg-sweep {
       animation: none;
       display: none;
+    }
+    .vsg-new,
+    .vsg-flash,
+    .vsg-eye-scan,
+    .vsg-eye-blink {
+      animation: none;
     }
   }
 }

@@ -1,7 +1,7 @@
 ---
 name: vsg-incident-report
-description: Write a Virtual Security Guard Agent incident report as one vsg-report block, built only from the sightings the operator confirmed. Use when the operator asks Argus for a report, summary, handover note, escalation or brief after a VSG investigation.
-version: 1.0.0
+description: Write a Virtual Security Guard Agent incident report as one vsg-report block, built only from the sightings the operator confirmed. Use when the operator asks Argus for a report, investigation summary, handover note, escalation or brief after a VSG investigation. Not for summarizing a single video (virtual-security-guard does that with vss_summarize_video).
+version: 2026.3.0
 license: Apache-2.0
 metadata:
   hermes:
@@ -23,7 +23,7 @@ the UI supplies the evidence.
 
 ## When to Use
 
-- The operator asks for a report, summary, handover, escalation or brief
+- The operator asks for a report, investigation summary, handover, escalation or brief
   during or after a VSG investigation.
 - Not for new searches; use `virtual-security-guard` for those.
 
@@ -39,8 +39,7 @@ the UI supplies the evidence.
      plus confirmed live sightings. Each line has the time, the camera, a
      `ref` (`<video_id>@<start_s>`), the score, and the movement from the
      previous sighting (for example "moved from Lobby in 3 min 05 s");
-   - the operator's notes;
-   - in old sessions without that list, the latest `vsg-track` `keep` refs.
+   - the operator's notes.
 3. Write one or two sentences of prose, then exactly one `vsg-report` block
    (schema: `references/report-schema.md`):
 
@@ -59,8 +58,7 @@ least one confirmed sighting and offer to continue the search.
 
 - One timeline entry per confirmed sighting, in the listed time order. Use
   that line's `ref` (`<video_id>@<start_s>`) exactly. The UI attaches each
-  note to that sighting's row. Old sessions: a `m<N>` ref from the latest
-  `vsg-track` `keep` list.
+  note to that sighting's row.
 - Describe the movement with the real times and gaps from the list ("2 min 14
   s later at the corridor camera"). Don't invent times or a route between
   cameras that are not listed.
@@ -90,4 +88,4 @@ least one confirmed sighting and offer to continue the search.
 ## Verification
 
 The UI shows a report card with a preview and a "Generate PDF" button for the
-turn. If it shows "couldn't render", fix the JSON and send the block again.
+turn. If it shows "couldn't be displayed", fix the JSON and send the block again.

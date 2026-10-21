@@ -46,17 +46,54 @@ Checks:
   [Install the Hermes Skills](./get-started/install-hermes-skills.md).
 - Check that **Settings → Directive protocol** matches the installed skill.
 
-## Matches marked "unverified"
+## Argus never searches, or writes the tool call as text
 
 Symptoms:
 
-- Grid cards carry an "unverified" label.
+- Argus replies without running `vss_search_video`, or the reply contains a
+  tool call written out as text or JSON.
 
 Details:
 
-- The console could not find the VSS tool result in the Hermes transcript and
-  fell back to the clips the model wrote inline. Check those clips carefully
-  before confirming.
+- OVMS returns structured `tool_calls` only when the model's tool parser is
+  set. See [Set Up Hermes and OVMS](./get-started/set-up-hermes.md#2-check-that-the-model-can-call-tools).
+
+Checks:
+
+- Run the test tool call from that section against the Inference Router.
+- Check that `hermes tools` keeps the `vss` MCP tools for the API server, and
+  that `mcp_servers.vss` in `~/.hermes/config.yaml` points at the VSS MCP
+  server.
+
+## Argus ignores its workflow or uses other skills
+
+Symptoms:
+
+- Replies do not follow the search → review → trace flow, or mention skills
+  that are not Argus's.
+
+Details:
+
+- Hermes loads every skill under `~/.hermes/skills`. Its installer adds
+  bundled skills, and `hermes update` can add them again.
+
+Checks:
+
+- Run `hermes skills list` on the Hermes host. If it lists anything other
+  than `virtual-security-guard` and `vsg-incident-report`, run
+  `make install-skills INSTALL_ARGS=--exclusive` and start a new session.
+
+## Grid shows "Couldn't read the search results"
+
+Symptoms:
+
+- An Argus reply shows an error with a **Retry** button instead of matches.
+
+Details:
+
+- The console could not read the Hermes session transcript after the run.
+  Click **Retry** once Hermes is reachable. The console never falls back to
+  clips the model wrote.
 
 ## Route or floorplan shows no camera
 
@@ -66,12 +103,9 @@ Symptoms:
 
 Checks:
 
-- The camera's VSS tag must match a camera key (or `camera_id`) on the plan,
-  or be mapped with **Map cameras**. See
+- The camera's VSS tag must be a camera key on the plan. The Floorplan header
+  lists VSS tags that are not on the plan; add them to the file. See
   [Configure the Floorplan](./how-to-guides/configure-floorplan.md).
-- Check that the sighting's score is above **Minimum score (of the top
-  match)** on the **Settings** page; it is relative to the best match of the
-  same search.
 
 ## Times look shifted
 
@@ -95,7 +129,8 @@ Checks:
 Details:
 
 - Generated PDFs are kept in browser memory for the open tab only. Use
-  **Reports → Rebuild PDF** to rebuild one from a past investigation.
+  **Reports → Open in Argus** to open a past investigation and generate the
+  PDF again from its report draft.
 
 ## Floorplan and settings are per browser
 

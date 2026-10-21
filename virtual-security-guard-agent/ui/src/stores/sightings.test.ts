@@ -3,8 +3,13 @@
 import { describe, expect, it } from "vitest";
 import type { VssHit } from "@/adapters/vss/types";
 import { formatGap } from "@/lib/time";
-import { confirmedSightings, sameVerdicts } from "./hitl";
-import { movementLegs, routeFromSightings, timelineLines } from "./trace";
+import {
+  confirmedSightings,
+  movementLegs,
+  routeFromSightings,
+  sameVerdicts,
+  timelineLines,
+} from "./case";
 
 const hit = (
   matchId: string,
@@ -42,29 +47,47 @@ describe("sameVerdicts", () => {
 });
 
 describe("confirmedSightings", () => {
-  it("unions confirms across grids, deduped by segment, in time order", () => {
-    const a = [hit("m1", "v1", 120), hit("m2", "v2", 10)];
-    const b = [hit("m1", "v1", 120), hit("m2", "v3", 60)];
-    const out = confirmedSightings({
-      verdicts: {
-        q1: { m1: "confirm", m2: "confirm" },
-        q2: { m1: "confirm", m2: "confirm" },
-      },
-      hits: { q1: a, q2: b },
+  const grid = (id: string, hits: VssHit[]) => ({
+    id,
+    role: "agent",
+    search: { hits },
+  });
+  const key = (h: VssHit) => `${h.videoId}@${h.seekS}`;
+
+  it("unions sent confirms across grids, deduped by segment, in time order", () => {
+    const turns = [
+      grid("a1", [hit("m1", "v1", 120), hit("m2", "v2", 10)]),
+      grid("a2", [hit("m1", "v1", 120), hit("m2", "v3", 60)]),
+    ];
+    const both = { m1: "confirm", m2: "confirm" } as const;
+    const out = confirmedSightings(turns, {
+      a1: { verdicts: both, sent: both },
+      a2: { verdicts: both, sent: both },
     });
-    expect(out.map((h) => `${h.videoId}@${h.seekS}`)).toEqual([
-      "v2@10",
-      "v3@60",
-      "v1@120",
-    ]);
+    expect(out.map(key)).toEqual(["v2@10", "v3@60", "v1@120"]);
   });
 
-  it("ignores rejects and grids whose hits are not registered", () => {
-    const out = confirmedSightings({
-      verdicts: { q1: { m1: "reject" }, q2: { m1: "confirm" } },
-      hits: { q1: [hit("m1", "v1", 0)] },
+  it("lets a later grid's verdict on the same segment win", () => {
+    const turns = [
+      grid("a1", [hit("m1", "v1", 0)]),
+      grid("a2", [hit("m3", "v1", 0)]),
+    ];
+    const out = confirmedSightings(turns, {
+      a1: { verdicts: { m1: "confirm" }, sent: { m1: "confirm" } },
+      a2: { verdicts: { m3: "reject" }, sent: { m3: "reject" } },
     });
     expect(out).toEqual([]);
+  });
+
+  it("ignores unsent verdicts and adds confirmed live sightings", () => {
+    const turns = [grid("a1", [hit("m1", "v1", 0)])];
+    const live = hit("m9", "v9", 30);
+    const out = confirmedSightings(
+      turns,
+      { a1: { verdicts: { m1: "confirm" } } },
+      [live],
+    );
+    expect(out).toEqual([live]);
   });
 });
 
@@ -85,9 +108,17 @@ describe("movement", () => {
   });
 
   it("writes timeline lines with refs and movement", () => {
-    const lines = timelineLines(stops, (t) => t.toUpperCase());
-    expect(lines[0]).toMatch(/^1\. 2026-01-01T10:00:00\.000Z CAM-A \(ref v1@0/);
-    expect(lines[1]).toContain("moved from CAM-A in 3 min 20 s");
-    expect(lines[2]).toContain("still on CAM-B, 30 s after stop 2");
+    const lines = timelineLines(stops, () => undefined);
+    expect(lines[0]).toMatch(/^1\. 2026-01-01T10:00:00\.000Z cam-a \(ref v1@0/);
+    expect(lines[1]).toContain("moved from cam-a in 3 min 20 s");
+    expect(lines[2]).toContain("still on cam-b, 30 s after stop 2");
+  });
+
+  it("adds the floorplan zone of each sighting's camera", () => {
+    const lines = timelineLines(stops, (t) =>
+      t === "cam-a" ? "Lobby" : undefined,
+    );
+    expect(lines[0]).toContain("cam-a in Lobby (ref");
+    expect(lines[1]).toMatch(/cam-b \(ref/);
   });
 });

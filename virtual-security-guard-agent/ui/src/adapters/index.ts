@@ -29,8 +29,3 @@ export function getAdapters(): Adapters {
   current ??= create(env.useMocks);
   return current;
 }
-
-/** Tests: inject adapters (or reset to defaults with undefined). */
-export function setAdapters(next: Partial<Adapters> | undefined) {
-  current = next ? { ...create(true), ...next } : undefined;
-}

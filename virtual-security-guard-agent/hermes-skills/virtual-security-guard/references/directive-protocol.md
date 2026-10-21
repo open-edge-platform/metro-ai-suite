@@ -24,19 +24,15 @@ with it.
 ## How the UI finds the hits
 
 Hermes stores every tool result in the session transcript. After each run the
-UI reads the latest `vss_search_video` result from there, so the agent never
-has to copy hits. The UI resolves a block's hits in this order:
+UI reads the `vss_search_video` result of the same reply from there, so the
+agent never copies hits or ids. A `vsg-matches` block without a search in the
+same reply shows no hits.
 
-1. the stored VSS query, when the tool result (or the block) has a
-   `query_id` that VSS knows;
-2. the `vss_search_video` result in the transcript;
-3. hits copied inline into the block (legacy, see below).
-
-Refs in `keep`, `anchor`, `notes` and report timelines may also be a
+Refs in `keep`, `notes` and report timelines may also be a
 `video_id` or `<video_id>@<start_s>`; refs that match nothing are ignored and
 the grid then shows every hit.
 - Unknown block types are ignored. A block that fails validation is shown to
-  the operator as raw text with a "couldn't render" note, so check the JSON.
+  the operator as raw text with a "couldn't be displayed" note, so check the JSON.
 
 ## Agent → UI
 
@@ -48,34 +44,10 @@ the grid then shows every hit.
 | `keep` | string[] | no | Refs worth reviewing, best first. Empty or missing = show all. |
 | `note` | string | no | One line shown above the grid. |
 | `notes` | object | no | Per-ref reason, e.g. `{"m2":"same backpack"}`. |
-| `vss_query_id` | string | no | Only when the tool result has `query_id`; copy it exactly. |
-| `matches` | object[] | no | Legacy inline copy, see below. Don't use. |
 
 ```vsg-matches
 {"v":1,"keep":["m1","m2","m4"],"note":"Blue jacket near the entry and lobby.","notes":{"m4":"partly occluded"}}
 ```
-
-### `vsg-track`: legacy, do not emit
-
-Old sessions used it for a recorded-footage trace. The UI still renders it, but
-the route is now built from the operator's confirmed sightings.
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `v` | `1` | yes | |
-| `anchor` | string or object | no | Confirmed ref (`"m3"`) or `{"video_id":"…","seek_s":12.5}`. |
-| `keep` | string[] | no | Refs into the **trace** search result that belong to the route. |
-| `note` | string | no | One line. |
-| `vss_query_id` | string | no | `query_id` of the trace search, only if the tool gave one. |
-| `matches` | object[] | no | Legacy inline copy. Don't use. |
-
-```vsg-track
-{"v":1,"anchor":"m3","keep":["m1","m2","m5","m7"],"note":"Seen at 4 cameras."}
-```
-
-The UI keeps hits with score ≥ the operator's threshold (default 0.6) × the
-peak score of the result, drops
-rejected clips, orders the rest by time and draws the route on the floorplan.
 
 ### `vsg-report`: incident report
 
@@ -90,33 +62,16 @@ Defined by the `vsg-incident-report` skill (`references/report-schema.md`).
 `phase` is one of `search`, `validate`, `trace`, `report`, `idle`. The UI
 shows `trace` as "Live search".
 
-### Legacy inline matches
-
-Older agents copied hits into the block. The UI still accepts it, but only
-uses it when the transcript has no `vss_search_video` result, and marks the
-grid "unverified". Don't emit it:
-
-```vsg-matches
-{"v":1,"matches":[
- {"match_id":"m1","video_id":"b41e…","video_name":"P_Lev_4_Main_Entry_ip_54-20140730-090000-chunk-011.mp4","camera":"P_Lev_4_Main_Entry_ip_54","start_s":120,"end_s":130,"seek_s":124,"score":1.0},
- {"match_id":"m2","video_id":"0c9d…","start_s":45,"end_s":55,"seek_s":48,"score":0.82}
-],"note":"Two possible sightings."}
-```
-
-Fields per match: `match_id`, `video_id` (required), `video_name`, `camera`
-(the camera tag, if known), `start_s`, `end_s`, `seek_s`, `score`, `url`.
-Leave out fields you don't have. Never make up a value.
-
 ## UI → agent
 
-### `vsg-context`: search scope attached to an operator prompt
+### `vsg-context`: image and result limit attached to an operator prompt
 
 ```vsg-context
-{"v":1,"image_url":"http://10.223.23.199:12345/datastore/video-summary/search-images/3f2a.jpg","tags":["P_Lev_4_Main_Entry_ip_54"],"start":"2026-10-02T13:00:00.000Z","end":"2026-10-02T15:00:00.000Z","limit":16}
+{"v":1,"image_url":"http://10.223.23.199:12345/datastore/video-summary/search-images/3f2a.jpg","limit":16}
 ```
 
-Pass `image_url` to `vss_search_video` as `image`, and `tags`, `start`, `end`,
-`limit` unchanged. Every field is optional.
+Pass `image_url` to `vss_search_video` as `image`, and `limit` unchanged. Both
+fields are optional. Cameras and time ranges come from the operator's text.
 
 ### `vsg-feedback`: operator verdicts
 
@@ -133,10 +88,10 @@ The prose above the block names each ref's clip, e.g.
   seen, then offer a live camera search if a live camera is connected (see
   `SKILL.md`, step 3).
 - `confirm` empty → don't search again; ask the operator to retry with a new image or a better description.
-- A later `vsg-feedback` with the same `vss_query_id` replaces the earlier
-  verdicts for that grid (the operator updated the review). Confirms from all
-  grids together form the session's confirmed sightings, listed in time order
-  in the run instructions.
+- Only the latest grid can be reviewed. A later `vsg-feedback` for it replaces
+  the earlier verdicts for that grid (the operator updated the review).
+  Confirms from all grids together form the session's confirmed sightings,
+  listed in time order in the run instructions.
 
 ## Reserved
 

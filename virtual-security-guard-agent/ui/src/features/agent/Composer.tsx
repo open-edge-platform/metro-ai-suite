@@ -1,17 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from "react";
+import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import {
   ArrowUp,
-  Cctv,
-  Clock3,
   ImagePlus,
   Loader2,
   Square,
@@ -19,22 +10,12 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { localInputToIso } from "@/lib/time";
-import { useTags } from "@/hooks/queries";
-import { cameraLabel, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { InvestigationPhase } from "@/stores/investigation";
 import { firstImageFile, type Attachment } from "./useAttachment";
 
@@ -43,27 +24,16 @@ const PLACEHOLDER: Record<InvestigationPhase, string> = {
   searching: "Argus is searching…",
   validating: "Review the matches above, or tell Argus how to refine",
   tracing: "Argus is tracing the route…",
-  traced: "Ask for a handover report, an escalation, or a follow-up search",
+  traced: "Ask a follow-up, or generate a report from the route card",
   reporting: "Argus is drafting the report…",
 };
 
-const REPORT_CHIPS = [
-  {
-    label: "Handover report",
-    prompt: "Write a handover report for the next shift.",
-  },
-  {
-    label: "Escalation report",
-    prompt: "Write an escalation report for the security manager.",
-  },
-  { label: "Short brief", prompt: "Give me a short brief of what happened." },
-];
+/** Ids other parts of the Argus page use to hand the operator back to the composer. */
+export const PROMPT_ID = "argus-prompt";
+export const ATTACH_INPUT_ID = "argus-attach";
 
 export interface ComposerSubmit {
   text: string;
-  tags: string[];
-  start?: string;
-  end?: string;
 }
 
 interface Props {
@@ -77,186 +47,6 @@ interface Props {
   onClearAttachment: () => void;
   onSubmit: (s: ComposerSubmit) => void;
   onStop: () => void;
-}
-
-const NO_TAGS: string[] = [];
-
-function CameraScope({
-  tags,
-  onChange,
-}: {
-  tags: string[];
-  onChange: (t: string[]) => void;
-}) {
-  // Cameras are VSS tags (GET /manager/tags), recorded and live alike.
-  const { data: cameras = NO_TAGS, isLoading, error } = useTags();
-  const [filter, setFilter] = useState("");
-  const shown = useMemo(() => {
-    const f = filter.trim().toLowerCase();
-    return f
-      ? cameras.filter((t) =>
-          `${cameraLabel(t)} ${t}`.toLowerCase().includes(f),
-        )
-      : cameras;
-  }, [cameras, filter]);
-  const toggle = (tag: string) =>
-    onChange(
-      tags.includes(tag) ? tags.filter((t) => t !== tag) : [...tags, tag],
-    );
-
-  return (
-    <Popover>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "text-muted-foreground",
-                tags.length && "text-brand-accent",
-              )}
-            >
-              <Cctv />
-              {tags.length
-                ? `${tags.length} camera${tags.length > 1 ? "s" : ""}`
-                : "All cameras"}
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent>Limit the search to specific cameras</TooltipContent>
-      </Tooltip>
-      <PopoverContent align="start" className="w-80 p-0">
-        <div className="border-b p-2">
-          <Input
-            placeholder="Filter cameras"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="h-8"
-          />
-        </div>
-        <ul className="max-h-64 overflow-auto py-1">
-          {shown.map((t) => (
-            <li key={t}>
-              <label className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent">
-                <Checkbox
-                  checked={tags.includes(t)}
-                  onCheckedChange={() => toggle(t)}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate">{cameraLabel(t)}</span>
-                  <span className="block truncate font-mono text-xs text-muted-foreground">
-                    {t}
-                  </span>
-                </span>
-              </label>
-            </li>
-          ))}
-          {!shown.length && (
-            <li className="px-3 py-4 text-center text-sm text-muted-foreground">
-              {isLoading
-                ? "Loading camera tags from VSS…"
-                : error
-                  ? `Couldn't load camera tags: ${error.message}`
-                  : cameras.length
-                    ? "No camera matches that filter."
-                    : "VSS has no camera tags yet."}
-            </li>
-          )}
-        </ul>
-        <div className="flex justify-between border-t p-2">
-          <Button
-            type="button"
-            size="xs"
-            variant="ghost"
-            onClick={() => onChange([])}
-            disabled={!tags.length}
-          >
-            Clear
-          </Button>
-          <span className="self-center text-xs text-muted-foreground">
-            {tags.length ? `${tags.length} selected` : "Searching every camera"}
-          </span>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function TimeWindow({
-  start,
-  end,
-  onChange,
-}: {
-  start: string;
-  end: string;
-  onChange: (start: string, end: string) => void;
-}) {
-  const active = !!(start || end);
-  const invalid = !!(start && end && start >= end);
-  return (
-    <Popover>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "text-muted-foreground",
-                active && "text-brand-accent",
-              )}
-            >
-              <Clock3 />
-              {active ? "Time window set" : "Any time"}
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent>Limit the search to a time window</TooltipContent>
-      </Tooltip>
-      <PopoverContent align="start" className="grid w-72 gap-3">
-        <div className="grid gap-1.5">
-          <Label htmlFor="win-start">From</Label>
-          <Input
-            id="win-start"
-            type="datetime-local"
-            value={start}
-            onChange={(e) => onChange(e.target.value, end)}
-          />
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="win-end">To</Label>
-          <Input
-            id="win-end"
-            type="datetime-local"
-            value={end}
-            onChange={(e) => onChange(start, e.target.value)}
-            aria-invalid={invalid}
-          />
-        </div>
-        {invalid && (
-          <p className="text-xs text-destructive">
-            The end must be after the start.
-          </p>
-        )}
-        <p className="text-xs text-muted-foreground">
-          Matches footage by when it was ingested into VSS, not by the camera
-          clock.
-        </p>
-        <Button
-          type="button"
-          size="xs"
-          variant="ghost"
-          onClick={() => onChange("", "")}
-          disabled={!active}
-        >
-          Clear window
-        </Button>
-      </PopoverContent>
-    </Popover>
-  );
 }
 
 function AttachmentChip({
@@ -315,7 +105,7 @@ function AttachmentChip({
   );
 }
 
-/** Prompt box: text, reference image, camera scope and ingest-time window. */
+/** Prompt box: text and an optional reference image. */
 export function Composer({
   value,
   onChange,
@@ -328,9 +118,6 @@ export function Composer({
   onSubmit,
   onStop,
 }: Props) {
-  const [tags, setTags] = useState<string[]>([]);
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
   const textRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -356,22 +143,13 @@ export function Composer({
   }, [busy]);
 
   const uploading = attachment?.status === "uploading";
-  const windowInvalid = !!(start && end && start >= end);
   const hasContent = !!value.trim() || attachment?.status === "ready";
-  const canSend = !busy && hasContent && !uploading && !windowInvalid;
+  const canSend = !busy && hasContent && !uploading;
 
   function submit(text = value) {
-    if (busy || uploading || windowInvalid) return;
+    if (busy || uploading) return;
     if (!text.trim() && attachment?.status !== "ready") return;
-    onSubmit({
-      text: text.trim(),
-      tags,
-      start: localInputToIso(start),
-      end: localInputToIso(end),
-    });
-    setTags([]);
-    setStart("");
-    setEnd("");
+    onSubmit({ text: text.trim() });
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -383,22 +161,6 @@ export function Composer({
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-4">
-      {phase === "traced" && !busy && !value && (
-        <div className="mb-2 flex flex-wrap gap-1.5">
-          {REPORT_CHIPS.map((c) => (
-            <Button
-              key={c.label}
-              type="button"
-              size="xs"
-              variant="outline"
-              className="bg-background"
-              onClick={() => submit(c.prompt)}
-            >
-              {c.label}
-            </Button>
-          ))}
-        </div>
-      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -411,11 +173,11 @@ export function Composer({
             <AttachmentChip a={attachment} onClear={onClearAttachment} />
           </div>
         )}
-        <label htmlFor="argus-prompt" className="sr-only">
+        <label htmlFor={PROMPT_ID} className="sr-only">
           Message Argus
         </label>
         <textarea
-          id="argus-prompt"
+          id={PROMPT_ID}
           ref={textRef}
           rows={1}
           value={value}
@@ -460,15 +222,6 @@ export function Composer({
               Attach a reference image (or drop / paste one)
             </TooltipContent>
           </Tooltip>
-          <CameraScope tags={tags} onChange={setTags} />
-          <TimeWindow
-            start={start}
-            end={end}
-            onChange={(s, e) => {
-              setStart(s);
-              setEnd(e);
-            }}
-          />
           <span className="flex-1" />
           {busy ? (
             <Button

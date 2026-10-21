@@ -7,11 +7,11 @@ import { planSize } from "@/features/map/geometry";
 import { getThumbnail, toDataUrl } from "@/lib/thumbnails";
 import { svgToPng } from "@/lib/svgRaster";
 import { uid } from "@/lib/utils";
-import { useCamerasStore } from "@/stores/cameras";
 import { useFloorplanStore } from "@/stores/floorplan";
 import { useReportsStore, type GeneratedReport } from "@/stores/reports";
-import type { TraceStop } from "@/stores/trace";
+import type { TraceStop } from "@/stores/case";
 import { reportFileName, type ReportContent } from "./content";
+import { useKnownTags } from "@/hooks/queries";
 
 export interface GenerateArgs {
   report: ReportContent;
@@ -43,7 +43,7 @@ const nextFrame = () =>
  */
 export function useReportGenerator() {
   const plan = useFloorplanStore((s) => s.plan);
-  const keyMap = useFloorplanStore((s) => s.keyMap);
+  const vssTags = useKnownTags();
   const add = useReportsStore((s) => s.add);
   const [job, setJob] = useState<TraceStop[]>();
   const [busy, setBusy] = useState(false);
@@ -78,7 +78,6 @@ export function useReportGenerator() {
           ? await toDataUrl(args.subjectImage).catch(() => undefined)
           : undefined;
         const size = planSize(plan);
-        const cams = useCamerasStore.getState().cameras;
         const at = new Date();
         // jsPDF is large; load it only when a report is actually generated.
         const { buildReportPdf } = await import("./pdf");
@@ -90,7 +89,6 @@ export function useReportGenerator() {
           mapPng,
           mapAspect: size.height / size.width,
           sessionId: getAdapters().mock ? undefined : args.sessionId,
-          cameraName: (tag) => cams.find((c) => c.tag === tag)?.name,
           generatedAt: at,
         });
         const blob = doc.output("blob");
@@ -121,7 +119,7 @@ export function useReportGenerator() {
     >
       <SpatialMap
         plan={plan}
-        keyMap={keyMap}
+        vssTags={vssTags}
         stops={job}
         animate={false}
         labels="route"

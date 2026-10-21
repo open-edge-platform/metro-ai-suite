@@ -1,6 +1,10 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import { MOCK_REPORT, scriptedReply } from "@/fixtures/argus";
+import {
+  MOCK_REPORT,
+  scriptedReply,
+  type ScriptedReply,
+} from "@/fixtures/argus";
 import { serializeFeedback } from "@/protocol/feedback";
 import { uid } from "@/lib/utils";
 import type {
@@ -26,25 +30,67 @@ const sleep = (ms: number, signal?: AbortSignal) =>
     });
   });
 
+/** Transcript of one run as Hermes stores it: prompt, tool calls, results, reply. */
+function runMessages(
+  input: string,
+  reply: Pick<ScriptedReply, "tools"> & { text: string },
+  at: number,
+): HermesMessage[] {
+  const calls = reply.tools.map((t) => ({
+    id: uid("call"),
+    name: t.tool,
+    arguments: t.args,
+  }));
+  const out: HermesMessage[] = [
+    { id: uid("msg"), role: "user", content: input, timestamp: at },
+  ];
+  if (calls.length)
+    out.push(
+      {
+        id: uid("msg"),
+        role: "assistant",
+        content: "",
+        toolCalls: calls,
+        timestamp: at,
+      },
+      ...reply.tools.map((t, i): HermesMessage => ({
+        id: uid("msg"),
+        role: "tool",
+        content: t.result ?? t.preview,
+        toolName: t.tool,
+        toolCallId: calls[i].id,
+        timestamp: at,
+      })),
+    );
+  out.push({
+    id: uid("msg"),
+    role: "assistant",
+    content: reply.text,
+    timestamp: at,
+  });
+  return out;
+}
+
 function seedPastSession(): {
   session: HermesSession;
   messages: HermesMessage[];
 } {
   const t0 = Date.now() / 1000 - 3 * 3600;
-  const msg = (
-    role: HermesMessage["role"],
-    content: string,
-    dt: number,
-  ): HermesMessage => ({ id: uid("msg"), role, content, timestamp: t0 + dt });
-  const search = scriptedReply("Find a person in a blue jacket on Level 4");
-  const trace = scriptedReply(
-    serializeFeedback({
-      queryId: "mock-q-search",
-      confirm: ["m1"],
-      reject: ["m7"],
-    }),
+  const prompts: [string, number][] = [
+    ["Find a person in a blue jacket on Level 4", 0],
+    [
+      serializeFeedback({
+        queryId: "mock-q-search",
+        confirm: ["m1"],
+        reject: ["m2", "m3", "m4", "m5", "m6"],
+      }),
+      180,
+    ],
+    ["Write a handover report", 500],
+  ];
+  const messages = prompts.flatMap(([input, dt]) =>
+    runMessages(input, scriptedReply(input), t0 + dt),
   );
-  const report = scriptedReply("Write a handover report");
   return {
     session: {
       id: "mock_session_past",
@@ -52,24 +98,9 @@ function seedPastSession(): {
       startedAt: t0,
       lastActive: t0 + 600,
       preview: MOCK_REPORT.summary.slice(0, 80),
-      messageCount: 6,
+      messageCount: messages.length,
     },
-    messages: [
-      msg("user", "Find a person in a blue jacket on Level 4", 0),
-      msg("assistant", search.text, 40),
-      msg(
-        "user",
-        serializeFeedback({
-          queryId: "mock-q-search",
-          confirm: ["m1"],
-          reject: ["m7"],
-        }),
-        180,
-      ),
-      msg("assistant", trace.text, 220),
-      msg("user", "Write a handover report", 500),
-      msg("assistant", report.text, 560),
-    ],
+    messages,
   };
 }
 
@@ -164,8 +195,7 @@ export function createMockHermes(
       if (s) {
         const now = Date.now() / 1000;
         s.messages.push(
-          { id: uid("msg"), role: "user", content: run.input, timestamp: now },
-          { id: uid("msg"), role: "assistant", content: out, timestamp: now },
+          ...runMessages(run.input, { tools: reply.tools, text: out }, now),
         );
         s.session.lastActive = now;
         s.session.messageCount = s.messages.length;

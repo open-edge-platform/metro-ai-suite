@@ -5,8 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 
 # Quick Start Guide
 
-The shortest path to a running console. It assumes VSS and Hermes are running,
-the [Argus skills are installed](./get-started/install-hermes-skills.md), and
+The shortest path to a running console. It assumes VSS is running, Hermes is
+[set up with OVMS](./get-started/set-up-hermes.md), the
+[Argus skills are installed](./get-started/install-hermes-skills.md), and
 Docker and GNU Make are available. For the full setup, see
 [Get Started](./get-started.md).
 

@@ -24,9 +24,9 @@ make build
 make up                      # reads deploy/.env
 
 # Custom registry and tag: pass the same values to each target
-make build REGISTRY=registry.example.com/ TAG=1.0.0
-make push  REGISTRY=registry.example.com/ TAG=1.0.0
-make up    REGISTRY=registry.example.com/ TAG=1.0.0
+make build REGISTRY=registry.example.com/ TAG=2026.3.0
+make push  REGISTRY=registry.example.com/ TAG=2026.3.0
+make up    REGISTRY=registry.example.com/ TAG=2026.3.0
 ```
 
 `REGISTRY` needs a trailing slash. `make push` builds before pushing.

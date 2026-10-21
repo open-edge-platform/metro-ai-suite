@@ -1,12 +1,60 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import type { VssHit } from "@/adapters/vss/types";
-import type { InlineMatch } from "@/protocol/directives";
-import { clipPathForVideo, toDatastorePath } from "@/lib/urls";
+import type { FrameLocator, VssHit } from "@/adapters/vss/types";
+import { clipPathForVideo, framePath } from "@/lib/urls";
 
-/** One VSS segment, independent of which query ranked it. */
+/** One VSS segment, independent of which query ranked it. Also a hit ref. */
 export const segmentKey = (h: Pick<VssHit, "videoId" | "startS">) =>
   `${h.videoId}@${Math.round(h.startS)}`;
+
+/**
+ * Identity of one sighting, for de-duplication everywhere: a live frame by
+ * camera and wall-clock time, a recorded hit by its segment.
+ */
+export const hitKey = (h: VssHit) =>
+  h.source === "live"
+    ? `${h.streamId ?? h.videoId}@${h.observedAt ?? h.seekS}`
+    : segmentKey(h);
+
+/** First tag of a VSS tag list (an array or a comma-separated string). */
+export function firstTag(v: unknown): string | undefined {
+  const t = Array.isArray(v) ? v[0] : v;
+  if (typeof t !== "string") return undefined;
+  return t.split(",")[0]?.trim() || undefined;
+}
+
+/**
+ * Camera and media fields every VSS hit derives the same way, whether it came
+ * from the MCP tool result or a stored query: a live hit's camera falls back
+ * to its stream, a recorded hit's clip to the video's datastore path, and any
+ * located frame becomes the poster.
+ */
+export function hitMedia(p: {
+  live: boolean;
+  videoId: string;
+  streamId?: string;
+  tag?: string;
+  playbackUrl?: string;
+  frame?: FrameLocator;
+}): Pick<
+  VssHit,
+  "cameraTag" | "source" | "streamId" | "playbackUrl" | "frame" | "posterUrl"
+> {
+  const streamId = p.live ? (p.streamId ?? p.videoId) : undefined;
+  return {
+    cameraTag: p.tag ?? streamId,
+    source: p.live ? "live" : "video",
+    streamId,
+    playbackUrl:
+      p.playbackUrl ?? (p.live ? undefined : clipPathForVideo(p.videoId)),
+    frame: p.frame,
+    posterUrl: p.frame && framePath(p.frame),
+  };
+}
+
+/** How the UI names a hit's camera. */
+export const hitCameraLabel = (h: VssHit) =>
+  h.cameraTag ?? h.videoName ?? "Unknown camera";
 
 /**
  * Does an agent-supplied reference point at this hit? Small models do not
@@ -58,33 +106,4 @@ export function noteForHit(
   for (const [ref, note] of Object.entries(notes))
     if (hitMatchesRef(h, ref)) return note;
   return undefined;
-}
-
-/**
- * Camera tag from a VSS clip name such as
- * `P_Lev_4_Main_Entry_ip_54-20140730-090000-chunk-005.mp4`.
- */
-export function tagFromName(name: string | undefined): string | undefined {
-  const m = name?.match(/^([A-Za-z0-9_]+?)-\d{8}-\d{6}/);
-  return m?.[1];
-}
-
-/** Hits the agent copied inline into a directive (least trusted source). */
-export function hitsFromInline(matches: InlineMatch[]): VssHit[] {
-  return matches.map((m, i) => {
-    const rank = m.match_id ? Number(m.match_id.slice(1)) || i + 1 : i + 1;
-    const start = m.start_s ?? m.seek_s ?? 0;
-    return {
-      matchId: m.match_id ?? `m${rank}`,
-      rank,
-      videoId: m.video_id,
-      videoName: m.video_name,
-      cameraTag: m.camera,
-      startS: start,
-      endS: m.end_s ?? start + 8,
-      seekS: m.seek_s ?? start,
-      score: m.score ?? 0,
-      playbackUrl: toDatastorePath(m.url) ?? clipPathForVideo(m.video_id),
-    };
-  });
 }

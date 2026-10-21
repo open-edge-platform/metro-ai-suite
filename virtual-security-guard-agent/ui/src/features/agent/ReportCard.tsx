@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import { useMemo, useState } from "react";
+import { subjectImageOf } from "@/stores/investigation.logic";
+import { useState } from "react";
 import { Link } from "react-router";
 import { Download, FileText, Loader2, PencilLine } from "lucide-react";
 import { toast } from "sonner";
@@ -21,15 +22,7 @@ import { cn } from "@/lib/utils";
 import type { ReportDirective } from "@/protocol/directives";
 import type { GeneratedReport } from "@/stores/reports";
 import { useInvestigationStore } from "@/stores/investigation";
-import { useConfirmedSightings } from "@/stores/hitl";
-import {
-  routeFromSightings,
-  useTraceStore,
-  type TraceStop,
-} from "@/stores/trace";
-
-/** Stable fallback so the selector doesn't return a new array every render. */
-const NO_STOPS: TraceStop[] = [];
+import { useRoute } from "@/hooks/useRoute";
 
 const CONFIDENCE_TONE = {
   low: "pending",
@@ -44,15 +37,11 @@ export function ReportCard({ data }: { data: ReportDirective }) {
   );
   const [editing, setEditing] = useState(false);
   const [done, setDone] = useState<GeneratedReport>();
-  const traced = useTraceStore((s) => s.latest?.stops ?? NO_STOPS);
-  const session = useConfirmedSightings();
-  // The published route (historical + live); else every sighting confirmed
-  // in this session, in time order.
-  const stops = useMemo(
-    () => (traced.length ? traced : routeFromSightings(session)),
-    [traced, session],
+  // Every sighting confirmed in this session (historical and live), in time order.
+  const stops = useRoute();
+  const subject = useInvestigationStore(
+    (s) => subjectImageOf(s.turns)?.previewUrl,
   );
-  const subject = useInvestigationStore((s) => s.subjectImage?.previewUrl);
   const sessionId = useInvestigationStore((s) => s.sessionId);
   const { generate, busy, offscreen } = useReportGenerator();
 

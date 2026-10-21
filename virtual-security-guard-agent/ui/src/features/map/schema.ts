@@ -8,36 +8,39 @@ import { z } from "zod";
  * Everything else is optional (see docs/user-guide/how-to-guides/configure-floorplan.md).
  * Coordinates are SVG user units, origin top-left, y pointing down.
  */
-const point = z.tuple([z.coerce.number(), z.coerce.number()]);
+/** Plain JSON numbers only: "", null or true are mistakes, not 0. */
+const num = z.number().finite();
+const point = z.tuple([num, num]);
 
 export const floorplanCameraSchema = z.looseObject({
-  x: z.coerce.number(),
-  y: z.coerce.number(),
+  x: num,
+  y: num,
   zone: z.string().optional(),
   /** Field-of-view width in degrees. */
-  fov_angle: z.coerce.number().min(1).max(360).optional(),
+  fov_angle: num.min(1).max(360).optional(),
   /** Viewing direction in degrees: 0 = right/east, 90 = down/south. */
-  heading: z.coerce.number().optional(),
+  heading: num.optional(),
   /** FOV wedge length in plan units. */
-  range: z.coerce.number().positive().optional(),
-  /** VSS camera tag this node represents, when the key itself is not the tag. */
-  camera_id: z.string().optional(),
-  label: z.string().optional(),
+  range: num.positive().optional(),
 });
 
-export const floorplanZoneSchema = z.object({
-  name: z.string().min(1),
-  points: z.array(point).min(3).optional(),
-  rect: z
-    .object({
-      x: z.coerce.number(),
-      y: z.coerce.number(),
-      w: z.coerce.number().positive(),
-      h: z.coerce.number().positive(),
-    })
-    .optional(),
-  outdoor: z.boolean().optional(),
-});
+export const floorplanZoneSchema = z
+  .object({
+    name: z.string().min(1),
+    points: z.array(point).min(3).optional(),
+    rect: z
+      .object({
+        x: num,
+        y: num,
+        w: num.positive(),
+        h: num.positive(),
+      })
+      .optional(),
+    outdoor: z.boolean().optional(),
+  })
+  .refine((z) => !!z.points !== !!z.rect, {
+    message: "a zone needs exactly one of points or rect",
+  });
 
 /** Only inline images or same-origin paths, so a plan never makes the browser call a foreign host. */
 const background = z
@@ -53,8 +56,8 @@ export const floorplanSchema = z.object({
   name: z.string().optional(),
   canvas: z
     .object({
-      width: z.coerce.number().positive(),
-      height: z.coerce.number().positive(),
+      width: num.positive(),
+      height: num.positive(),
     })
     .optional(),
   background: background.optional(),

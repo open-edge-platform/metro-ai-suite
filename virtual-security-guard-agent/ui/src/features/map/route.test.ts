@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import { normalizeStoredQuery } from "@/adapters/vss/normalize";
-import { declaredKeyMap } from "./keymap";
 import { layoutRoute } from "./route";
 import type { Floorplan } from "./schema";
 
@@ -55,7 +54,7 @@ describe("live hits are keyed by their VSS tag", () => {
       results: [liveResult(1, "stream-a", TAG), liveResult(2, "stream-b", TAG)],
     });
     const stops = q.hits.map((hit, i) => ({ hit, order: i + 1 }));
-    const route = layoutRoute(stops, plan, declaredKeyMap(plan, [TAG]));
+    const route = layoutRoute(stops, plan);
     expect(route.offMap).toEqual([]);
     expect(route.visits).toHaveLength(1);
     expect(route.visits[0].orders).toEqual([1, 2]);

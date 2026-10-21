@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 import { jsPDF } from "jspdf";
-import { hitMatchesRef } from "@/lib/hits";
+import type { VssHit } from "@/adapters/vss/types";
+import { hitCameraLabel, hitMatchesRef } from "@/lib/hits";
 import {
   formatClock,
   formatDateTime,
@@ -9,13 +10,19 @@ import {
   formatGap,
   formatOffset,
 } from "@/lib/time";
-import { movementLegs, type TraceStop } from "@/stores/trace";
+import { movementLegs, type TraceStop } from "@/stores/case";
 import { PRESET_LABEL, type ReportContent } from "./content";
-import { cameraName } from "@/stores/cameras";
+import { cameraZone } from "@/stores/floorplan";
+
+/** "camera_1 (Lobby)": the hit's camera and, when on the plan, its zone. */
+function cameraWithZone(h: VssHit): string {
+  const zone = cameraZone(h.cameraTag);
+  return `${hitCameraLabel(h)}${zone ? ` (${zone})` : ""}`;
+}
 
 export interface ReportPdfInput {
   report: ReportContent;
-  /** Ordered route (buildTrace). */
+  /** Ordered route (routeFromSightings). */
   stops: TraceStop[];
   /** Thumbnail data URLs keyed by stop order. */
   thumbs?: Record<number, string>;
@@ -25,8 +32,6 @@ export interface ReportPdfInput {
   mapPng?: string;
   mapAspect?: number;
   sessionId?: string;
-  /** Camera tag -> human name (from the fleet). */
-  cameraName?: (tag: string) => string | undefined;
   generatedAt?: Date;
 }
 
@@ -199,10 +204,7 @@ export function buildReportPdf(input: ReportPdfInput): jsPDF {
   const rowH = 16;
   stops.forEach((s) => {
     ensure(rowH + 2);
-    const tag = s.hit.cameraTag;
-    const name = tag
-      ? (input.cameraName?.(tag) ?? cameraName(tag))
-      : "Unknown camera";
+    const name = cameraWithZone(s.hit);
     // order marker
     doc.setFillColor(...CORAL);
     doc.circle(M + 3, y + 3, 3, "F");
@@ -232,7 +234,7 @@ export function buildReportPdf(input: ReportPdfInput): jsPDF {
     doc.setFontSize(8.5);
     doc.setTextColor(...MUTED);
     doc.text(
-      `${s.hit.matchId}   ${tag ?? ""}   segment ${formatOffset(s.hit.startS)} to ${formatOffset(s.hit.endS)}   relevance ${Math.round(s.hit.score * 100)}%`,
+      `${s.hit.matchId}   segment ${formatOffset(s.hit.startS)} to ${formatOffset(s.hit.endS)}   relevance ${Math.round(s.hit.score * 100)}%`,
       cx,
       y + 7.5,
     );
@@ -255,10 +257,7 @@ export function buildReportPdf(input: ReportPdfInput): jsPDF {
   const legs = movementLegs(stops);
   if (legs.length) {
     heading("Movement");
-    const camOf = (st: TraceStop) =>
-      st.hit.cameraTag
-        ? (input.cameraName?.(st.hit.cameraTag) ?? cameraName(st.hit.cameraTag))
-        : "Unknown camera";
+    const camOf = (st: TraceStop) => cameraWithZone(st.hit);
     bullets(
       legs.map(
         (l) =>

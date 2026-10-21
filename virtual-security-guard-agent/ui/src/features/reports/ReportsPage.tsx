@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   Download,
   ExternalLink,
@@ -14,6 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { StatusChip } from "@/components/shared/media";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,12 +26,13 @@ import {
 import { useInvestigations } from "@/hooks/queries";
 import { formatBytes } from "@/lib/utils";
 import { formatDateTime, timeAgo } from "@/lib/time";
-import type { GeneratedReport } from "@/stores/reports";
-import { useReportsStore } from "@/stores/reports";
-import { useSettingsStore } from "@/stores/settings";
+import {
+  discard,
+  useReportsStore,
+  type GeneratedReport,
+} from "@/stores/reports";
 import { PRESET_LABEL } from "./content";
-import { NoReportError, rebuildReportArgs } from "./rebuild";
-import { downloadReport, useReportGenerator } from "./useReportGenerator";
+import { downloadReport } from "./useReportGenerator";
 
 function ReportPreviewDialog({
   report,
@@ -71,8 +72,26 @@ function ReportPreviewDialog({
 
 function Generated({ onPreview }: { onPreview: (r: GeneratedReport) => void }) {
   const reports = useReportsStore((s) => s.reports);
-  const remove = useReportsStore((s) => s.remove);
   const clear = useReportsStore((s) => s.clear);
+  const [clearing, setClearing] = useState(false);
+
+  /** Remove at once; the PDF is freed only once Undo is no longer offered. */
+  function removeReport(id: string) {
+    const r = useReportsStore.getState().remove(id);
+    if (!r) return;
+    let undone = false;
+    toast(`Removed "${r.title}"`, {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          undone = true;
+          useReportsStore.getState().restore(r);
+        },
+      },
+      onAutoClose: () => !undone && discard(r),
+      onDismiss: () => !undone && discard(r),
+    });
+  }
 
   return (
     <section className="border bg-card">
@@ -84,7 +103,7 @@ function Generated({ onPreview }: { onPreview: (r: GeneratedReport) => void }) {
         </span>
         <span className="flex-1" />
         {reports.length > 0 && (
-          <Button size="xs" variant="ghost" onClick={clear}>
+          <Button size="xs" variant="ghost" onClick={() => setClearing(true)}>
             Clear all
           </Button>
         )}
@@ -121,7 +140,7 @@ function Generated({ onPreview }: { onPreview: (r: GeneratedReport) => void }) {
                 <Button
                   size="icon-sm"
                   variant="ghost"
-                  onClick={() => remove(r.id)}
+                  onClick={() => removeReport(r.id)}
                   aria-label={`Remove ${r.title}`}
                 >
                   <Trash2 />
@@ -132,39 +151,26 @@ function Generated({ onPreview }: { onPreview: (r: GeneratedReport) => void }) {
         </ul>
       ) : (
         <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-          No PDFs yet. Ask Argus for a report after tracing a subject, or
-          rebuild one from a past investigation below.
+          No PDFs yet. Ask Argus for a report after tracing a subject, or open a
+          past investigation below and generate its PDF there.
         </p>
       )}
+      <ConfirmDialog
+        open={clearing}
+        onOpenChange={setClearing}
+        title={`Remove all ${reports.length} reports?`}
+        description="The PDFs are only kept in this browser tab, so they can't be recovered."
+        action="Remove all"
+        errorTitle="Couldn't remove the reports"
+        onConfirm={clear}
+      />
     </section>
   );
 }
 
-function Past({ onBuilt }: { onBuilt: (r: GeneratedReport) => void }) {
+function Past() {
   const { data, isLoading, error, refetch, isFetching } = useInvestigations();
   const navigate = useNavigate();
-  const qc = useQueryClient();
-  const minScore = useSettingsStore((s) => s.minTraceScore);
-  const { generate, offscreen } = useReportGenerator();
-  const [building, setBuilding] = useState<string>();
-
-  async function rebuild(sessionId: string) {
-    setBuilding(sessionId);
-    try {
-      const args = await rebuildReportArgs(sessionId, qc, minScore);
-      const r = await generate(args);
-      toast.success("Incident report ready", { description: r.fileName });
-      onBuilt(r);
-    } catch (e) {
-      if (e instanceof NoReportError) toast.info(e.message);
-      else
-        toast.error("Couldn't rebuild the report", {
-          description: (e as Error).message,
-        });
-    } finally {
-      setBuilding(undefined);
-    }
-  }
 
   return (
     <section className="border bg-card">
@@ -172,8 +178,8 @@ function Past({ onBuilt }: { onBuilt: (r: GeneratedReport) => void }) {
         <FolderOpen className="size-4 text-brand-accent" />
         <h3 className="text-sm font-semibold">Past investigations</h3>
         <span className="text-xs text-muted-foreground">
-          Stored as Argus sessions in Hermes. Rebuild a PDF from the last report
-          draft.
+          Stored as Argus sessions in Hermes. Open one to review it and generate
+          its PDF.
         </span>
         <span className="flex-1" />
         <Button
@@ -210,30 +216,15 @@ function Past({ onBuilt }: { onBuilt: (r: GeneratedReport) => void }) {
                   {s.messageCount ? `, ${s.messageCount} messages` : ""}
                 </p>
               </div>
-              <div className="flex gap-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() =>
-                    navigate(`/argus?session=${encodeURIComponent(s.id)}`)
-                  }
-                >
-                  Open in Argus
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void rebuild(s.id)}
-                  disabled={!!building}
-                >
-                  {building === s.id ? (
-                    <Loader2 className="animate-spin" />
-                  ) : (
-                    <FileText />
-                  )}
-                  Rebuild PDF
-                </Button>
-              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  navigate(`/argus?session=${encodeURIComponent(s.id)}`)
+                }
+              >
+                Open in Argus
+              </Button>
             </li>
           ))}
         </ul>
@@ -242,12 +233,11 @@ function Past({ onBuilt }: { onBuilt: (r: GeneratedReport) => void }) {
           No investigations yet.
         </p>
       )}
-      {offscreen}
     </section>
   );
 }
 
-/** Incident reports: PDFs from this tab plus rebuilds from past investigations. */
+/** Incident reports: PDFs from this tab plus links to past investigations. */
 export function ReportsPage() {
   const [preview, setPreview] = useState<GeneratedReport>();
   return (
@@ -260,7 +250,7 @@ export function ReportsPage() {
         </p>
       </div>
       <Generated onPreview={setPreview} />
-      <Past onBuilt={setPreview} />
+      <Past />
       <ReportPreviewDialog
         report={preview}
         onOpenChange={(o) => !o && setPreview(undefined)}

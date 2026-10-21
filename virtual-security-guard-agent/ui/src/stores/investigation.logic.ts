@@ -2,16 +2,26 @@
 // SPDX-License-Identifier: Apache-2.0
 import { shortToolName } from "@/adapters/hermes/sse";
 import type { HermesMessage, RunEvent } from "@/adapters/hermes/types";
-import type { VssHit } from "@/adapters/vss/types";
-import type { Directive } from "@/protocol/directives";
+import type { Directive, FeedbackDirective } from "@/protocol/directives";
+import type { InstructionContext, Unavailable } from "@/protocol/instructions";
 import {
   groundingFromMessage,
   type SearchGrounding,
 } from "@/protocol/grounding";
 import { extractDirectives, stripDirectives } from "@/protocol/parser";
-import { hitsFromInline } from "@/lib/hits";
 import { toDatastorePath } from "@/lib/urls";
+import { hitKey } from "@/lib/hits";
 import { uid } from "@/lib/utils";
+import { sightingHit, type LiveSighting } from "./liveTimeline";
+import {
+  confirmedSightings,
+  routeFromSightings,
+  splitVerdicts,
+  timelineLines,
+  type Review,
+  type TraceStop,
+  type Verdict,
+} from "./case";
 
 export type InvestigationPhase =
   "idle" | "searching" | "validating" | "tracing" | "traced" | "reporting";
@@ -28,14 +38,14 @@ export interface ToolCallView {
 export interface OperatorTurn {
   id: string;
   role: "operator";
-  kind: "search" | "feedback" | "report" | "streams" | "watch";
+  kind: "search" | "feedback" | "report" | "streams";
   /** What the operator sees in the transcript. */
   text: string;
+  /** Rest of a long UI-written prompt, shown collapsed under `text`. */
+  details?: string;
   /** Exact run input sent to Hermes. */
   input: string;
   image?: { previewUrl: string; imageUrl: string };
-  scopeTags?: string[];
-  window?: { start?: string; end?: string };
   createdAt: number;
 }
 
@@ -55,6 +65,8 @@ export interface AgentTurn {
   search?: SearchGrounding;
   /** True while the transcript is being fetched after the run. */
   grounding?: boolean;
+  /** Set when the transcript could not be read; the grid offers a retry. */
+  groundError?: string;
 }
 
 export type Turn = OperatorTurn | AgentTurn;
@@ -140,15 +152,14 @@ function closeTools(tools: ToolCallView[]): ToolCallView[] {
 
 /**
  * Phase after an agent reply finished, driven by the directives it emitted.
- * Without a matches/track block the investigation returns to where it was
- * before the run (e.g. a report keeps the "traced" state).
+ * Without a matches block the investigation returns to where it was before
+ * the run (e.g. a report keeps the "traced" state).
  */
 export function settleAfter(
   text: string,
   before: InvestigationPhase,
 ): InvestigationPhase {
   const ds = extractDirectives(text);
-  if (ds.some((d) => d.type === "track")) return "traced";
   if (ds.some((d) => d.type === "matches")) return "validating";
   return before;
 }
@@ -159,7 +170,7 @@ export function runningPhase(
   hasConfirms: boolean,
 ): InvestigationPhase {
   if (kind === "report") return "reporting";
-  if (kind === "streams" || kind === "watch") return "idle";
+  if (kind === "streams") return "idle";
   if (kind === "feedback") return hasConfirms ? "tracing" : "searching";
   return "searching";
 }
@@ -170,17 +181,26 @@ const REPORT_RE =
 /** Camera management: add/remove/pause/list streams, or any RTSP URL. */
 const STREAMS_RE =
   /rtsps?:\/\/|\b(add|remove|delete|pause|resume|rename|list|show)\b[^.?!]{0,40}\b(cameras?|streams?|feeds?)\b/i;
-/** Start or stop watching the live cameras (explicit operator request). */
-export const WATCH_RE =
-  /\b(watch|monitor|keep (an eye|looking|watching)|alert me)\b[^.?!]{0,40}\b(live|cameras?|feeds?|streams?)\b|\bstop (the )?(watch|watching|monitoring)\b/i;
-export const STOP_WATCH_RE =
-  /\b(stop|end|cancel)\b[^.?!]{0,20}\b(watch|watching|monitor\w*)\b/i;
+
+/**
+ * Split a report request into the line the operator sees and the evidence
+ * listing below it (the first paragraph, then everything after it).
+ */
+export function splitReportPrompt(text: string): {
+  text: string;
+  details?: string;
+} {
+  const t = text.trim();
+  const i = t.indexOf("\n\n");
+  return i < 0
+    ? { text: t }
+    : { text: t.slice(0, i), details: t.slice(i + 2).trim() || undefined };
+}
 
 export function classifyPrompt(
   text: string,
   hasImage: boolean,
 ): OperatorTurn["kind"] {
-  if (!hasImage && WATCH_RE.test(text)) return "watch";
   if (!hasImage && STREAMS_RE.test(text)) return "streams";
   if (!hasImage && REPORT_RE.test(text)) return "report";
   return "search";
@@ -199,20 +219,25 @@ export function activeQueryId(turns: Turn[]): string | undefined {
 }
 
 /**
- * Search grounding for the directives of `turnId`: its own search result, or
- * the nearest earlier one (e.g. a vsg-track that re-ranks the previous search).
- * Returns the stored object so zustand selectors stay referentially stable.
+ * Search grounding for the directives of `turnId`: the vss_search_video result
+ * of that same reply. Returns the stored object so zustand selectors stay
+ * referentially stable.
  */
 export function groundingFor(
   turns: Turn[],
   turnId: string,
 ): SearchGrounding | undefined {
-  const i = turns.findIndex((t) => t.id === turnId);
-  for (let k = i; k >= 0; k--) {
-    const t = turns[k];
-    if (t.role === "agent" && t.search) return t.search;
-  }
-  return undefined;
+  const t = turns.find((x) => x.id === turnId);
+  return t?.role === "agent" ? t.search : undefined;
+}
+
+/** Why the transcript could not be read for `turnId`, if it failed. */
+export function groundErrorFor(
+  turns: Turn[],
+  turnId: string,
+): string | undefined {
+  const t = turns.find((x) => x.id === turnId);
+  return t?.role === "agent" ? t.groundError : undefined;
 }
 
 /** True while `turnId` may still gain grounding (streaming or fetching it). */
@@ -220,26 +245,6 @@ export function groundingPending(turns: Turn[], turnId: string): boolean {
   const t = turns.find((x) => x.id === turnId);
   return t?.role === "agent" && (t.status === "streaming" || !!t.grounding);
 }
-
-/**
- * Non-stored hits behind an agent turn's latest matches/track directive:
- * transcript grounding first, then the agent's inline copy.
- */
-export function fallbackHitsFor(turns: Turn[], turnId: string): VssHit[] {
-  const g = groundingFor(turns, turnId);
-  if (g?.hits.length) return g.hits;
-  const t = turns.find((x) => x.id === turnId);
-  if (t?.role !== "agent") return [];
-  const d = extractDirectives(t.text)
-    .reverse()
-    .find((x) => x.type === "matches" || x.type === "track");
-  return d && (d.type === "matches" || d.type === "track") && d.data.matches
-    ? hitsFromInline(d.data.matches)
-    : [];
-}
-
-/** Review key the HITL store uses for a grid: verified query id or the turn. */
-export const inlineReviewKey = (turnId: string) => `inline:${turnId}`;
 
 /** Agent turn whose vsg-matches grid an operator feedback turn reviewed. */
 export function reviewedTurnId(
@@ -274,6 +279,130 @@ export function latestDirective<T extends Directive["type"]>(
   return undefined;
 }
 
+/** Latest operator search turn matching `pick`, newest first. */
+function latestSearch(
+  turns: Turn[],
+  pick: (t: OperatorTurn) => boolean = () => true,
+): OperatorTurn | undefined {
+  for (let i = turns.length - 1; i >= 0; i--) {
+    const t = turns[i];
+    if (t.role === "operator" && t.kind === "search" && pick(t)) return t;
+  }
+  return undefined;
+}
+
+/**
+ * The investigation's subject photo: the latest image searched with (a crop
+ * included). Returns the turn's own object, so selectors stay stable.
+ */
+export const subjectImageOf = (turns: Turn[]) =>
+  latestSearch(turns, (t) => !!t.image)?.image;
+
+/** The latest search prompt: what the investigation is looking for. */
+export const subjectTextOf = (turns: Turn[]) => latestSearch(turns)?.text;
+
+/** The vsg-feedback block of an operator run input, if it has one. */
+export function feedbackOf(input: string): FeedbackDirective | undefined {
+  const fb = extractDirectives(input).find((d) => d.type === "feedback");
+  return fb?.type === "feedback" ? fb.data : undefined;
+}
+
+/** True for a review that confirmed at least one sighting. */
+export const confirmsSightings = (op: OperatorTurn) =>
+  op.kind === "feedback" && !!feedbackOf(op.input)?.confirm.length;
+
+export function verdictsFromFeedback(
+  fb: FeedbackDirective,
+): Record<string, Verdict> {
+  const verdicts: Record<string, Verdict> = {};
+  fb.confirm.forEach((r) => (verdicts[r] = "confirm"));
+  fb.reject.forEach((r) => (verdicts[r] = "reject"));
+  return verdicts;
+}
+
+/** Sent reviews of a restored transcript, keyed by the grid each one reviewed. */
+export function reviewsFromTurns(turns: Turn[]): Record<string, Review> {
+  const reviews: Record<string, Review> = {};
+  turns.forEach((t, i) => {
+    if (t.role !== "operator" || t.kind !== "feedback") return;
+    const fb = feedbackOf(t.input);
+    const reviewed = reviewedTurnId(turns, i);
+    if (!fb || !reviewed) return;
+    const verdicts = verdictsFromFeedback(fb);
+    reviews[reviewed] = { verdicts, sent: verdicts };
+  });
+  return reviews;
+}
+
+/**
+ * The session's route: confirmed sightings, de-duplicated, in time order. A
+ * confirmed live sighting is one stop at its start, spanning to its end.
+ */
+export function routeOf(
+  s: { turns: Turn[]; reviews: Record<string, Review> },
+  live: readonly LiveSighting[],
+): TraceStop[] {
+  const confirmed = new Map(
+    live.filter((l) => l.confirmed).map((l) => [hitKey(sightingHit(l)), l]),
+  );
+  const hits = [...confirmed.values()].map(sightingHit);
+  return routeFromSightings(confirmedSightings(s.turns, s.reviews, hits)).map(
+    (stop) => {
+      const l = confirmed.get(hitKey(stop.hit));
+      return l && l.count > 1
+        ? { ...stop, until: new Date(l.end), detections: l.count }
+        : stop;
+    },
+  );
+}
+
+/** Everything Argus is told about the session before a run. */
+export function instructionContext(
+  c: {
+    phase: InvestigationPhase;
+    turns: Turn[];
+    reviews: Record<string, Review>;
+    live: readonly LiveSighting[];
+    /** The operator's latest search prompt. */
+    subject?: string;
+  },
+  env: {
+    fleet: {
+      cameras: { name: string; streamId: string; status: string }[];
+      error?: string;
+      hasLiveCamera: boolean;
+    };
+    freePositions: string[] | Unavailable;
+    watchingQueryId?: string;
+    zone: (tag: string) => string | undefined;
+    minScore: number;
+    limit: number;
+  },
+): InstructionContext {
+  const grid = latestDirective(c.turns, "matches")?.turnId;
+  const { confirm, reject } = splitVerdicts(
+    grid ? c.reviews[grid]?.sent : undefined,
+  );
+  const { fleet } = env;
+  return {
+    phase: c.phase,
+    // Statuses from before a failed refresh would be stale.
+    cameras: fleet.error
+      ? { unavailable: `camera status unavailable: ${fleet.error}` }
+      : fleet.cameras.map((x) => `${x.name} (${x.streamId}, ${x.status})`),
+    freePositions: env.freePositions,
+    hasLiveCamera: !fleet.error && fleet.hasLiveCamera,
+    watching: env.watchingQueryId,
+    subject: c.subject?.trim() || undefined,
+    activeQueryId: activeQueryId(c.turns),
+    confirmed: confirm,
+    rejected: reject,
+    sightings: timelineLines(routeOf(c, c.live), env.zone),
+    minScore: env.minScore,
+    limit: env.limit,
+  };
+}
+
 export function describeFeedback(confirm: string[], reject: string[]): string {
   const parts: string[] = [];
   if (confirm.length) parts.push(`Confirmed ${confirm.join(", ")}.`);
@@ -295,7 +424,7 @@ export function turnsFromMessages(messages: HermesMessage[]): Turn[] {
     if (m.role === "user") {
       agent = undefined;
       const ds = extractDirectives(m.content);
-      const fb = ds.find((d) => d.type === "feedback");
+      const fb = feedbackOf(m.content);
       const ctx = ds.find((d) => d.type === "context");
       const prose = stripDirectives(m.content);
       const kind: OperatorTurn["kind"] = fb
@@ -306,22 +435,17 @@ export function turnsFromMessages(messages: HermesMessage[]): Turn[] {
           );
       const imageUrl = ctx?.type === "context" ? ctx.data.image_url : undefined;
       const preview = imageUrl ? toDatastorePath(imageUrl) : undefined;
+      const shown =
+        kind === "report" ? splitReportPrompt(prose) : { text: prose };
       turns.push({
         id: uid("op"),
         role: "operator",
         kind,
-        text:
-          fb?.type === "feedback"
-            ? describeFeedback(fb.data.confirm, fb.data.reject)
-            : prose,
+        ...shown,
+        ...(fb && { text: describeFeedback(fb.confirm, fb.reject) }),
         input: m.content,
         image:
           imageUrl && preview ? { imageUrl, previewUrl: preview } : undefined,
-        scopeTags: ctx?.type === "context" ? ctx.data.tags : undefined,
-        window:
-          ctx?.type === "context" && (ctx.data.start || ctx.data.end)
-            ? { start: ctx.data.start, end: ctx.data.end }
-            : undefined,
         createdAt: ts,
       });
       continue;

@@ -26,7 +26,7 @@ flowchart LR
   SPA -->|/vss/*| NGX
   NGX -->|runs, sessions| HERMES[Hermes agent API :8642<br/>Argus + VSG skills]
   NGX -->|search, images, clips, streams| VSS[VSS gateway :12345]
-  HERMES -->|reasons with| LLM[Model server<br/>e.g. OVMS]
+  HERMES -->|reasons with| LLM[Inference Router :8010<br/>OVMS Qwen3.8-27B]
   HERMES -->|calls tools| MCP[VSS MCP server :8000]
   MCP --> VSS
 ```
@@ -60,21 +60,22 @@ flowchart LR
    calls `vss_search_video`.
 2. **Review**: the UI shows the VSS results as a grid. The operator confirms
    the right sightings; the rest count as false positives.
-3. **Crop and re-search** (optional): a person cropped from a clip becomes
-   the new subject image and Argus searches again.
+3. **Crop and re-search** (optional): a person cropped from a clip is sent
+   as a new image search, and becomes the subject image.
 4. **Route**: confirmed sightings from all grids, in time order, become the
    route on the floorplan.
-5. **Live search** (optional): offered after a confirm when a live camera is
-   connected. It starts only when the operator accepts, and the UI polls VSS
-   every 10 s.
-6. **Report**: Argus drafts the report; the browser builds the PDF.
+5. **Live search** (optional): available on the route card while a live
+   camera is connected. It starts only when the operator clicks it, and the
+   UI polls VSS every 10 s.
+6. **Report**: chosen from the route card; Argus drafts the report and the
+   browser builds the PDF.
 
 ## Trust the Tool, Not the Model
 
 Small models can mistype ids. The grid shows what VSS returned, read from the
 Hermes session transcript, not clips the model typed. Argus only chooses
-*which* results to highlight. If no tool result is found, the model's copy is
-shown and marked **unverified**.
+*which* results to highlight. If the transcript cannot be read, the grid
+offers **Retry**; it never shows clips the model wrote.
 
 ## Security
 

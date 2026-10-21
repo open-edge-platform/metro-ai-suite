@@ -18,8 +18,6 @@ Tactics for `vss_search_video` and friends in this deployment.
   space ("main entry" → `P_Lev_4_Main_Entry_ip_54`).
 - If several tags fit ("corridor"), use all of them. If none fit, search all
   cameras and say which place you could not match.
-- When the operator scoped cameras in the UI (`vsg-context.tags`), use exactly
-  those and nothing else.
 
 ## Writing the search
 
@@ -56,6 +54,26 @@ backpack", "man in a red hoodie walking". Bad: "the thief", "suspicious guy",
 - `unknown_tags` not empty → the tags you sent don't exist. Retry once using
   `available_tags`.
 
+## Summarizing a video
+
+- Summarize only when the operator asks, one video per call.
+- Get the `video_id` from a hit, a sighting ref (`video_id@start`),
+  `vss_resolve_video` (act only when `unambiguous` is true) or
+  `vss_list_videos` with a camera `tag`. Never guess an id.
+- Set `focus` to what the operator is searching for: a focus named in the
+  request, else the run instructions' **Search subject**, else your last
+  search `query`. VSS appends it to the frame-caption prompt and the
+  final-summary prompts, so both describe that subject. Image-only search and
+  no description → no `focus`.
+- Leave `chunk_duration`, `sampling_frames`, `frame_overlap`,
+  `evam_pipeline` and the audio options unset unless the operator asks.
+- `final_summary: false` returns the chunk timeline (`start_s`, `end_s`,
+  `caption`) and is faster.
+- `completed: false` → report progress (`captioned`/`total_chunks`) and fetch
+  later with `vss_get_video_summary_timeline` and the `state_id`.
+- VSS captions come from a vision model. Rewrite them to follow the
+  guardrails before you reply.
+
 ## Failure handling
 
 | Symptom | Do this |
@@ -63,6 +81,8 @@ backpack", "man in a red hoodie walking". Bad: "the thief", "suspicious guy",
 | Tool error / timeout | Say VSS did not answer, send no block, suggest retrying. |
 | No hits | Say so; suggest one change (wider window, other cameras, simpler words). No block. |
 | Image search unsupported | Say image search is not enabled; offer a text search from the operator's description. |
+| Summary not finished (`completed: false`) | Say it is still running; fetch with `vss_get_video_summary_timeline` and `state_id` when asked. |
+| Summarization unavailable | Check `vss_get_deployment_info`; say summarization is not enabled on this VSS. |
 | No `query_id` in result | Normal today. Send `keep` refs only; the UI reads the hits from the transcript. |
 
 ## Never

@@ -14,6 +14,7 @@
   --color-confirm-soft: var(--vsg-confirm-soft);
   --color-reject: var(--vsg-reject);
   --color-camera: var(--vsg-camera);
+  --color-live: var(--vsg-live);
   --color-pending: var(--vsg-pending);
   --color-blueprint: var(--vsg-blueprint);
   --color-blueprint-line: var(--vsg-blueprint-line);
@@ -37,6 +38,8 @@
   --vsg-reject: var(--carbon);
   /* Camera nodes and fields of view. */
   --vsg-camera: var(--energy-blue);
+  /* Live camera sending frames, on the (always dark) blueprint. */
+  --vsg-live: var(--electric-moss);
   /* Agent working / awaiting review. */
   --vsg-pending: var(--daisy-shade-2);
   /* Spatial map: a classic-blue blueprint in both themes. */

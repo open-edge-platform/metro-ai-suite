@@ -11,10 +11,11 @@ COMPOSE     := docker compose -f deploy/compose.yaml
 REGISTRY    ?=
 TAG         ?= latest
 IMAGE       := $(REGISTRY)intel/vsg-ui:$(TAG)
-# Where `make install-skills` copies the Hermes skills (run on the Hermes host).
-HERMES_SKILLS_DIR ?= $(HOME)/.hermes/skills/security
+# Where `make install-skills` puts SOUL.md and the skills (run on the Hermes host).
+HERMES_HOME ?= $(HOME)/.hermes
+HERMES_SKILLS_DIR ?= $(HERMES_HOME)/skills/security
 
-.PHONY: help install dev dev-mock lint format test check build-ui build push up down logs install-skills clean
+.PHONY: help install dev dev-mock lint format test e2e check build-ui build push up down logs install-skills clean
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -37,12 +38,13 @@ format: ## Format the UI sources with Prettier
 test: ## Run the UI unit tests (vitest)
 	cd $(UI_DIR) && npm test
 
+e2e: ## Run the Playwright end-to-end tests on the mock adapters
+	cd $(UI_DIR) && npm run test:e2e
+
 check: lint test ## Lint, type-check and test
 
 build: ## Build the container image ($(IMAGE))
-	docker build -t $(IMAGE) \
-		--build-arg http_proxy --build-arg https_proxy --build-arg no_proxy \
-		$(UI_DIR)
+	docker build -t $(IMAGE) $(UI_DIR)
 
 push: build ## Push the container image
 	docker push $(IMAGE)
@@ -57,10 +59,8 @@ down: ## Stop the UI
 logs: ## Follow the UI container logs
 	$(COMPOSE) logs -f
 
-install-skills: ## Copy the Hermes skills to HERMES_SKILLS_DIR (default ~/.hermes/skills/security)
-	mkdir -p "$(HERMES_SKILLS_DIR)"
-	cp -r hermes-skills/virtual-security-guard hermes-skills/vsg-incident-report "$(HERMES_SKILLS_DIR)/"
-	@echo "Installed to $(HERMES_SKILLS_DIR). Start a new Hermes session to pick them up."
+install-skills: ## Install SOUL.md + Hermes skills (HERMES_HOME, HERMES_SKILLS_DIR; INSTALL_ARGS=--exclusive removes other skills) and restart the gateway
+	HERMES_HOME="$(HERMES_HOME)" HERMES_SKILLS_DIR="$(HERMES_SKILLS_DIR)" hermes-skills/install.sh $(INSTALL_ARGS)
 
 clean: ## Remove UI build output
 	rm -rf $(UI_DIR)/dist $(UI_DIR)/coverage

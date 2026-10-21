@@ -1,20 +1,17 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
+import { toast } from "sonner";
 import { create } from "zustand";
 import { getAdapters } from "@/adapters";
-import type { VssHit } from "@/adapters/vss/types";
-import type { Verdict } from "./hitl";
+import { useLiveTimelineStore } from "./liveTimeline";
 import { useSettingsStore } from "./settings";
 
 /**
- * Live trace: after the operator confirms a sighting, a watched VSS search
- * follows the subject on the live cameras and the route grows per sighting.
- *
- * A watch only starts on an operator action (confirming a sighting, or an
- * explicit chat request that Argus turns into vss_watch_search). Once running,
- * the UI polls the stored query over REST at VSS's refresh interval, so new
- * sightings cost no LLM tokens. Sightings are the watched query's live hits,
- * de-duplicated by camera and frame time.
+ * Live camera search runtime: a watched VSS search follows the subject on the
+ * live cameras. A watch only starts from the operator's "Start live camera
+ * search" button; Argus never starts one. The UI polls the stored query over
+ * REST, so new sightings cost no LLM tokens, and folds its hits into the
+ * session's live timeline (liveTimeline.ts), where the operator confirms them.
  */
 
 export type WatchStatus =
@@ -24,79 +21,28 @@ export interface WatchSubject {
   query?: string;
   imageUrl?: string;
   previewUrl?: string;
-  tags?: string[];
 }
 
 interface WatchState {
   queryId?: string;
-  /** Who created the watched query; only UI-made queries are ours to stop on reset. */
-  origin?: "ui" | "agent";
+  /** Hermes session whose live timeline the sightings go to. */
   sessionId?: string;
   subject?: WatchSubject;
   status?: WatchStatus;
   startedAt?: number;
-  /** Absolute stop time (watch duration setting or the MCP's expires_at). */
+  /** Browser time the watch stops (the watch duration setting). */
   deadline?: number;
   lastSightingAt?: number;
-  /** Operator-confirmed sightings the live trace starts from (route seed). */
-  seed: VssHit[];
-  /** Newest first. */
-  sightings: VssHit[];
-  verdicts: Record<string, Verdict>;
   error?: string;
-  /** Confirmed sightings are saved and a live search is offered. */
-  offered?: boolean;
-  /** Offer declined for this session. */
-  dismissed?: string;
+  /** VSS refused to unwatch `queryId`; the query may still be running there. */
+  stopFailed?: boolean;
 
-  start: (
-    subject: WatchSubject,
-    sessionId?: string,
-    seed?: VssHit[],
-  ) => Promise<void>;
-  /** Adopt a watch Argus started with vss_watch_search. */
-  adopt: (
-    queryId: string,
-    opts: {
-      sessionId?: string;
-      subject?: WatchSubject;
-      expiresAt?: string;
-      sightings?: VssHit[];
-      seed?: VssHit[];
-    },
-  ) => void;
-  /** Offer a live search after the operator confirmed historical sightings. */
-  offer: (
-    subject: WatchSubject,
-    sessionId: string | undefined,
-    seed: VssHit[],
-  ) => void;
+  start: (subject: WatchSubject, sessionId: string) => Promise<void>;
   stop: (status?: WatchStatus) => Promise<void>;
-  setVerdict: (key: string, v: Verdict | undefined) => void;
-  dismiss: (sessionId: string) => void;
   clear: () => void;
 }
 
-/**
- * Live sightings the operator already confirmed in this session. They stay
- * on the route when another review round or a new live search starts.
- */
-function confirmedLive(
-  s: Pick<WatchState, "sessionId" | "sightings" | "verdicts">,
-  sessionId: string | undefined,
-): Pick<WatchState, "sightings" | "verdicts"> {
-  if (!sessionId || s.sessionId !== sessionId)
-    return { sightings: [], verdicts: {} };
-  const sightings = s.sightings.filter(
-    (h) => s.verdicts[sightingKey(h)] === "confirm",
-  );
-  const verdicts: Record<string, Verdict> = {};
-  for (const h of sightings) verdicts[sightingKey(h)] = "confirm";
-  return { sightings, verdicts };
-}
-
-export const sightingKey = (h: VssHit) =>
-  `${h.streamId ?? h.videoId}@${h.observedAt ?? h.seekS}`;
+export const STOP_FAILED = "Couldn't stop the live search on VSS";
 
 /** Live matches refresh every 10 seconds. */
 const POLL_MS = 10_000;
@@ -110,34 +56,32 @@ function stopTimer() {
   generation++;
 }
 
-export const useWatchStore = create<WatchState>()((set, get) => {
-  function merge(fresh: VssHit[]) {
-    const { sightings } = get();
-    const seen = new Set(sightings.map(sightingKey));
-    // The watched query only spans the last few minutes of live footage, so
-    // every unseen live hit is a sighting; VSS and browser clocks may differ.
-    const add = fresh.filter((h) => {
-      if (h.source !== "live") return false;
-      const k = sightingKey(h);
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
-    if (!add.length) return 0;
-    add.sort(
-      (a, b) => Date.parse(b.observedAt ?? "") - Date.parse(a.observedAt ?? ""),
+/**
+ * Unwatch a query the store no longer tracks (a cleared watch, or one that
+ * finished starting after Stop). A failure is surfaced with a retry.
+ */
+function unwatchDetached(queryId: string) {
+  getAdapters()
+    .vss.setWatch(queryId, false)
+    .catch((e: Error) =>
+      toast.error(STOP_FAILED, {
+        description: e.message,
+        action: { label: "Retry", onClick: () => unwatchDetached(queryId) },
+      }),
     );
-    set({
-      sightings: [...add, ...sightings].slice(0, 200),
-      lastSightingAt: Date.now(),
-    });
-    return add.length;
-  }
+}
 
+export const useWatchStore = create<WatchState>()((set, get) => {
   async function poll(gen: number, intervalMs: number) {
     if (gen !== generation) return;
-    const { queryId, deadline, lastSightingAt, startedAt = Date.now() } = get();
-    if (!queryId) return;
+    const {
+      queryId,
+      sessionId,
+      deadline,
+      lastSightingAt,
+      startedAt = Date.now(),
+    } = get();
+    if (!queryId || !sessionId) return;
     const idleMs = useSettingsStore.getState().watchIdleMinutes * 60_000;
     if (deadline && Date.now() >= deadline) return void get().stop("expired");
     if (Date.now() - (lastSightingAt ?? startedAt) >= idleMs)
@@ -145,7 +89,18 @@ export const useWatchStore = create<WatchState>()((set, get) => {
     try {
       const q = await getAdapters().vss.getQuery(queryId);
       if (gen !== generation) return;
-      merge(q.hits);
+      if (q.status === "error") {
+        await get().stop("error");
+        if (!get().stopFailed)
+          set({
+            error: q.errorMessage ?? "VSS reported the live search failed.",
+          });
+        return;
+      }
+      // VSS and browser clocks may differ: idle time is measured in browser time.
+      if (useLiveTimelineStore.getState().addHits(sessionId, queryId, q.hits))
+        set({ lastSightingAt: Date.now() });
+      set({ error: undefined });
       if (get().status === "starting") set({ status: "watching" });
     } catch (e) {
       if (gen !== generation) return;
@@ -161,126 +116,68 @@ export const useWatchStore = create<WatchState>()((set, get) => {
   }
 
   return {
-    seed: [],
-    sightings: [],
-    verdicts: {},
-
-    offer(subject, sessionId, seed) {
-      if (isWatchActive(get())) return;
-      stopTimer();
-      set({
-        queryId: undefined,
-        origin: undefined,
-        sessionId,
-        subject,
-        status: undefined,
-        offered: true,
-        seed,
-        ...confirmedLive(get(), sessionId),
-        error: undefined,
-      });
-    },
-
-    async start(subject, sessionId, seed = []) {
+    async start(subject, sessionId) {
       if (get().status === "starting" || get().status === "watching") return;
       stopTimer();
+      // Stop or clear while VSS creates the query bumps the generation.
+      const gen = generation;
       const minutes = useSettingsStore.getState().watchMinutes;
       const now = Date.now();
       set({
         queryId: undefined,
-        origin: "ui",
         sessionId,
         subject,
         status: "starting",
-        offered: false,
         startedAt: now,
         deadline: now + minutes * 60_000,
         lastSightingAt: undefined,
-        seed,
-        ...confirmedLive(get(), sessionId),
         error: undefined,
+        stopFailed: undefined,
       });
+      let queryId: string;
       try {
-        const queryId = await getAdapters().vss.startWatch({
+        queryId = await getAdapters().vss.startWatch({
           query: subject.imageUrl ? undefined : subject.query,
           imageUrl: subject.imageUrl,
-          tags: subject.tags,
           windowMinutes: 5,
         });
-        set({ queryId });
-        beginPolling();
       } catch (e) {
-        set({ status: "error", error: (e as Error).message });
-      }
-    },
-
-    adopt(queryId, opts) {
-      const cur = get();
-      if (cur.queryId === queryId) {
-        if (opts.sightings) merge(opts.sightings);
+        if (gen === generation)
+          set({ status: "error", error: (e as Error).message });
         return;
       }
-      const now = Date.now();
-      const minutes = useSettingsStore.getState().watchMinutes;
-      const exp = opts.expiresAt ? Date.parse(opts.expiresAt) : NaN;
-      set({
-        queryId,
-        origin: "agent",
-        sessionId: opts.sessionId,
-        subject: opts.subject,
-        status: "watching",
-        offered: false,
-        startedAt: now,
-        deadline: Number.isFinite(exp) ? exp : now + minutes * 60_000,
-        lastSightingAt: undefined,
-        seed: opts.seed ?? [],
-        sightings: [],
-        verdicts: {},
-        error: undefined,
-      });
-      if (opts.sightings) merge(opts.sightings);
-      void beginPolling();
+      if (gen !== generation) return unwatchDetached(queryId);
+      set({ queryId });
+      beginPolling();
     },
 
     async stop(status = "stopped") {
       stopTimer();
       const { queryId } = get();
-      set({ status });
-      if (queryId)
-        await getAdapters()
-          .vss.setWatch(queryId, false)
-          .catch(() => undefined);
-    },
-
-    setVerdict(key, v) {
-      set((s) => {
-        const verdicts = { ...s.verdicts };
-        if (v) verdicts[key] = v;
-        else delete verdicts[key];
-        return { verdicts };
-      });
-    },
-
-    dismiss(sessionId) {
-      set({ dismissed: sessionId, offered: false });
+      set({ status, stopFailed: undefined });
+      if (!queryId) return;
+      try {
+        await getAdapters().vss.setWatch(queryId, false);
+      } catch (e) {
+        set({
+          status: "error",
+          stopFailed: true,
+          error: `${STOP_FAILED}: ${(e as Error).message}`,
+        });
+      }
     },
 
     clear() {
-      const { status } = get();
-      if (status === "starting" || status === "watching") void get().stop();
+      const { queryId, status, stopFailed } = get();
       stopTimer();
+      if (queryId && (status === "watching" || stopFailed))
+        unwatchDetached(queryId);
       set({
         queryId: undefined,
-        origin: undefined,
-        sessionId: undefined,
         subject: undefined,
         status: undefined,
-        offered: undefined,
-        seed: [],
-        sightings: [],
-        verdicts: {},
         error: undefined,
-        dismissed: undefined,
+        stopFailed: undefined,
       });
     },
   };

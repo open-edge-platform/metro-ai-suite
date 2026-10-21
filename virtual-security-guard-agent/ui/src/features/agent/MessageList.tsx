@@ -3,8 +3,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, Fragment } from "react";
 import { ArrowDown, ImageUp, Search, ShieldCheck, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { latestDirective } from "@/stores/investigation.logic";
 import type { Turn } from "@/stores/investigation";
+import { useRoute } from "@/hooks/useRoute";
+import { useInvestigationStore } from "@/stores/investigation";
+import { useWatchStore } from "@/stores/watch";
+import { sessionSightings, useLiveTimelineStore } from "@/stores/liveTimeline";
 import { LiveTraceCard } from "./LiveWatch";
 import { AgentTurnView, ArgusAvatar, OperatorBubble } from "./Turns";
 
@@ -91,7 +94,6 @@ export function MessageList({
 }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const [pinned, setPinned] = useState(true);
-  const trace = latestDirective(turns, "track");
   const last = turns[turns.length - 1];
   // The route / live-search card sits under Argus's reply to the confirming
   // review, so later turns (such as a report) appear below it, not above.
@@ -103,10 +105,15 @@ export function MessageList({
   const lastLen =
     last?.role === "agent" ? last.text.length + last.tools.length : 0;
 
+  // The route card grows below the transcript too: follow it while pinned.
+  const routeLen = useRoute().length;
+  const watchStatus = useWatchStore((s) => s.status);
+  const sessionId = useInvestigationStore((s) => s.sessionId);
+  const live = useLiveTimelineStore((s) => sessionSightings(s, sessionId));
   useLayoutEffect(() => {
     const el = scroller.current;
     if (el && pinned) el.scrollTop = el.scrollHeight;
-  }, [turns.length, lastLen, pinned]);
+  }, [turns.length, lastLen, pinned, routeLen, watchStatus, live]);
 
   // A new operator message always brings the view back to the bottom.
   useEffect(() => {
@@ -142,7 +149,6 @@ export function MessageList({
                 ) : (
                   <AgentTurnView
                     turn={t}
-                    traceTurnId={trace?.turnId}
                     busy={busy}
                     onRetry={() => onRetry(t.id)}
                   />

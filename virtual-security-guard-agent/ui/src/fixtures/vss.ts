@@ -118,39 +118,8 @@ export const MOCK_SEARCH_QUERY: VssStoredQuery = {
   ]),
 };
 
-export const MOCK_REFINE_QUERY: VssStoredQuery = {
-  ...MOCK_SEARCH_QUERY,
-  queryId: "mock-q-search-2",
-  hits: buildHits("refn", [
-    { tag: T[0], minutes: 12, start: 40, score: 1 },
-    { tag: T[4], minutes: 15, start: 64, score: 0.88 },
-    { tag: T[9], minutes: 37, start: 120, score: 0.71 },
-    { tag: T[11], minutes: 39, start: 8, score: 0.62 },
-  ]),
-};
-
-/** Image-anchored re-search used for the trace: a plausible walk through Level 4. */
-export const MOCK_TRACE_QUERY: VssStoredQuery = {
-  queryId: "mock-q-trace",
-  query: "",
-  status: "idle",
-  tags: [],
-  createdAt: new Date(BASE_INGEST + 55 * 60_000).toISOString(),
-  hits: buildHits("trce", [
-    { tag: T[4], minutes: 15, start: 24, score: 1 },
-    { tag: T[0], minutes: 12, start: 210, score: 0.94 },
-    { tag: T[10], minutes: 41, start: 96, score: 0.9 },
-    { tag: T[3], minutes: 13, start: 230, score: 0.81 },
-    { tag: T[1], minutes: 4, start: 280, score: 0.77 },
-    { tag: T[2], minutes: 8, start: 120, score: 0.72 },
-    { tag: T[5], minutes: 20, start: 30, score: 0.48 },
-  ]),
-};
-
 export const MOCK_QUERIES: Record<string, VssStoredQuery> = {
   [MOCK_SEARCH_QUERY.queryId]: MOCK_SEARCH_QUERY,
-  [MOCK_REFINE_QUERY.queryId]: MOCK_REFINE_QUERY,
-  [MOCK_TRACE_QUERY.queryId]: MOCK_TRACE_QUERY,
 };
 
 /** Live RTSP cameras for mock mode; stream_id doubles as the hit video_id. */

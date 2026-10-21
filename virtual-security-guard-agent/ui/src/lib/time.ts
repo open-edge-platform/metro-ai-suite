@@ -84,13 +84,6 @@ export function timeAgo(epoch: number | undefined, now = Date.now()): string {
   return `${Math.floor(diff / 86400)} d ago`;
 }
 
-/** Convert <input type="datetime-local"> value to ISO, or undefined. */
-export function localInputToIso(v: string | undefined): string | undefined {
-  if (!v) return undefined;
-  const t = Date.parse(v);
-  return Number.isNaN(t) ? undefined : new Date(t).toISOString();
-}
-
 /** Elapsed time between sightings, e.g. "45 s", "3 min 05 s", "1 h 02 min". */
 export function formatGap(seconds: number | undefined): string {
   if (seconds === undefined || !Number.isFinite(seconds)) return "unknown time";

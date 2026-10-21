@@ -3,7 +3,7 @@ name: vsg-dev
 description: Develop, run, test, build, deploy and debug the Virtual Security Guard Agent (VSG) UI - the React operator console for the Argus agent on Hermes over Intel VSS. Covers the Makefile targets, mock vs live dev servers, the nginx allowlist gateway, Zustand stores, the vsg-* directive protocol, the HITL review and live camera search flow, and reinstalling the Hermes skills. Use when the user says "run the VSG UI", "start Argus UI", "add a feature/page to VSG", "Argus reply not shown", "add a VSS/Hermes route", "change the Argus protocol", "redeploy vsg-ui", or reports a VSG UI bug.
 license: Apache-2.0
 metadata:
-  version: "1.0.0"
+  version: "2026.3.0"
   tags: "vsg argus hermes vss react development"
 ---
 
@@ -70,9 +70,9 @@ Map the request to the owning module before editing:
 | Area | Files |
 |---|---|
 | Chat run, phases, operator turns | `ui/src/stores/investigation.ts`, `investigation.logic.ts` |
-| Review grid (confirm-only, six shown, "Show more" up to 20, every grid confirmable all session) | `ui/src/features/agent/ValidationGrid.tsx`, `MatchCard.tsx`, `useSubmitReview.ts`, `stores/hitl.ts` |
-| Live camera search (offer, 10 s poll, 4 nearest, Stop) | `ui/src/stores/watch.ts`, `features/agent/LiveWatch.tsx` |
-| Route / floorplan | `ui/src/stores/trace.ts`, `stores/floorplan.ts`, `features/map/SpatialMap.tsx` |
+| Review grid (confirm-only, six shown, "Show more" up to 20, only the latest grid editable) | `ui/src/features/agent/ValidationGrid.tsx`, `MatchCard.tsx`, `useSubmitReview.ts`, `stores/investigation.ts` (`reviews`) |
+| Route card and live camera search (button start, 10 s poll, live timeline, Stop) | `ui/src/stores/watch.ts`, `stores/liveTimeline.ts`, `features/agent/LiveWatch.tsx`, `LiveTimeline.tsx` |
+| Route / floorplan | `ui/src/stores/case.ts`, `hooks/useRoute.ts`, `stores/floorplan.ts`, `features/map/SpatialMap.tsx` |
 | Reports / PDF | `ui/src/features/agent/ReportCard.tsx`, `features/reports/` |
 | Live cameras page (VSS `/streams`) | `ui/src/stores/cameras.ts`, `features/cameras/` |
 | Hermes or VSS HTTP calls | `ui/src/adapters/{hermes,vss}/` (keep `mock.ts` in sync) |
@@ -86,8 +86,8 @@ Rules that prevent the bugs this app has already hit:
 - **No cross-clock comparisons.** VSS and browser clocks differ. Don't filter
   or age VSS timestamps against `Date.now()`; compare VSS values to each other
   or measure change between polls.
-- **Ground hits in tool results.** Prefer `groundingFromLatestRun` over the
-  model's inline JSON; inline hits are a fallback and are labelled unverified.
+- **Ground hits in tool results.** Grid hits come only from the run's
+  `vss_search_video` result (`groundingForRun`); never from the model's JSON.
 - **Operator consent.** Never start a live watch without an operator action.
 - **New upstream route** → add it in three places with a strict regex:
   `ui/nginx/templates/default.conf.template`, the Vite proxy in

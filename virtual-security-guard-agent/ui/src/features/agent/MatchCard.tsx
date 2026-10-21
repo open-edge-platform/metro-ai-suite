@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Check, Play, Sparkles } from "lucide-react";
 import type { VssHit } from "@/adapters/vss/types";
+import { hitCameraLabel } from "@/lib/hits";
 import { HitThumb, ScoreMeter } from "@/components/shared/media";
 import {
   Tooltip,
@@ -10,12 +11,9 @@ import {
 } from "@/components/ui/tooltip";
 import { formatClock, formatDateTime, hitTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import {
-  selectCameraByTag,
-  useCamerasStore,
-  cameraName,
-} from "@/stores/cameras";
-import type { Verdict } from "@/stores/hitl";
+import { selectCameraByTag, useCamerasStore } from "@/stores/cameras";
+import type { Verdict } from "@/stores/case";
+import { useCameraLocation } from "@/stores/floorplan";
 
 interface Props {
   hit: VssHit;
@@ -41,9 +39,8 @@ export function MatchCard({
   onPlay,
 }: Props) {
   const camera = useCamerasStore(selectCameraByTag(hit.cameraTag));
-  const name = hit.cameraTag
-    ? (camera?.name ?? cameraName(hit.cameraTag))
-    : "Unknown camera";
+  const location = useCameraLocation(hit.cameraTag, camera?.location);
+  const name = hitCameraLabel(hit);
   const at = hitTime(hit);
   const confirmed = verdict === "confirm";
   const rejected = verdict === "reject";
@@ -100,7 +97,7 @@ export function MatchCard({
           {name}
         </p>
         <p className="truncate text-xs text-muted-foreground">
-          {[camera?.location, at ? formatDateTime(at) : undefined]
+          {[location, at ? formatDateTime(at) : undefined]
             .filter(Boolean)
             .join(", ") || "Time unknown"}
         </p>

@@ -110,11 +110,6 @@ export function createMockVss(): VssAdapter {
       if (!s) throw new VssError("Stream not found", 404);
       Object.assign(s, {
         ...(patch.state && { state: patch.state }),
-        ...(patch.name !== undefined && { name: patch.name }),
-        ...(patch.description !== undefined && {
-          description: patch.description,
-        }),
-        ...(patch.tags && { tags: patch.tags }),
         ...(patch.frameInterval && { frameInterval: patch.frameInterval }),
         ...(patch.objectDetection !== undefined && {
           objectDetection: patch.objectDetection,
@@ -131,16 +126,13 @@ export function createMockVss(): VssAdapter {
         query: req.query ?? "",
         image: req.imageUrl,
         status: "idle",
-        tags: req.tags ?? [],
+        tags: [],
         hits: [],
       });
       return queryId;
     },
     async setWatch(queryId, watch) {
       if (!watch) watches.delete(queryId);
-    },
-    async refreshConfig() {
-      return { enabled: true, intervalMs: 4000 };
     },
   };
 }

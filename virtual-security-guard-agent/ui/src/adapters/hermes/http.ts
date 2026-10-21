@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
+import { z } from "zod";
 import { env } from "@/config/env";
+import { parseEnvelope, readBody, unexpectedBody } from "../response";
 import { createSseParser, isTerminal, toRunEvent } from "./sse";
 import {
   HermesError,
@@ -13,11 +15,11 @@ import {
 
 type Json = Record<string, unknown>;
 
-async function request<T = Json>(
+async function request(
   base: string,
   path: string,
   init: RequestInit = {},
-): Promise<T> {
+): Promise<unknown> {
   const res = await fetch(`${base}${path}`, {
     ...init,
     headers: {
@@ -26,13 +28,7 @@ async function request<T = Json>(
       ...init.headers,
     },
   });
-  const text = await res.text();
-  let body: unknown = undefined;
-  try {
-    body = text ? JSON.parse(text) : undefined;
-  } catch {
-    body = text;
-  }
+  const body = await readBody(res);
   if (!res.ok) {
     const err = (body as Json | undefined)?.error;
     const msg =
@@ -41,18 +37,38 @@ async function request<T = Json>(
       `Hermes ${res.status} ${res.statusText}`;
     throw new HermesError(String(msg), res.status);
   }
-  return body as T;
+  if (typeof body === "string")
+    throw new HermesError(unexpectedBody("Hermes", body), res.status);
+  return body;
 }
 
-function toSession(s: Json): HermesSession {
+const expect = <S extends z.ZodType>(schema: S, body: unknown, what: string) =>
+  parseEnvelope(schema, body, `Hermes ${what}`, (m) => new HermesError(m));
+
+const optional = <S extends z.ZodType>(s: S) => s.nullish().catch(undefined);
+
+const sessionSchema = z.looseObject({
+  id: z.string().min(1),
+  title: optional(z.string()),
+  started_at: optional(z.number()),
+  last_active: optional(z.number()),
+  preview: optional(z.string()),
+  message_count: optional(z.number()),
+});
+
+const listSchema = z.looseObject({ data: z.array(z.looseObject({})) });
+
+const ROLES = ["user", "assistant", "tool", "system"] as const;
+
+function toSession(raw: unknown): HermesSession {
+  const s = expect(sessionSchema, raw, "session");
   return {
-    id: String(s.id),
-    title: String(s.title ?? s.id),
-    startedAt: typeof s.started_at === "number" ? s.started_at : undefined,
-    lastActive: typeof s.last_active === "number" ? s.last_active : undefined,
-    preview: typeof s.preview === "string" ? s.preview : undefined,
-    messageCount:
-      typeof s.message_count === "number" ? s.message_count : undefined,
+    id: s.id,
+    title: s.title ?? s.id,
+    startedAt: s.started_at ?? undefined,
+    lastActive: s.last_active ?? undefined,
+    preview: s.preview ?? undefined,
+    messageCount: s.message_count ?? undefined,
   };
 }
 
@@ -71,13 +87,14 @@ function contentToText(c: unknown): string {
   return "";
 }
 
-function toMessage(m: Json, i: number): HermesMessage {
+/** A transcript message, or undefined for a role the UI doesn't show. */
+function toMessage(m: Json, i: number): HermesMessage | undefined {
+  const role = ROLES.find((r) => r === m.role);
+  if (!role) return undefined;
   const calls = Array.isArray(m.tool_calls) ? (m.tool_calls as Json[]) : [];
   return {
     id: String(m.id ?? i),
-    role: (["user", "assistant", "tool", "system"].includes(String(m.role))
-      ? m.role
-      : "assistant") as HermesMessage["role"],
+    role,
     content: contentToText(m.content),
     toolCalls: calls.map((c) => {
       const fn = (c.function ?? {}) as Json;
@@ -101,18 +118,22 @@ const MAX_RECONNECTS = 3;
  * reaches the browser.
  */
 export function createHttpHermes(base: string = env.hermesBase): HermesAdapter {
+  /**
+   * Read one connection of a run's event stream. `cursor` is updated as events
+   * arrive, so a reconnect after a dropped connection resumes where it broke.
+   */
   async function readStream(
     runId: string,
     onEvent: (e: RunEvent) => void,
     signal: AbortSignal | undefined,
-    lastId: string | undefined,
-  ): Promise<{ terminal: boolean; lastId?: string }> {
+    cursor: { lastId?: string; lastSeq?: number },
+  ): Promise<boolean> {
     const res = await fetch(
       `${base}/v1/runs/${encodeURIComponent(runId)}/events`,
       {
         headers: {
           Accept: "text/event-stream",
-          ...(lastId ? { "Last-Event-ID": lastId } : {}),
+          ...(cursor.lastId ? { "Last-Event-ID": cursor.lastId } : {}),
         },
         signal,
       },
@@ -120,11 +141,15 @@ export function createHttpHermes(base: string = env.hermesBase): HermesAdapter {
     if (!res.ok || !res.body)
       throw new HermesError(`Event stream failed (${res.status})`, res.status);
     let terminal = false;
-    let id = lastId;
     const parser = createSseParser((msg) => {
-      if (msg.id) id = msg.id;
+      if (msg.id) cursor.lastId = msg.id;
       const ev = toRunEvent(msg);
       if (!ev) return;
+      // A server that replays from the start must not duplicate text.
+      if (ev.seq !== undefined) {
+        if (cursor.lastSeq !== undefined && ev.seq <= cursor.lastSeq) return;
+        cursor.lastSeq = ev.seq;
+      }
       if (isTerminal(ev)) terminal = true;
       onEvent(ev);
     });
@@ -140,7 +165,7 @@ export function createHttpHermes(base: string = env.hermesBase): HermesAdapter {
     } finally {
       reader.releaseLock();
     }
-    return { terminal, lastId: id };
+    return terminal;
   }
 
   return {
@@ -158,11 +183,15 @@ export function createHttpHermes(base: string = env.hermesBase): HermesAdapter {
       for (let n = 1; ; n++) {
         const t = n === 1 ? title : `${title} (${n})`;
         try {
-          const body = await request<Json>(base, "/api/sessions", {
-            method: "POST",
-            body: JSON.stringify({ title: t }),
-          });
-          return toSession((body.session ?? body) as Json);
+          const body = expect(
+            z.looseObject({ session: z.unknown() }),
+            await request(base, "/api/sessions", {
+              method: "POST",
+              body: JSON.stringify({ title: t }),
+            }),
+            "session",
+          );
+          return toSession(body.session ?? body);
         } catch (e) {
           if (n >= 20 || !/already in use/i.test((e as Error).message)) throw e;
         }
@@ -170,18 +199,24 @@ export function createHttpHermes(base: string = env.hermesBase): HermesAdapter {
     },
 
     async listSessions(limit = 50) {
-      const body = await request<Json>(base, `/api/sessions?limit=${limit}`);
-      const data = Array.isArray(body.data) ? (body.data as Json[]) : [];
-      return data.map(toSession);
+      const body = expect(
+        listSchema,
+        await request(base, `/api/sessions?limit=${limit}`),
+        "session list",
+      );
+      return body.data.map(toSession);
     },
 
     async getMessages(sessionId) {
-      const body = await request<Json>(
-        base,
-        `/api/sessions/${encodeURIComponent(sessionId)}/messages?inline_images=false`,
+      const body = expect(
+        listSchema,
+        await request(
+          base,
+          `/api/sessions/${encodeURIComponent(sessionId)}/messages?inline_images=false`,
+        ),
+        "message list",
       );
-      const data = Array.isArray(body.data) ? (body.data as Json[]) : [];
-      return data.map(toMessage);
+      return body.data.map(toMessage).filter((m): m is HermesMessage => !!m);
     },
 
     async deleteSession(sessionId) {
@@ -191,37 +226,38 @@ export function createHttpHermes(base: string = env.hermesBase): HermesAdapter {
     },
 
     async startRun(req: StartRunRequest) {
-      const body = await request<Json>(base, "/v1/runs", {
-        method: "POST",
-        body: JSON.stringify({
-          input: req.input,
-          ...(req.sessionId ? { session_id: req.sessionId } : {}),
-          ...(req.instructions ? { instructions: req.instructions } : {}),
+      const body = expect(
+        z.looseObject({ run_id: z.string().min(1) }),
+        await request(base, "/v1/runs", {
+          method: "POST",
+          body: JSON.stringify({
+            input: req.input,
+            ...(req.sessionId ? { session_id: req.sessionId } : {}),
+            ...(req.instructions ? { instructions: req.instructions } : {}),
+          }),
         }),
-      });
-      if (typeof body.run_id !== "string")
-        throw new HermesError("Hermes did not return a run id");
+        "run",
+      );
       return { runId: body.run_id };
     },
 
     async streamRun(runId, onEvent, signal) {
-      let lastId: string | undefined;
+      const cursor: { lastId?: string; lastSeq?: number } = {};
       for (let attempt = 0; attempt <= MAX_RECONNECTS; attempt++) {
         if (signal?.aborted) return;
         try {
-          const r = await readStream(runId, onEvent, signal, lastId);
-          if (r.terminal) return;
-          lastId = r.lastId;
+          if (await readStream(runId, onEvent, signal, cursor)) return;
         } catch (e) {
           if (signal?.aborted) return;
           if (attempt === MAX_RECONNECTS) throw e;
         }
         // Stream closed without a terminal event: check the run before retrying.
-        const status = await request<Json>(
+        // A failed status check just means "retry the stream".
+        const status = (await request(
           base,
           `/v1/runs/${encodeURIComponent(runId)}`,
           { signal },
-        ).catch(() => undefined);
+        ).catch(() => undefined)) as Json | undefined;
         const st = String(status?.status ?? "");
         if (st === "completed") {
           onEvent({

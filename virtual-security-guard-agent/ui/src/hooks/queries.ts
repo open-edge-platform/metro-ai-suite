@@ -1,16 +1,16 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getAdapters } from "@/adapters";
-import { VssError, type VssStoredQuery } from "@/adapters/vss/types";
 import { env } from "@/config/env";
+import { useCamerasStore } from "@/stores/cameras";
 import { useInvestigationStore } from "@/stores/investigation";
 
 export const qk = {
   health: ["health"] as const,
   tags: ["vss", "tags"] as const,
   streams: ["vss", "streams"] as const,
-  query: (id: string) => ["vss", "query", id] as const,
   sessions: (rev: number) => ["hermes", "sessions", rev] as const,
   messages: (id: string) => ["hermes", "messages", id] as const,
 };
@@ -36,20 +36,20 @@ export function useTags() {
   });
 }
 
-/** Stored VSS query; polls while VSS is still running it. */
-export function useStoredQuery(queryId: string | undefined) {
-  return useQuery<VssStoredQuery>({
-    queryKey: qk.query(queryId ?? "none"),
-    queryFn: () => getAdapters().vss.getQuery(queryId!),
-    enabled: !!queryId,
-    staleTime: 60_000,
-    // Unknown or invented ids fail fast so the UI can fall back to the
-    // transcript's tool result instead of spinning through retries.
-    retry: (n, e) =>
-      !(e instanceof VssError && e.status && e.status < 500) && n < 2,
-    refetchInterval: (q) =>
-      q.state.data && q.state.data.status === "running" ? 1500 : false,
-  });
+/**
+ * Every VSS camera tag: VSS's tag list plus the live streams' tags (a new
+ * stream shows before the tag list refreshes). Undefined until VSS answers.
+ */
+export function useKnownTags(): string[] | undefined {
+  const cameras = useCamerasStore((s) => s.cameras);
+  const { data: vssTags } = useTags();
+  return useMemo(
+    () =>
+      vssTags
+        ? [...new Set([...cameras.map((c) => c.tag), ...vssTags])]
+        : undefined,
+    [cameras, vssTags],
+  );
 }
 
 /** Past investigations = Hermes sessions with the VSG title prefix. */
@@ -64,14 +64,5 @@ export function useInvestigations(limit = 50) {
         .map((s) => ({ ...s, title: s.title.slice(env.sessionPrefix.length) }));
     },
     staleTime: 10_000,
-  });
-}
-
-export function useSessionMessages(sessionId: string | undefined) {
-  return useQuery({
-    queryKey: qk.messages(sessionId ?? "none"),
-    queryFn: () => getAdapters().hermes.getMessages(sessionId!),
-    enabled: !!sessionId,
-    staleTime: 60_000,
   });
 }

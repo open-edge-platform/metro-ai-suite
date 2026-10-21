@@ -22,7 +22,7 @@ route, live camera matches, and PDF incident reports.
 | Human-in-the-loop review | A 3×2 grid of the top matches, up to 20 per search. The operator confirms; unconfirmed matches go back to Argus as false positives. |
 | Crop and re-search | Crop the person from a clip frame; Argus searches again with that image. |
 | Floorplan route | Confirmed sightings, in time order, are drawn camera-to-camera on an uploaded floorplan. |
-| Live camera search | Only after operator consent: VSS watches live cameras and the console shows the 4 nearest live matches. |
+| Live camera search | Only after operator consent: VSS watches live cameras and the console keeps a live timeline of sightings per camera. |
 | Incident reports | Argus drafts a report from confirmed sightings; the operator edits it and exports a PDF in the browser. |
 | Grounded results | Grid clips come from the real VSS tool result, not from text the model typed. |
 | Secure by default | One read-only, non-root nginx container with a route allowlist. The Hermes API key never reaches the browser. |

@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { History, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { getAdapters } from "@/adapters";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -31,96 +32,97 @@ export function HistoryMenu({
   onDeletedCurrent,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [deleting, setDeleting] = useState<string>();
+  const [deleting, setDeleting] = useState<{ id: string; title: string }>();
   const qc = useQueryClient();
   const { data, isLoading, error } = useInvestigations();
 
-  async function remove(id: string) {
-    setDeleting(id);
-    try {
-      await getAdapters().hermes.deleteSession(id);
-      await qc.invalidateQueries({ queryKey: ["hermes", "sessions"] });
-      if (id === currentId) onDeletedCurrent();
-    } catch (e) {
-      toast.error("Couldn't delete the investigation", {
-        description: (e as Error).message,
-      });
-    } finally {
-      setDeleting(undefined);
-    }
+  async function remove() {
+    if (!deleting) return;
+    await getAdapters().hermes.deleteSession(deleting.id);
+    toast.success(`Deleted "${deleting.title}"`);
+    await qc.invalidateQueries({ queryKey: ["hermes", "sessions"] });
+    if (deleting.id === currentId) onDeletedCurrent();
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" disabled={disabled}>
-          <History /> <span className="hidden md:inline">History</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-96 p-0">
-        <div className="border-b px-3 py-2 text-sm font-semibold">
-          Recent investigations
-        </div>
-        <div className="max-h-96 overflow-auto py-1">
-          {isLoading && (
-            <p className="flex items-center gap-2 px-3 py-4 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" /> Loading
-            </p>
-          )}
-          {error && (
-            <p className="px-3 py-4 text-sm text-destructive">
-              Couldn't load history: {(error as Error).message}
-            </p>
-          )}
-          {data?.length === 0 && (
-            <p className="px-3 py-4 text-sm text-muted-foreground">
-              No investigations yet.
-            </p>
-          )}
-          <ul>
-            {data?.map((s) => (
-              <li
-                key={s.id}
-                className={cn(
-                  "group flex items-center gap-1 pr-1 hover:bg-accent",
-                  s.id === currentId && "bg-accent",
-                )}
-              >
-                <button
-                  type="button"
-                  className="min-w-0 flex-1 px-3 py-2 text-left"
-                  onClick={() => {
-                    setOpen(false);
-                    onOpen(s.id);
-                  }}
-                >
-                  <span className="block truncate text-sm">
-                    {s.title || "Untitled"}
-                  </span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {timeAgo(s.lastActive ?? s.startedAt)}
-                    {s.messageCount ? `, ${s.messageCount} messages` : ""}
-                  </span>
-                </button>
-                <Button
-                  size="icon-xs"
-                  variant="ghost"
-                  className="opacity-0 group-focus-within:opacity-100 group-hover:opacity-100"
-                  onClick={() => remove(s.id)}
-                  disabled={deleting === s.id}
-                  aria-label={`Delete ${s.title}`}
-                >
-                  {deleting === s.id ? (
-                    <Loader2 className="animate-spin" />
-                  ) : (
-                    <Trash2 />
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="sm" disabled={disabled}>
+            <History /> <span className="hidden md:inline">History</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-96 p-0">
+          <div className="border-b px-3 py-2 text-sm font-semibold">
+            Recent investigations
+          </div>
+          <div className="max-h-96 overflow-auto py-1">
+            {isLoading && (
+              <p className="flex items-center gap-2 px-3 py-4 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" /> Loading
+              </p>
+            )}
+            {error && (
+              <p className="px-3 py-4 text-sm text-destructive">
+                Couldn't load history: {(error as Error).message}
+              </p>
+            )}
+            {data?.length === 0 && (
+              <p className="px-3 py-4 text-sm text-muted-foreground">
+                No investigations yet.
+              </p>
+            )}
+            <ul>
+              {data?.map((s) => (
+                <li
+                  key={s.id}
+                  className={cn(
+                    "group flex items-center gap-1 pr-1 hover:bg-accent",
+                    s.id === currentId && "bg-accent",
                   )}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </PopoverContent>
-    </Popover>
+                >
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 px-3 py-2 text-left"
+                    onClick={() => {
+                      setOpen(false);
+                      onOpen(s.id);
+                    }}
+                  >
+                    <span className="block truncate text-sm">
+                      {s.title || "Untitled"}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {timeAgo(s.lastActive ?? s.startedAt)}
+                      {s.messageCount ? `, ${s.messageCount} messages` : ""}
+                    </span>
+                  </button>
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    className="opacity-40 group-focus-within:opacity-100 group-hover:opacity-100"
+                    onClick={() =>
+                      setDeleting({ id: s.id, title: s.title || "Untitled" })
+                    }
+                    aria-label={`Delete ${s.title}`}
+                  >
+                    <Trash2 />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </PopoverContent>
+      </Popover>
+      <ConfirmDialog
+        open={!!deleting}
+        onOpenChange={(o) => !o && setDeleting(undefined)}
+        title={`Delete "${deleting?.title}"?`}
+        description="This removes the Argus session from Hermes and can't be undone."
+        action="Delete investigation"
+        errorTitle="Couldn't delete the investigation"
+        onConfirm={remove}
+      />
+    </>
   );
 }

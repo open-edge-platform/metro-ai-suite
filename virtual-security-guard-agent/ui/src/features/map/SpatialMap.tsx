@@ -4,7 +4,7 @@ import { useId, useMemo, type Ref } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { formatClock } from "@/lib/time";
-import type { TraceStop } from "@/stores/trace";
+import type { TraceStop } from "@/stores/case";
 import {
   fovWedge,
   legArrows,
@@ -12,19 +12,20 @@ import {
   routePath,
   zoneShapes,
 } from "./geometry";
-import type { KeyMap } from "./keymap";
+import { cameraState } from "./tags";
 import { layoutRoute } from "./route";
 import type { Floorplan } from "./schema";
-import { cameraName } from "@/stores/cameras";
 
 export interface SpatialMapProps {
   plan: Floorplan;
-  /** Floorplan camera key -> VSS tag. */
-  keyMap: KeyMap;
-  /** Ordered trace (see buildTrace). */
+  /** Ordered trace (see routeFromSightings). */
   stops?: TraceStop[];
   /** Tags to emphasise (e.g. the search scope). */
   highlightTags?: string[];
+  /** VSS tags of live cameras that are sending frames: drawn green, pulsing. */
+  liveTags?: string[];
+  /** VSS's tag list. Cameras whose tag is not in it are drawn empty; omit to draw all as mapped. */
+  vssTags?: string[];
   /** Draw the route with Framer Motion. Off for PDF rasterisation. */
   animate?: boolean;
   /** Change to replay the route animation. */
@@ -32,7 +33,7 @@ export interface SpatialMapProps {
   /** Which camera names to print. */
   labels?: "all" | "route" | "none";
   selectedKey?: string;
-  onCameraClick?: (planKey: string) => void;
+  onCameraClick?: (tag: string) => void;
   svgRef?: Ref<SVGSVGElement>;
   className?: string;
   title?: string;
@@ -42,16 +43,17 @@ export interface SpatialMapProps {
  * Facility blueprint with camera nodes, fields of view and the subject's route.
  *
  * Coordinates come straight from the floorplan JSON (SVG user units, origin
- * top-left). Each camera key resolves to a VSS tag through `keyMap`; trace
+ * top-left). Each camera key is its VSS tag; trace
  * stops are matched by tag, folded into visits and connected in order with a
  * glowing path whose `pathLength` Framer Motion animates from 0 to 1. Stop
  * markers and direction chevrons fade in as the line reaches them.
  */
 export function SpatialMap({
   plan,
-  keyMap,
   stops = [],
   highlightTags,
+  liveTags,
+  vssTags,
   animate = true,
   replayKey = 0,
   labels = "all",
@@ -68,11 +70,14 @@ export function SpatialMap({
   // Scale strokes and type with the plan so small and large canvases read the same.
   const u = Math.max(size.width, size.height) / 1000;
   const route = useMemo(
-    () => layoutRoute(stops, plan, keyMap, 20 * u),
-    [stops, plan, keyMap, u],
+    () => layoutRoute(stops, plan, 20 * u),
+    [stops, plan, u],
   );
-  const routeKeys = new Set(route.visits.map((v) => v.planKey));
+  const routeKeys = new Set(route.visits.map((v) => v.tag));
   const scope = new Set(highlightTags ?? []);
+  const live = new Set(liveTags ?? []);
+  const known = vssTags ? new Set(vssTags) : undefined;
+  const stateOf = (tag: string) => cameraState(tag, known, live);
   const points = route.visits.map((v) => ({ x: v.x, y: v.y }));
   const d = routePath(points);
   const arrows = legArrows(points);
@@ -83,10 +88,20 @@ export function SpatialMap({
     moving ? (points.length > 1 ? (i / (points.length - 1)) * duration : 0) : 0;
   const grid = 25 * u;
   const font = 12 * u;
+  /** Rough rendered width of a label, enough to keep it inside the canvas. */
+  const textWidth = (t: string, fs: number) => t.length * fs * 0.56;
+  // Labels sit on a halo of the plan colour so crossing lines and zone names
+  // don't make them unreadable.
+  const halo = {
+    className: "stroke-blueprint",
+    strokeWidth: 3 * u,
+    paintOrder: "stroke",
+    strokeLinejoin: "round",
+  } as const;
 
   const summary = route.visits.length
     ? `Route through ${route.visits.length} camera visits: ${route.visits
-        .map((v) => `${v.index}. ${cameraName(v.tag)}`)
+        .map((v) => `${v.index}. ${v.tag}`)
         .join(", ")}.`
     : `Floorplan with ${Object.keys(plan.cameras).length} cameras.`;
 
@@ -196,6 +211,7 @@ export function SpatialMap({
       <g>
         {Object.entries(plan.cameras).map(([key, cam]) => {
           const hot = routeKeys.has(key);
+          const state = stateOf(key);
           return (
             <path
               key={key}
@@ -203,7 +219,11 @@ export function SpatialMap({
               className={cn(
                 hot
                   ? "fill-track/20 stroke-track/50"
-                  : "fill-camera/15 stroke-camera/35",
+                  : state === "live"
+                    ? "fill-live/15 stroke-live/45"
+                    : state === "empty"
+                      ? "fill-camera/7 stroke-camera/20"
+                      : "fill-camera/15 stroke-camera/35",
               )}
               strokeWidth={u}
             />
@@ -259,11 +279,16 @@ export function SpatialMap({
       {/* Camera nodes */}
       <g>
         {Object.entries(plan.cameras).map(([key, cam]) => {
-          const tag = keyMap[key];
           const hot = routeKeys.has(key);
-          const inScope = tag ? scope.has(tag) : false;
+          const inScope = scope.has(key);
+          const state = stateOf(key);
+          const liveCam = state === "live";
+          const status = liveCam
+            ? ", live"
+            : state === "empty"
+              ? ", no footage yet"
+              : "";
           const show = labels === "all" || (labels === "route" && hot);
-          const name = cam.label ?? (tag ? cameraName(tag) : key);
           const clickable = !!onCameraClick;
           return (
             <g
@@ -272,9 +297,7 @@ export function SpatialMap({
               onClick={clickable ? () => onCameraClick(key) : undefined}
               role={clickable ? "button" : undefined}
               tabIndex={clickable ? 0 : undefined}
-              aria-label={
-                clickable ? `${name}${tag ? "" : ", not mapped"}` : undefined
-              }
+              aria-label={clickable ? `${key}${status}` : undefined}
               onKeyDown={
                 clickable
                   ? (e) => {
@@ -286,11 +309,21 @@ export function SpatialMap({
                   : undefined
               }
             >
-              <title>
-                {tag
-                  ? `${name} (${tag})`
-                  : `${key}: not mapped to a VSS camera`}
-              </title>
+              <title>{`${key}${status}`}</title>
+              {liveCam && moving && (
+                <motion.circle
+                  cx={cam.x}
+                  cy={cam.y}
+                  fill="none"
+                  className="stroke-live"
+                  strokeWidth={2 * u}
+                  pointerEvents="none"
+                  // Grow the radius, not a scale transform: no transform origin to get wrong.
+                  initial={{ r: 7 * u, opacity: 0.9 }}
+                  animate={{ r: 18 * u, opacity: 0 }}
+                  transition={{ duration: 1.6, repeat: Infinity }}
+                />
+              )}
               {(selectedKey === key || inScope) && (
                 <circle
                   cx={cam.x}
@@ -309,29 +342,35 @@ export function SpatialMap({
               <circle
                 cx={cam.x}
                 cy={cam.y}
-                r={5 * u}
+                r={(liveCam ? 6 : 5) * u}
                 className={cn(
-                  tag
-                    ? hot
-                      ? "fill-track"
-                      : "fill-camera"
-                    : "fill-blueprint stroke-blueprint-ink",
+                  liveCam
+                    ? "fill-live"
+                    : state === "empty"
+                      ? "fill-blueprint stroke-camera"
+                      : hot
+                        ? "fill-track"
+                        : "fill-camera",
                 )}
-                strokeWidth={tag ? 0 : 1.5 * u}
-                strokeDasharray={tag ? undefined : `${2 * u} ${2 * u}`}
+                strokeWidth={state === "empty" ? 1.5 * u : 0}
               />
               {show && (
                 <text
-                  x={cam.x + 9 * u}
+                  {...halo}
+                  // Near the right edge the label goes left of the camera.
+                  {...(cam.x + 9 * u + textWidth(key, font * 0.92) > size.width
+                    ? { x: cam.x - 9 * u, textAnchor: "end" }
+                    : { x: cam.x + 9 * u })}
                   y={cam.y - 9 * u}
                   className={cn(
+                    halo.className,
                     "font-sans",
                     hot ? "fill-white" : "fill-blueprint-ink",
                   )}
                   fontSize={font * 0.92}
                   fontWeight={hot ? 600 : 400}
                 >
-                  {name}
+                  {key}
                 </text>
               )}
             </g>
@@ -345,7 +384,7 @@ export function SpatialMap({
           const last = i === route.visits.length - 1;
           return (
             <motion.g
-              key={`${v.planKey}-${v.index}`}
+              key={`${v.tag}-${v.index}`}
               initial={moving ? { opacity: 0, scale: 0.4 } : false}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: at(i), duration: 0.25 }}
@@ -393,17 +432,27 @@ export function SpatialMap({
               >
                 {v.index}
               </text>
-              {labels !== "none" && v.firstAt && (
-                <text
-                  x={v.mx}
-                  y={v.my + 24 * u}
-                  textAnchor="middle"
-                  className="fill-blueprint-ink font-sans"
-                  fontSize={font * 0.8}
-                >
-                  {formatClock(v.firstAt)}
-                </text>
-              )}
+              {labels !== "none" &&
+                v.firstAt &&
+                (() => {
+                  const label = formatClock(v.firstAt);
+                  const half = textWidth(label, font * 0.8) / 2;
+                  return (
+                    <text
+                      {...halo}
+                      x={Math.min(Math.max(v.mx, half), size.width - half)}
+                      y={Math.min(v.my + 24 * u, size.height - 4 * u)}
+                      textAnchor="middle"
+                      className={cn(
+                        halo.className,
+                        "fill-blueprint-ink font-sans",
+                      )}
+                      fontSize={font * 0.8}
+                    >
+                      {label}
+                    </text>
+                  );
+                })()}
             </motion.g>
           );
         })}

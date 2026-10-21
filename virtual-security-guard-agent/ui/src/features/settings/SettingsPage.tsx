@@ -288,8 +288,7 @@ function LocalData() {
           <AlertDialogHeader>
             <AlertDialogTitle>Clear local data?</AlertDialogTitle>
             <AlertDialogDescription>
-              Removes the uploaded floorplan and its camera mapping, and resets
-              settings.
+              Removes the uploaded floorplan and resets settings.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

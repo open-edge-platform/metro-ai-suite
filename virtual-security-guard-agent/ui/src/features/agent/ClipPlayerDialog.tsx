@@ -5,6 +5,7 @@ import { Check, ChevronLeft, ChevronRight, Scissors } from "lucide-react";
 import { toast } from "sonner";
 import { getAdapters } from "@/adapters";
 import type { VssHit } from "@/adapters/vss/types";
+import { hitCameraLabel } from "@/lib/hits";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,13 +21,10 @@ import { prepareSearchImage } from "@/lib/images";
 import { formatClock, formatDateTime, formatOffset, hitTime } from "@/lib/time";
 import { withTimeFragment } from "@/lib/urls";
 import { cn } from "@/lib/utils";
-import {
-  selectCameraByTag,
-  useCamerasStore,
-  cameraName,
-} from "@/stores/cameras";
-import type { Verdict } from "@/stores/hitl";
+import { selectCameraByTag, useCamerasStore } from "@/stores/cameras";
+import type { Verdict } from "@/stores/case";
 import { CropTool } from "./CropTool";
+import { useCameraLocation } from "@/stores/floorplan";
 
 interface Props {
   hit: VssHit | undefined;
@@ -38,7 +36,7 @@ interface Props {
    * Called with a crop of the frame as a VSS image, to run an image search.
    * Omitted to hide the crop tool (e.g. for a read-only clip).
    */
-  onCropSubject?: (image: { previewUrl: string; imageUrl: string }) => void;
+  onCropSearch?: (image: { previewUrl: string; imageUrl: string }) => void;
 }
 
 /** Plays the matched segment (seeks to the best frame) with review shortcuts. */
@@ -47,19 +45,18 @@ export function ClipPlayerDialog({
   onOpenChange,
   verdict,
   onVerdict,
-  onCropSubject,
+  onCropSearch,
 }: Props) {
   const video = useRef<HTMLVideoElement>(null);
   const media = useRef<CropMedia | null>(null);
   const camera = useCamerasStore(selectCameraByTag(hit?.cameraTag));
+  const location = useCameraLocation(hit?.cameraTag, camera?.location);
   const [cropping, setCropping] = useState(false);
   const [saving, setSaving] = useState(false);
   const at = hit ? hitTime(hit) : undefined;
-  const name = hit?.cameraTag
-    ? (camera?.name ?? cameraName(hit.cameraTag))
-    : "Unknown camera";
+  const name = hit ? hitCameraLabel(hit) : "";
   const canCrop =
-    !!onCropSubject && !!hit && !!(hit.playbackUrl || hit.posterUrl);
+    !!onCropSearch && !!hit && !!(hit.playbackUrl || hit.posterUrl);
 
   /** Reset local crop state and close the dialog. */
   const close = () => {
@@ -91,13 +88,13 @@ export function ClipPlayerDialog({
 
   /** Cut the crop out of the frame, save it to VSS and hand it to the caller. */
   async function onCrop(blob: Blob) {
-    if (!onCropSubject || saving) return;
+    if (!onCropSearch || saving) return;
     setSaving(true);
     try {
       const file = new File([blob], "subject.jpg", { type: "image/jpeg" });
       const { blob: enc, name: fname } = await prepareSearchImage(file);
       const uploaded = await getAdapters().vss.uploadImage(enc, fname);
-      onCropSubject({
+      onCropSearch({
         previewUrl: URL.createObjectURL(enc),
         imageUrl: uploaded.imageUrl,
       });
@@ -182,9 +179,9 @@ export function ClipPlayerDialog({
               </DialogTitle>
               <DialogDescription className="font-prose">
                 {cropping
-                  ? "Drag a rectangle around the person, save the crop to VSS, and Argus searches the footage for that face."
+                  ? "Drag a rectangle around the person, save the crop to VSS, and Argus searches the footage for that person."
                   : at
-                    ? `${formatDateTime(at)}, ${formatClock(at)}. Segment ${formatOffset(hit.startS)} to ${formatOffset(hit.endS)} of ${hit.videoName ?? hit.videoId}. Relevance ${Math.round(hit.score * 100)}%.${camera?.location ? ` Location: ${camera.location}.` : ""}`
+                    ? `${formatDateTime(at)}, ${formatClock(at)}. Segment ${formatOffset(hit.startS)} to ${formatOffset(hit.endS)} of ${hit.videoName ?? hit.videoId}. Relevance ${Math.round(hit.score * 100)}%.${location ? ` Location: ${location}.` : ""}`
                     : `Time unknown. Segment ${formatOffset(hit.startS)} to ${formatOffset(hit.endS)} of ${hit.videoName ?? hit.videoId}. Relevance ${Math.round(hit.score * 100)}%.`}
               </DialogDescription>
             </DialogHeader>

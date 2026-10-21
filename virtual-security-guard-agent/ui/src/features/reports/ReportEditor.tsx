@@ -11,11 +11,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { VssHit } from "@/adapters/vss/types";
-import { hitMatchesRef } from "@/lib/hits";
+import { hitCameraLabel, hitMatchesRef } from "@/lib/hits";
+import { confidence } from "@/protocol/directives";
 import { formatClock } from "@/lib/time";
-import type { TraceStop } from "@/stores/trace";
+import type { TraceStop } from "@/stores/case";
 import { PRESET_LABEL, type ReportContent } from "./content";
-import { cameraName } from "@/stores/cameras";
+import { cameraZone } from "@/stores/floorplan";
 
 const lines = (s: string) =>
   s
@@ -86,9 +87,11 @@ export function ReportEditor({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="low">Low</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="high">High</SelectItem>
+              {confidence.options.map((c) => (
+                <SelectItem key={c} value={c} className="capitalize">
+                  {c}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -125,8 +128,9 @@ export function ReportEditor({
                 {s.order}
               </span>
               <span className="w-40 shrink-0 truncate text-xs text-muted-foreground">
-                {formatClock(s.at)}{" "}
-                {s.hit.cameraTag ? cameraName(s.hit.cameraTag) : ""}
+                {formatClock(s.at)} {hitCameraLabel(s.hit)}
+                {cameraZone(s.hit.cameraTag) &&
+                  `, ${cameraZone(s.hit.cameraTag)}`}
               </span>
               <Input
                 aria-label={`Note for sighting ${s.order}`}

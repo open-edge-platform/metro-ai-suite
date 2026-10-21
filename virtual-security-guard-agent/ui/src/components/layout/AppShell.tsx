@@ -15,7 +15,9 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { keepAliveRoutes, navItems } from "@/config/navigation";
 import { AgentHub } from "@/features/agent/AgentHub";
+import { toast } from "sonner";
 import { useCamerasStore } from "@/stores/cameras";
+import { useFloorplanStore } from "@/stores/floorplan";
 import { useInvestigationStore } from "@/stores/investigation";
 import { Navigation } from "./Navigation";
 
@@ -40,6 +42,15 @@ export function AppShell() {
   useEffect(() => {
     void loadCameras();
   }, [loadCameras]);
+
+  const discardedUpload = useFloorplanStore((s) => s.discardedUpload);
+  useEffect(() => {
+    if (!discardedUpload) return;
+    toast.warning("Saved floorplan is no longer valid, using the default", {
+      description: discardedUpload,
+    });
+    useFloorplanStore.setState({ discardedUpload: undefined });
+  }, [discardedUpload]);
 
   useEffect(() => {
     document.title = title

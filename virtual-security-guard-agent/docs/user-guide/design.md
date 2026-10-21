@@ -52,17 +52,15 @@ Schemas: `ui/src/protocol/directives.ts` (kept in sync with
 
 | Block | Direction | Fields | UI |
 |---|---|---|---|
-| `vsg-context` | UI → Argus | `image_url`, `tags`, `start`, `end`, `limit` | Appended to the operator prompt (`protocol/feedback.ts`). |
+| `vsg-context` | UI → Argus | `image_url`, `limit` | Appended to the operator prompt (`protocol/feedback.ts`). |
 | `vsg-feedback` | UI → Argus | `vss_query_id`, `confirm`, `reject`, `anchor_image_url` | Review verdicts; preceded by a prose summary. |
-| `vsg-matches` | Argus → UI | `vss_query_id`?, `keep`, `note`, `notes`, `matches`? | Review grid. |
+| `vsg-matches` | Argus → UI | `keep`, `note`, `notes` | Review grid; hits come from the same reply's `vss_search_video` result. |
 | `vsg-report` | Argus → UI | `title`, `preset` (`handover`, `escalation`, `brief`), `summary`, `subject`, `timeline[{ref, note}]`, `observations`, `actions`, `confidence` | Editable report and PDF. |
 | `vsg-status` | Argus → UI | `phase` (`search`, `validate`, `trace`, `report`, `idle`), `message` | Progress line. |
-| `vsg-track` | Argus → UI | `vss_query_id`, `anchor`, `keep`, `matches` | Legacy route block; Argus is told not to send it. |
 
 - Refs are `m<N>`: the Nth entry of the search result (or its `match_id`).
   A video id or `video_id@start` is tolerated; unresolvable refs are ignored.
-- `matches` is a fallback copy of hits written by the model (least trusted).
-- `vsg-tick` is reserved and ignored.
+- Other `vsg-*` fences (for example the retired `vsg-track`) are ignored.
 
 ### Per-run instructions
 
@@ -82,16 +80,18 @@ full name (for example `mcp__video_search_mcp__vss_list_streams`):
 |---|---|
 | `vss_search_video` | Search by text or image. |
 | `vss_list_tags` | Map camera names to VSS tags. |
-| `vss_watch_search` | Start or stop a live watch, only on explicit operator request. |
 | `vss_list_streams`, `vss_add_stream`, `vss_update_stream`, `vss_remove_stream` | Manage live RTSP cameras the operator names. |
 
 A camera is a VSS tag. For "search the X, Y and Z cameras", Argus maps each
 name to tags (case-insensitive, `_` = space) and searches with those `tags`.
+The composer has no camera or time pickers: cameras and time ranges come only
+from the prompt text, and `vsg-context` carries just `image_url` and `limit`.
 
 ## 3. Grounding
 
 After each run the UI reads the session transcript and takes the latest
-`vss_search_video` result of that run (`protocol/grounding.ts`). The tool
+`vss_search_video` result of that run: the messages after the run's own
+prompt (`groundingForRun` in `protocol/grounding.ts`). The tool
 output is untrusted: only typed fields are read, at most 200 hits, and media
 URLs are reduced to same-origin datastore paths.
 
@@ -99,21 +99,19 @@ URLs are reduced to same-origin datastore paths.
 %%{init: {"flowchart": {"curve": "linear"}}}%%
 flowchart TD
   R[Run finished] --> T[Read transcript]
-  T --> Q{Query id known<br/>and VSS has it?}
-  Q -->|yes| S[Stored VSS search]
-  Q -->|no| F{Tool result<br/>in transcript?}
+  T -->|failed| E[Grid shows Retry]
+  E --> T
+  T --> F{Search result<br/>in this run?}
   F -->|yes| G[Tool result hits]
-  F -->|no| I[Model's inline matches<br/>marked unverified]
-  S --> K[Apply keep refs<br/>and score cut-off]
-  G --> K
-  I --> K
+  F -->|no| N[No hits shown]
+  G --> K[Apply keep refs<br/>and score cut-off]
   K --> GRID[Review grid]
 ```
 
-Order, most trusted first: **stored VSS search → transcript tool result →
-model's inline copy** (`features/agent/useDirectiveHits.ts`). The query id
-comes from the tool result, else the directive, and is used only after VSS
-confirms it, so invented ids never reach review keys or feedback.
+The transcript is the only source of hits (`features/agent/useDirectiveHits.ts`):
+nothing the model writes into a block is shown, and the query id comes only
+from the tool result. If the transcript cannot be read, the grid shows a
+**Retry** button that reads it again.
 
 ## 4. Review and Confirmed Sightings
 
@@ -123,44 +121,57 @@ confirms it, so invented ids never reach review keys or feedback.
 - **Grid**: six at a time, up to 20 per search
   (`features/agent/ValidationGrid.tsx`). Shown but unconfirmed matches are
   sent as `reject`.
-- **Re-review**: every grid stays confirmable. A new `vsg-feedback` for the
-  same `vss_query_id` replaces that grid's earlier verdicts.
-- **Confirmed sightings** (`stores/hitl.ts` `confirmedSightings`): the union of
-  confirms across all grids, de-duplicated by segment (`video_id@start`) and
-  sorted by when the sighting happened. VSS and browser clocks can differ, so
+- **Latest grid only**: only the newest grid can be changed; re-sending
+  replaces its verdicts. Earlier grids are read-only. A new grid starts with
+  the sightings already on the route confirmed. Reviews are keyed by the
+  agent turn id (`useInvestigationStore.reviews`).
+- **Confirmed sightings** (`stores/case.ts` `confirmedSightings`): the sent
+  verdicts of every grid in turn order (a later grid's verdict on the same
+  segment `video_id@start` wins), plus confirmed live sightings, sorted by
+  when the sighting happened. VSS and browser clocks can differ, so
   VSS times are only compared with each other.
 - **Crop**: a crop from the clip player is uploaded with
-  `POST /vss/manager/search/images` and becomes the subject image
-  (`stores/investigation.ts` `setSubject`), the report photo and the
-  live-watch anchor.
+  `POST /vss/manager/search/images` and sent as a new image search (a new
+  grid). The subject is derived from the turns: the latest searched image
+  (a crop included), else the latest search prompt (`subjectImageOf`,
+  `subjectTextOf`). It is the case-file and report photo and what a live
+  search watches for, taken when Start is pressed.
 
-Confirmed sightings feed the instructions timeline, the floorplan route, the
-live-watch seed and the report. The PDF lists them in time order, then a
+Confirmed sightings are the route (`useRoute()`), derived on demand: they feed
+the instructions timeline, the floorplan and the report. The PDF lists them in time order, then a
 **Movement** section with each leg between cameras and its elapsed time
-(`stores/trace.ts` `movementLegs`).
+(`stores/case.ts` `movementLegs`).
 
 ## 5. Live Watch
 
-`stores/watch.ts`. After a confirm the UI offers a live search; the start
-button appears only while a live camera is connected. A watch starts only on
-an operator action:
+`stores/watch.ts`. The route card (`LiveWatch.tsx`) shows once the session
+has a confirmed sighting; its start button appears only while a live camera is
+connected. A watch starts only on an operator action:
 
-- **UI start**: `POST /vss/manager/search` (image or description, 5-minute
-  window, tags) then `PATCH /vss/manager/search/{id}/watch`.
-- **Chat request** ("watch the live cameras"): if Argus calls
-  `vss_watch_search`, the UI adopts that query id from the transcript;
-  otherwise the UI starts the watch itself after the run.
+**Start live camera search** sends `POST /vss/manager/search` (image or
+description, 5-minute window, all live cameras) then `PATCH /vss/manager/search/{id}/watch`.
+Argus never calls `vss_watch_search`; asked in chat, it points the operator to
+the button.
 
 The UI then polls `GET /vss/manager/search/{id}` every 10 s, without LLM
-calls. New live hits are de-duplicated by camera and frame time; the panel
-shows the 4 nearest. The watch stops on **Stop**, after the watch duration
-(default 30 min), or after the idle limit with no new sighting (default
-10 min).
+calls. The watched query only ranks a rolling 5-minute window and keeps no
+history, so the UI keeps the **live timeline** (`stores/liveTimeline.ts`):
+`addHits` folds each poll's live hits into sightings, one per camera while
+detections are at most 60 s apart (start, end, best frame, count), skipping
+hits already counted and never extending a sighting from an earlier watch. The
+timeline is persisted in browser storage per Hermes session (last 20) and
+restored when the session is reopened. **Confirm** on a sighting adds it to
+the route as one stop at its start, spanning to its end; there is no reject.
+After the watch the timeline stays, read-only. The watch stops on **Stop**, after the watch duration (default
+30 min), after the idle limit with no new sighting (default 10 min), or when
+VSS reports the query failed. Stop pressed while the query is still being
+created unwatches it as soon as VSS returns its id. If VSS refuses to unwatch,
+the card shows **Retry stop** (a toast with Retry after a reset).
 
 ## 6. Investigation Phases
 
-`InvestigationPhase` in `stores/investigation.logic.ts`. The phase is shown
-in the UI and sent in the instructions.
+`InvestigationPhase` in `stores/investigation.logic.ts`. The phase picks the
+composer placeholder and is sent in the instructions.
 
 ```mermaid
 stateDiagram-v2
@@ -182,13 +193,27 @@ watch requests run in the `idle` phase.
 
 `stores/floorplan.ts`, `features/map/`. A floorplan is JSON
 (`features/map/schema.ts`): `cameras` keyed by plan key, each with `x`, `y`
-and optional `zone`, `fov_angle`, `heading`, `range`, `camera_id`, `label`;
+and optional `zone`, `fov_angle`, `heading`, `range`;
 plus optional `canvas`, `zones`, `walls` and a same-origin or `data:`
-`background`. The sample is `ui/src/fixtures/level4.floorplan.json`.
+`background`. The default plan is `deploy/floorplans/$VSG_FLOORPLAN.json`
+(`simple` or `level4` ship), mounted read-only at `/etc/vsg/floorplans` and
+served by nginx (or the Vite dev server) as `GET /floorplan.json`. The store
+fetches it once at startup (`loadDefaultFloorplan`) and validates it; Argus
+runs wait for it so free positions are listed. Only an uploaded plan is
+persisted in the browser.
 
-A key map links plan keys to VSS camera tags. A camera is mapped
-automatically only when its `camera_id` (or key) is exactly a known tag;
-others are mapped by the operator. Plan and key map persist in browser
+A plan camera's key is its name and its VSS tag (`features/map/tags.ts`);
+tags are set only in the plan file. The UI shows the tag wherever a camera
+appears; VSS stream names are not used. VSS tags that are not a plan key are
+listed on the Floorplan page. A live camera is added at a plan camera
+(`features/cameras/CameraFormDialog.tsx`): the key becomes the stream's name
+and only VSS tag and its zone the description. A stream's name and tag never
+change (`StreamPatch` has no name or tags); to move a camera, remove it and
+add it again. Each run's instructions list the free floorplan cameras
+(`freeFloorplanCameras`), and Argus must tag a camera added from chat to one
+of them (name and tag both that key), asking the operator when the prompt
+names none; Argus never renames or retags a camera. Report sightings and the timeline sent to Argus carry the
+camera's zone (`cameraZone`). The plan persists in browser
 storage (`vsg.floorplan.v1`). The route draws confirmed and live sightings
 in time order, collapsing consecutive stops on the same camera. Authoring
 steps: [Configure the Floorplan](./how-to-guides/configure-floorplan.md).
@@ -199,14 +224,16 @@ Zustand stores in `ui/src/stores/`:
 
 | Store | Holds |
 |---|---|
-| `investigation` | Session, turns, phase, subject image; runs and grounds each turn. |
-| `hitl` | Hits and verdicts per grid; `confirmedSightings`. |
-| `watch` | Live watch query, polling, live sightings and their verdicts. |
-| `trace` | Route building, movement legs, timeline lines. |
+| `investigation` | The case: session, turns, phase, review verdicts per grid; runs and grounds each turn. The subject and the route are derived (`subjectImageOf`, `useRoute()`). |
+| `watch` | Live watch runtime: query, status, polling, stop handling. |
+| `liveTimeline` | Live sightings per Hermes session, with their confirmed state (persisted in this browser). |
 | `cameras` | VSS live streams and their status. |
-| `floorplan` | Active plan and key map (persisted). |
+| `floorplan` | Active plan (persisted). |
 | `reports` | PDFs generated in this tab (memory only, lost on reload). |
 | `settings` | Minimum score (0.6), search limit (24), watch duration (30 min), idle stop (10 min). |
+
+Pure route helpers (`confirmedSightings`, `movementLegs`, `timelineLines`)
+live in `stores/case.ts`.
 
 Selectors must return stable references; see
 [`.github/copilot-instructions.md`](../../.github/copilot-instructions.md).

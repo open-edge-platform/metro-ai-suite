@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
+import { z } from "zod";
 import { env } from "@/config/env";
 import { managerPath, toDatastorePath } from "@/lib/urls";
+import { parseEnvelope, readBody, unexpectedBody } from "../response";
 import { normalizeStoredQuery, normalizeStream } from "./normalize";
 import {
   SEARCH_IMAGE_MAX_BYTES,
@@ -12,20 +14,12 @@ import {
 
 type Json = Record<string, unknown>;
 
-const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
-
-async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
+async function getJson(url: string, init?: RequestInit): Promise<unknown> {
   const res = await fetch(url, {
     ...init,
     headers: { Accept: "application/json", ...init?.headers },
   });
-  const text = await res.text();
-  let body: unknown;
-  try {
-    body = text ? JSON.parse(text) : undefined;
-  } catch {
-    body = text;
-  }
+  const body = await readBody(res);
   if (!res.ok) {
     const msg = (body as Json | undefined)?.message;
     throw new VssError(
@@ -35,8 +29,15 @@ async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
       res.status,
     );
   }
-  return body as T;
+  if (typeof body === "string")
+    throw new VssError(unexpectedBody("VSS", body), res.status);
+  return body;
 }
+
+const expect = <S extends z.ZodType>(schema: S, body: unknown, what: string) =>
+  parseEnvelope(schema, body, `VSS ${what}`, (m) => new VssError(m));
+
+const object = z.looseObject({});
 
 /** VSS Pipeline Manager client via the same-origin `/vss` prefix. */
 export function createHttpVss(base: string = env.vssBase): VssAdapter {
@@ -58,7 +59,7 @@ export function createHttpVss(base: string = env.vssBase): VssAdapter {
     },
 
     async features() {
-      const f = await getJson<Json>(m("/app/features"));
+      const f = expect(object, await getJson(m("/app/features")), "features");
       return {
         search: f.search === "FEATURE_ON",
         summary: f.summary === "FEATURE_ON",
@@ -70,20 +71,26 @@ export function createHttpVss(base: string = env.vssBase): VssAdapter {
     },
 
     async listTags() {
-      const tags = await getJson<unknown>(m("/tags"));
-      return Array.isArray(tags)
-        ? tags.filter((t): t is string => typeof t === "string").sort()
-        : [];
+      const tags = expect(
+        z.array(z.string()),
+        await getJson(m("/tags")),
+        "tags",
+      );
+      return tags.sort();
     },
 
     async getQuery(queryId) {
-      const q = await getJson<Json | undefined>(
-        m(`/search/${encodeURIComponent(queryId)}`),
-      );
+      const q = await getJson(m(`/search/${encodeURIComponent(queryId)}`));
       // VSS answers 200 with an empty body for unknown ids.
-      if (!q || typeof q !== "object" || !q.queryId)
+      if (q === undefined)
         throw new VssError(`Search ${queryId} not found`, 404);
-      return normalizeStoredQuery(q);
+      return normalizeStoredQuery(
+        expect(
+          z.looseObject({ queryId: z.string().min(1) }),
+          q,
+          "stored search",
+        ),
+      );
     },
 
     async uploadImage(file, filename = "query.jpg") {
@@ -93,10 +100,11 @@ export function createHttpVss(base: string = env.vssBase): VssAdapter {
         throw new VssError("Images must be 2 MB or smaller.");
       const form = new FormData();
       form.append("image", file, filename);
-      const body = await getJson<Json>(m("/search/images"), {
-        method: "POST",
-        body: form,
-      });
+      const body = expect(
+        object,
+        await getJson(m("/search/images"), { method: "POST", body: form }),
+        "image upload",
+      );
       const imageUrl = String(body.imageUrl ?? body.imagePath ?? "");
       if (!imageUrl) throw new VssError("VSS did not return an image URL.");
       return {
@@ -107,9 +115,14 @@ export function createHttpVss(base: string = env.vssBase): VssAdapter {
     },
 
     async listStreams() {
-      const body = await getJson<Json>(m("/streams"));
-      const list = Array.isArray(body?.streams) ? (body.streams as Json[]) : [];
-      return list.map(normalizeStream).filter((s) => s.streamId);
+      const body = expect(
+        z.looseObject({
+          streams: z.array(z.looseObject({ stream_id: z.string().min(1) })),
+        }),
+        await getJson(m("/streams")),
+        "stream list",
+      );
+      return body.streams.map(normalizeStream);
     },
 
     async addStream(input) {
@@ -132,10 +145,6 @@ export function createHttpVss(base: string = env.vssBase): VssAdapter {
     async updateStream(id, patch) {
       const body: Json = {};
       if (patch.state) body.state = patch.state;
-      if (patch.name !== undefined) body.stream_name = patch.name.trim();
-      if (patch.description !== undefined)
-        body.description = patch.description.trim();
-      if (patch.tags) body.tags = patch.tags;
       if (patch.frameInterval) body.frame_interval = patch.frameInterval;
       if (patch.objectDetection !== undefined)
         body.enable_object_detection = patch.objectDetection;
@@ -158,34 +167,25 @@ export function createHttpVss(base: string = env.vssBase): VssAdapter {
         : { query: req.query?.trim() };
       if (!req.imageUrl && !req.query?.trim())
         throw new VssError("Describe the person or attach a photo to watch.");
-      if (req.tags?.length) body.tags = req.tags.join(",");
       if (req.windowMinutes)
         body.timeFilter = {
           value: req.windowMinutes,
           unit: "minutes",
           source: "relative",
         };
-      const created = await getJson<Json>(m("/search"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const queryId = str(created?.queryId);
-      if (!queryId) throw new VssError("VSS did not return a query id.");
+      const { queryId } = expect(
+        z.looseObject({ queryId: z.string().min(1) }),
+        await getJson(m("/search"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }),
+        "search",
+      );
       await setWatch(queryId, true);
       return queryId;
     },
 
     setWatch,
-
-    async refreshConfig() {
-      try {
-        const c = await getJson<Json>(m("/search/refresh-config"));
-        const ms = typeof c?.intervalMs === "number" ? c.intervalMs : 10_000;
-        return { enabled: c?.enabled !== false, intervalMs: ms };
-      } catch {
-        return { enabled: true, intervalMs: 10_000 };
-      }
-    },
   };
 }

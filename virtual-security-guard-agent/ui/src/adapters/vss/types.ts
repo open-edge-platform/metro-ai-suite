@@ -42,7 +42,7 @@ export interface FrameLocator {
   cropBbox?: string;
 }
 
-export type VssQueryStatus = "idle" | "running" | "error" | string;
+export type VssQueryStatus = "idle" | "running" | "error" | "unknown";
 
 export interface VssStoredQuery {
   queryId: string;
@@ -87,11 +87,9 @@ export interface StreamInput {
   start?: boolean;
 }
 
+/** A stream's name and tag are its floorplan position; they never change. */
 export interface StreamPatch {
   state?: "running" | "paused";
-  name?: string;
-  description?: string;
-  tags?: string[];
   frameInterval?: number;
   objectDetection?: boolean;
 }
@@ -100,14 +98,8 @@ export interface WatchStart {
   query?: string;
   /** Image reference from uploadImage (imageUrl). */
   imageUrl?: string;
-  tags?: string[];
   /** Rolling window of recent footage each refresh ranks. */
   windowMinutes?: number;
-}
-
-export interface RefreshConfig {
-  enabled: boolean;
-  intervalMs: number;
 }
 
 export interface VssFeatures {
@@ -137,7 +129,6 @@ export interface VssAdapter {
   /** Create a persisted search (rolling window) and mark it watched. Returns its query id. */
   startWatch(req: WatchStart): Promise<string>;
   setWatch(queryId: string, watch: boolean): Promise<void>;
-  refreshConfig(): Promise<RefreshConfig>;
 }
 
 export class VssError extends Error {

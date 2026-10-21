@@ -1,46 +1,40 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
+import { formatBytes } from "@/lib/utils";
+import { MapLegend } from "@/features/map/MapLegend";
+import { RouteStopList } from "@/features/map/RouteStopList";
 import { useMemo, useRef, useState, type DragEvent } from "react";
 import { Link } from "react-router";
 import {
   Cctv,
+  Copy,
   Download,
   FileJson,
-  Link2,
+  Plus,
   RotateCcw,
   TriangleAlert,
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
+import type { StreamInput } from "@/adapters/vss/types";
 import { StatusChip } from "@/components/shared/media";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useTags } from "@/hooks/queries";
-import { formatClock } from "@/lib/time";
-import { cn } from "@/lib/utils";
-import { useCamerasStore, cameraName } from "@/stores/cameras";
-import { SAMPLE_FLOORPLAN, useFloorplanStore } from "@/stores/floorplan";
-import { useTraceStore } from "@/stores/trace";
-import { declaredKeyMap, unmappedKeys } from "./keymap";
-import { KeyMappingDialog } from "./KeyMappingDialog";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { useKnownTags } from "@/hooks/queries";
+import { CameraFormDialog } from "@/features/cameras/CameraFormDialog";
+import { useCameraPolling, useCamerasStore } from "@/stores/cameras";
+import { useFloorplanStore } from "@/stores/floorplan";
+import { useRoute } from "@/hooks/useRoute";
+import { offPlanTags, planCamera } from "./tags";
 import { layoutRoute } from "./route";
 import { MAX_FLOORPLAN_BYTES, parseFloorplan } from "./schema";
 import { SpatialMap } from "./SpatialMap";
 
 /** The minimal floorplan from the product brief. */
-const BRIEF_EXAMPLE = {
-  cameras: {
-    entry_cam_1: { x: 120, y: 450, zone: "Lobby", fov_angle: 90 },
-    hall_cam_2: { x: 250, y: 450, zone: "Main Corridor", fov_angle: 45 },
-    exit_cam3: { x: 600, y: 100, zone: "Back Alley", fov_angle: 120 },
-  },
-};
-
 function downloadJson(data: unknown, fileName: string) {
   const url = URL.createObjectURL(
     new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
@@ -52,39 +46,52 @@ function downloadJson(data: unknown, fileName: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function useKnownTags() {
-  const cameras = useCamerasStore((s) => s.cameras);
-  const { data: vssTags } = useTags();
-  return useMemo(
-    () => [...new Set([...cameras.map((c) => c.tag), ...(vssTags ?? [])])],
-    [cameras, vssTags],
-  );
-}
-
-/** Facility floorplan: upload, camera mapping and the latest traced route. */
+/** Facility floorplan: upload, cameras and the latest traced route. */
 export function FloorplanPage() {
-  const { plan, keyMap, source, fileName, setPlan, reset } =
-    useFloorplanStore();
-  const trace = useTraceStore((s) => s.latest);
+  const {
+    plan,
+    source,
+    fileName,
+    setPlan,
+    reset,
+    defaultStatus,
+    defaultError,
+  } = useFloorplanStore();
+  const noPlan = source === "default" && defaultStatus !== "ready";
+  const stops = useRoute();
   const tags = useKnownTags();
-  const [mappingOpen, setMappingOpen] = useState(false);
+  const [addingAt, setAddingAt] = useState<string>();
+  const cameras = useCamerasStore((s) => s.cameras);
+  const addCamera = useCamerasStore((s) => s.add);
   const [selected, setSelected] = useState<string>();
   const [replay, setReplay] = useState(0);
   const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const stops = useMemo(() => trace?.stops ?? [], [trace]);
-  const missing = unmappedKeys(plan, keyMap);
-  const offMap = useMemo(
-    () => layoutRoute(stops, plan, keyMap).offMap,
-    [stops, plan, keyMap],
+  const offPlan = useMemo(
+    () => (tags ? offPlanTags(plan, tags) : []),
+    [plan, tags],
   );
-  const cam = selected ? plan.cameras[selected] : undefined;
+  const offMap = useMemo(() => layoutRoute(stops, plan).offMap, [stops, plan]);
+  const cam = selected ? planCamera(plan, selected) : undefined;
+  const selectedLive = !!selected && cameras.some((c) => c.tag === selected);
+
+  const liveTags = useMemo(
+    () => cameras.filter((c) => c.status === "live").map((c) => c.tag),
+    [cameras],
+  );
+
+  useCameraPolling();
+
+  async function addAt(input: StreamInput) {
+    await addCamera(input);
+    toast.success(`Added ${input.name}`);
+  }
 
   async function load(file: File) {
     if (file.size > MAX_FLOORPLAN_BYTES) {
       toast.error("That file is too large", {
-        description: "Floorplans must be under 5 MB.",
+        description: `Floorplans must be under ${formatBytes(MAX_FLOORPLAN_BYTES)}.`,
       });
       return;
     }
@@ -93,16 +100,14 @@ export function FloorplanPage() {
       toast.error("That floorplan isn't valid", { description: res.error });
       return;
     }
-    const map = declaredKeyMap(res.plan, tags);
-    setPlan(res.plan, map, { source: "upload", fileName: file.name });
+    setPlan(res.plan, file.name);
     setSelected(undefined);
-    const gaps = unmappedKeys(res.plan, map).length;
-    if (gaps) {
-      toast.warning(`${gaps} camera${gaps > 1 ? "s" : ""} need mapping`, {
-        description: "Link them to VSS cameras so sightings show on the map.",
-      });
-      setMappingOpen(true);
-    } else toast.success("Floorplan loaded", { description: file.name });
+    const off = tags ? offPlanTags(res.plan, tags).length : 0;
+    toast.success("Floorplan loaded", {
+      description: off
+        ? `${file.name}. ${off} VSS camera${off > 1 ? "s aren't" : " isn't"} on this plan; add ${off > 1 ? "them" : "it"} to the floorplan file as camera keys.`
+        : file.name,
+    });
   }
 
   const dropProps = {
@@ -130,45 +135,38 @@ export function FloorplanPage() {
           {plan.name ?? fileName ?? "Floorplan"}
         </h2>
         <StatusChip tone="neutral">
-          {source === "sample" ? "Sample plan" : fileName}
+          {source === "default" ? "Default plan" : fileName}
         </StatusChip>
-        {missing.length > 0 && (
-          <button type="button" onClick={() => setMappingOpen(true)}>
-            <StatusChip tone="pending">
-              <TriangleAlert /> {missing.length} unmapped
-            </StatusChip>
-          </button>
+        {offPlan.length > 0 && (
+          <OffPlanCameras tags={offPlan} routeAffected={offMap.length > 0} />
         )}
         <span className="flex-1" />
-        <Button size="sm" variant="ghost" onClick={() => setMappingOpen(true)}>
-          <Link2 /> Map cameras
+        <Button
+          size="sm"
+          variant="ghost"
+          title="Download the current plan to use as a template"
+          onClick={() => downloadJson(plan, fileName ?? "floorplan.json")}
+        >
+          <Download /> Download JSON
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="ghost">
-              <Download /> Samples
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onSelect={() =>
-                downloadJson(BRIEF_EXAMPLE, "example.floorplan.json")
-              }
-            >
-              Minimal example (3 cameras)
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() =>
-                downloadJson(SAMPLE_FLOORPLAN, "level4.floorplan.json")
-              }
-            >
-              Level 4 sample with zones
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
         {source === "upload" && (
-          <Button size="sm" variant="ghost" onClick={reset}>
-            <RotateCcw /> Use sample
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              const { plan: uploaded, fileName } = useFloorplanStore.getState();
+              reset();
+              setSelected(undefined);
+              toast("Using the default floorplan", {
+                action: {
+                  label: "Undo",
+                  onClick: () =>
+                    useFloorplanStore.getState().setPlan(uploaded, fileName),
+                },
+              });
+            }}
+          >
+            <RotateCcw /> Use default
           </Button>
         )}
         <input
@@ -192,17 +190,32 @@ export function FloorplanPage() {
           className="relative min-h-0 flex-1 overflow-auto p-4"
           {...dropProps}
         >
-          <SpatialMap
-            plan={plan}
-            keyMap={keyMap}
-            stops={stops}
-            replayKey={replay}
-            labels="all"
-            selectedKey={selected}
-            onCameraClick={(k) => setSelected((s) => (s === k ? undefined : k))}
-            className="mx-auto max-h-[calc(100vh-10rem)] w-full max-w-6xl border"
-            title={plan.name ?? "Facility floorplan"}
-          />
+          {noPlan ? (
+            <p
+              role={defaultStatus === "error" ? "alert" : undefined}
+              className="mx-auto max-w-xl py-16 text-center text-sm text-muted-foreground"
+            >
+              {defaultStatus === "error"
+                ? `${defaultError}. Check VSG_FLOORPLAN and deploy/floorplans/, or upload a plan.`
+                : "Loading floorplan…"}
+            </p>
+          ) : (
+            <SpatialMap
+              plan={plan}
+              stops={stops}
+              liveTags={liveTags}
+              vssTags={tags}
+              replayKey={replay}
+              labels="all"
+              selectedKey={selected}
+              onCameraClick={(k) =>
+                setSelected((s) => (s === k ? undefined : k))
+              }
+              className="mx-auto max-h-[calc(100vh-12rem)] w-full max-w-6xl border"
+              title={plan.name ?? "Facility floorplan"}
+            />
+          )}
+          <MapLegend />
           {dragging && (
             <div className="pointer-events-none absolute inset-4 flex items-center justify-center border-2 border-dashed border-brand-accent bg-background/80 text-sm font-medium text-brand-accent">
               Drop a floorplan JSON file
@@ -217,27 +230,21 @@ export function FloorplanPage() {
             </h3>
             {cam && selected ? (
               <dl className="grid grid-cols-[6rem_1fr] gap-x-2 gap-y-1 text-sm">
-                <dt className="text-muted-foreground">Plan key</dt>
+                <dt className="text-muted-foreground">Zone</dt>
+                <dd>{cam.zone ?? "None"}</dd>
+                <dt className="text-muted-foreground">Camera</dt>
                 <dd className="truncate font-mono text-xs leading-5">
                   {selected}
                 </dd>
-                <dt className="text-muted-foreground">Zone</dt>
-                <dd>{cam.zone ?? "None"}</dd>
-                <dt className="text-muted-foreground">VSS camera</dt>
-                <dd className={cn(!keyMap[selected] && "text-pending")}>
-                  {keyMap[selected]
-                    ? cameraName(keyMap[selected])
-                    : "Not mapped"}
-                </dd>
-                <dt className="text-muted-foreground">Position</dt>
-                <dd className="tabular-nums">
-                  {Math.round(cam.x)}, {Math.round(cam.y)}
-                </dd>
-                {cam.fov_angle && (
-                  <>
-                    <dt className="text-muted-foreground">Field of view</dt>
-                    <dd>{cam.fov_angle}°</dd>
-                  </>
+                {!selectedLive && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="col-span-2 mt-2"
+                    onClick={() => setAddingAt(selected)}
+                  >
+                    <Plus /> Add live camera here
+                  </Button>
                 )}
               </dl>
             ) : (
@@ -264,26 +271,7 @@ export function FloorplanPage() {
             </div>
             {stops.length ? (
               <>
-                <ol className="grid gap-1.5 text-sm">
-                  {stops.map((s) => (
-                    <li
-                      key={s.order + s.hit.matchId}
-                      className="flex items-center gap-2"
-                    >
-                      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-track text-[0.6875rem] font-bold text-white">
-                        {s.order}
-                      </span>
-                      <span className="w-12 shrink-0 text-xs tabular-nums text-muted-foreground">
-                        {formatClock(s.at)}
-                      </span>
-                      <span className="truncate">
-                        {s.hit.cameraTag
-                          ? cameraName(s.hit.cameraTag)
-                          : s.hit.videoName}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
+                <RouteStopList stops={stops} />
                 {offMap.length > 0 && (
                   <p className="mt-3 text-xs text-pending">
                     {offMap.length} sighting
@@ -305,11 +293,66 @@ export function FloorplanPage() {
         </aside>
       </div>
 
-      <KeyMappingDialog
-        open={mappingOpen}
-        onOpenChange={setMappingOpen}
-        tags={tags}
+      <CameraFormDialog
+        open={!!addingAt}
+        onOpenChange={(o) => !o && setAddingAt(undefined)}
+        tag={addingAt}
+        onSave={addAt}
       />
     </div>
+  );
+}
+
+/** VSS cameras the plan has no key for, listed so they can be added to the file. */
+function OffPlanCameras({
+  tags,
+  routeAffected,
+}: {
+  tags: string[];
+  routeAffected: boolean;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        {/* A warning only when the route actually loses sightings. */}
+        <button type="button" className="cursor-pointer">
+          <StatusChip tone={routeAffected ? "pending" : "neutral"}>
+            {routeAffected && <TriangleAlert />}
+            {tags.length} VSS camera{tags.length > 1 ? "s" : ""} not on plan
+          </StatusChip>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80 p-0">
+        <p className="border-b px-3 py-2 text-xs text-muted-foreground">
+          {routeAffected
+            ? "Some route sightings are on these cameras and can't be drawn."
+            : "Sightings on these cameras can't be drawn on this plan."}{" "}
+          Add them to the floorplan file as camera keys.
+        </p>
+        <ul className="max-h-64 overflow-auto py-1">
+          {tags.map((t) => (
+            <li key={t} className="flex items-center gap-2 px-3 py-1">
+              <span className="min-w-0 flex-1 truncate font-mono text-xs">
+                {t}
+              </span>
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                aria-label={`Copy ${t}`}
+                onClick={() =>
+                  void navigator.clipboard.writeText(t).then(
+                    () => toast.success(`Copied ${t}`),
+                    (e: Error) =>
+                      toast.error("Couldn't copy", { description: e.message }),
+                  )
+                }
+              >
+                <Copy />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
   );
 }

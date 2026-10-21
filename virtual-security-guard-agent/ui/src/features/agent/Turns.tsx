@@ -4,22 +4,18 @@ import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   ChevronRight,
-  Clock3,
   CheckCheck,
-  Cctv,
   RotateCw,
   Square,
 } from "lucide-react";
 import { Markdown } from "@/components/shared/Markdown";
 import { StatusChip } from "@/components/shared/media";
 import { Button } from "@/components/ui/button";
-import { formatDateTime } from "@/lib/time";
-import { cameraLabel, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { parseAgentText, type Segment } from "@/protocol/parser";
 import type { AgentTurn, OperatorTurn } from "@/stores/investigation";
 import { ReportCard } from "./ReportCard";
 import { ToolChip } from "./ToolChip";
-import { TraceCard } from "./TraceCard";
 import { ValidationGrid } from "./ValidationGrid";
 
 export function ArgusAvatar({ working }: { working?: boolean }) {
@@ -73,31 +69,13 @@ export function OperatorBubble({ turn }: { turn: OperatorTurn }) {
         )}
         <div className="bg-operator px-3.5 py-2.5 font-prose text-[0.9375rem] leading-relaxed whitespace-pre-wrap">
           {turn.text}
+          {turn.details && (
+            <details className="mt-1.5 text-xs text-muted-foreground">
+              <summary className="cursor-pointer select-none">Details</summary>
+              <p className="mt-1 font-mono break-words">{turn.details}</p>
+            </details>
+          )}
         </div>
-        {(turn.scopeTags?.length || turn.window) && (
-          <div className="flex flex-wrap justify-end gap-1.5 text-xs text-muted-foreground">
-            {turn.scopeTags?.length ? (
-              <span
-                className="inline-flex items-center gap-1"
-                title={turn.scopeTags.join(", ")}
-              >
-                <Cctv className="size-3" />
-                {turn.scopeTags.length <= 2
-                  ? turn.scopeTags.map(cameraLabel).join(", ")
-                  : `${turn.scopeTags.length} cameras`}
-              </span>
-            ) : null}
-            {turn.window && (
-              <span className="inline-flex items-center gap-1">
-                <Clock3 className="size-3" />
-                {turn.window.start
-                  ? formatDateTime(turn.window.start)
-                  : "Start"}{" "}
-                to {turn.window.end ? formatDateTime(turn.window.end) : "now"}
-              </span>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -145,8 +123,6 @@ function Tools({ turn }: { turn: AgentTurn }) {
 
 interface AgentTurnProps {
   turn: AgentTurn;
-  /** Newest vsg-track turn (publishes to the Case File). */
-  traceTurnId?: string;
   busy: boolean;
   onRetry: () => void;
 }
@@ -155,12 +131,10 @@ function DirectiveView({
   seg,
   turn,
   reviewable,
-  latestTrace,
 }: {
   seg: Extract<Segment, { kind: "directive" }>;
   turn: AgentTurn;
   reviewable: boolean;
-  latestTrace: boolean;
 }) {
   const d = seg.directive;
   switch (d.type) {
@@ -172,8 +146,6 @@ function DirectiveView({
           interactive={reviewable}
         />
       );
-    case "track":
-      return <TraceCard data={d.data} turnId={turn.id} latest={latestTrace} />;
     case "report":
       return <ReportCard data={d.data} />;
     case "status":
@@ -186,12 +158,14 @@ function DirectiveView({
 }
 
 /** One Argus reply: tool activity, prose and rich cards for each directive. */
-export function AgentTurnView({
-  turn,
-  traceTurnId,
-  busy,
-  onRetry,
-}: AgentTurnProps) {
+/** Operator-facing names of the blocks Argus writes. */
+const FENCE_NAME: Record<string, string> = {
+  "vsg-matches": "results",
+  "vsg-report": "report",
+  "vsg-status": "status",
+};
+
+export function AgentTurnView({ turn, busy, onRetry }: AgentTurnProps) {
   const streaming = turn.status === "streaming";
   const segments = useMemo(
     () => parseAgentText(turn.text, { streaming }),
@@ -224,8 +198,19 @@ export function AgentTurnView({
               <details key={i} className="text-xs">
                 <summary className="cursor-pointer">
                   <StatusChip tone="pending">
-                    <AlertTriangle /> Couldn't render a {seg.fence} block
+                    <AlertTriangle /> Argus's {FENCE_NAME[seg.fence] ?? "reply"}{" "}
+                    couldn't be displayed
                   </StatusChip>
+                  {!busy && (
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      className="ml-2"
+                      onClick={onRetry}
+                    >
+                      <RotateCw /> Retry
+                    </Button>
+                  )}
                 </summary>
                 <pre className="mt-1 max-h-48 overflow-auto border bg-muted/50 p-2 font-mono text-[0.6875rem] whitespace-pre-wrap text-muted-foreground">
                   {seg.error}
@@ -235,13 +220,7 @@ export function AgentTurnView({
               </details>
             );
           return (
-            <DirectiveView
-              key={i}
-              seg={seg}
-              turn={turn}
-              reviewable={!busy}
-              latestTrace={turn.id === traceTurnId}
-            />
+            <DirectiveView key={i} seg={seg} turn={turn} reviewable={!busy} />
           );
         })}
         {streaming && empty && !runningTool && (

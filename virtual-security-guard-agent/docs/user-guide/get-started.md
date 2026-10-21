@@ -16,8 +16,10 @@ backend or database of its own.
   GNU Make (`sudo apt-get install -y make`).
 - A running **VSS** deployment with search, the VSS MCP server, and indexed
   footage (recorded videos or live RTSP streams).
-- A running **Hermes** agent server with its API server enabled
-  (`API_SERVER_KEY`), the VSS MCP server registered, and a model endpoint.
+- A **Hermes** agent server with the model served on OVMS, set up as
+  described in [Set Up Hermes and OVMS](./get-started/set-up-hermes.md): API
+  server enabled with an auth key, VSS MCP server registered, and Argus as the
+  only skill.
 
 ## Run the Application
 
@@ -40,9 +42,10 @@ cp deploy/.env.example deploy/.env
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `HERMES_BASE_URL` | `http://127.0.0.1:8642` | Hermes API server, `scheme://host:port`, no path. |
-| `HERMES_API_KEY` | *(required)* | Hermes `API_SERVER_KEY`. nginx adds it to Hermes requests. |
+| `HERMES_BASE_URL` | `http://127.0.0.1:8642` | Hermes API server, `scheme://host:port`, no path. Use the Hermes host's IP: inside the container, `127.0.0.1` is the container itself. |
+| `HERMES_API_KEY` | *(required)* | Hermes `API_SERVER_KEY` from `~/.hermes/.env`. nginx adds it to Hermes requests. |
 | `VSS_BASE_URL` | `http://127.0.0.1:12345` | VSS nginx gateway (serves `/manager` and `/datastore`). |
+| `VSG_FLOORPLAN` | `simple` | Default floorplan: `deploy/floorplans/<name>.json`, mounted into the container. Ships with `simple` (`camera_1`…`camera_4`) and `level4`. See [Configure the Floorplan](./how-to-guides/configure-floorplan.md). |
 | `VSG_UI_HOST` | `0.0.0.0` | Bind address. Use `127.0.0.1` to keep the console local. |
 | `VSG_UI_PORT` | `12346` | Console port. |
 
@@ -56,11 +59,15 @@ If your network uses a proxy, add the Hermes and VSS hosts to `no_proxy`.
 
 ### 3. Install the Argus skills on the Hermes host
 
+On the Hermes host, install Argus and move every other Hermes skill aside:
+
 ```bash
-make install-skills
+make install-skills INSTALL_ARGS=--exclusive
+hermes skills list   # only virtual-security-guard and vsg-incident-report
 ```
 
-Then start a new Hermes session. See
+If you followed [Set Up Hermes and OVMS](./get-started/set-up-hermes.md), you
+already did this in its last step. See
 [Install the Hermes Skills](./get-started/install-hermes-skills.md).
 
 ### 4. Build and start
@@ -88,8 +95,8 @@ and **VSS** as **Reachable**.
 
 Open `http://<HOST_IP>:12346/argus`, then:
 
-1. Describe the person, attach a photo, or both. Optionally narrow the search
-   with **All cameras** and **Any time**.
+1. Describe the person, attach a photo, or both. Optionally name cameras or a
+   time range in the text.
 2. Send. Argus replies with a grid of potential matches.
 3. Play a clip, **Confirm** the sightings that show the subject, and send the
    review.
@@ -117,6 +124,7 @@ make down
 :hidden:
 
 ./get-started/system-requirements.md
+./get-started/set-up-hermes.md
 ./get-started/install-hermes-skills.md
 ./get-started/build-from-source.md
 ./get-started/run-unit-tests.md

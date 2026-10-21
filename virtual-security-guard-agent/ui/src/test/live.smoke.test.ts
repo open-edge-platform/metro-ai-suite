@@ -16,7 +16,7 @@ import type { RunEvent } from "@/adapters/hermes/types";
 import { createHttpVss } from "@/adapters/vss/http";
 import { resolveRefs } from "@/lib/hits";
 import { buildSearchInput } from "@/protocol/feedback";
-import { groundingFromLatestRun } from "@/protocol/grounding";
+import { groundingForRun } from "@/protocol/grounding";
 import { buildInstructions } from "@/protocol/instructions";
 import { parseAgentText } from "@/protocol/parser";
 
@@ -53,6 +53,7 @@ describe.skipIf(!BASE)("live smoke", () => {
       instructions: buildInstructions({
         phase: "idle",
         cameras: tags,
+        freePositions: [],
         hasLiveCamera: true,
         minScore: 0.6,
         limit: 12,
@@ -89,9 +90,7 @@ describe.skipIf(!BASE)("live smoke", () => {
     expect(matches, "expected a valid vsg-matches block").toBeDefined();
 
     // The UI grounds the grid on the tool result in the transcript.
-    const grounding = groundingFromLatestRun(
-      await hermes.getMessages(sessionId),
-    );
+    const grounding = groundingForRun(await hermes.getMessages(sessionId));
     expect(grounding, "expected a vss_search_video result").toBeDefined();
     const keep =
       matches?.kind === "directive" && matches.directive.type === "matches"

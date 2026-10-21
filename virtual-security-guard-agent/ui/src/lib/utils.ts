@@ -16,23 +16,6 @@ export function uid(prefix = "id"): string {
   return `${prefix}_${Date.now().toString(36)}${rand}`;
 }
 
-/** Turn a VSS camera tag into a readable place name: P_Lev_4_Main_Entry_ip_54 -> "Main Entry". */
-export function cameraLabel(tag: string): string {
-  const core = tag
-    .replace(/^P_Lev_\d+_/i, "")
-    .replace(/_ip_\d+$/i, "")
-    .replace(/[_-]+/g, " ")
-    .trim();
-  if (!core) return tag;
-  return core.replace(/\b([a-z])/g, (c) => c.toUpperCase());
-}
-
-/** Extract an IP suffix encoded in a VSS camera tag (…_ip_54) if present. */
-export function cameraIpHint(tag: string): string | undefined {
-  const m = /_ip_(\d{1,3})$/i.exec(tag);
-  return m ? `x.x.x.${m[1]}` : undefined;
-}
-
 export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;

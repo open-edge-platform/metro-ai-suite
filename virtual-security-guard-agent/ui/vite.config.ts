@@ -4,6 +4,7 @@
 import { defineConfig, loadEnv, type ProxyOptions } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { readFile } from "node:fs/promises";
 import path from "path";
 
 /**
@@ -17,6 +18,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const hermes = env.HERMES_BASE_URL || "http://127.0.0.1:8642";
   const vss = env.VSS_BASE_URL || "http://127.0.0.1:12345";
+  const floorplan = env.VSG_FLOORPLAN || "simple";
 
   const hermesProxy: ProxyOptions = {
     target: hermes,
@@ -38,7 +40,39 @@ export default defineConfig(({ mode }) => {
   };
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      // Same as nginx: /floorplan.json is deploy/floorplans/$VSG_FLOORPLAN.json.
+      {
+        name: "vsg-floorplan",
+        configureServer(server) {
+          server.middlewares.use("/floorplan.json", (_req, res) => {
+            if (!/^[A-Za-z0-9_-]{1,64}$/.test(floorplan)) {
+              res.statusCode = 500;
+              res.end(`Bad VSG_FLOORPLAN '${floorplan}'`);
+              return;
+            }
+            const file = path.resolve(
+              import.meta.dirname,
+              "../deploy/floorplans",
+              `${floorplan}.json`,
+            );
+            readFile(file).then(
+              (body) => {
+                res.setHeader("Content-Type", "application/json");
+                res.setHeader("Cache-Control", "no-cache");
+                res.end(body);
+              },
+              () => {
+                res.statusCode = 404;
+                res.end();
+              },
+            );
+          });
+        },
+      },
+    ],
     // Tailwind runs as a Vite plugin; an inline config also stops PostCSS from
     // picking up a stray postcss.config.js from a parent directory.
     css: { postcss: { plugins: [] } },

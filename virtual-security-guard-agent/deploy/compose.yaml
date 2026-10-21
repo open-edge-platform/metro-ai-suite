@@ -23,6 +23,9 @@ services:
       HERMES_BASE_URL: ${HERMES_BASE_URL:?Set HERMES_BASE_URL in deploy/.env}
       HERMES_API_KEY: ${HERMES_API_KEY:?Set HERMES_API_KEY in deploy/.env}
       VSS_BASE_URL: ${VSS_BASE_URL:?Set VSS_BASE_URL in deploy/.env}
+      VSG_FLOORPLAN: ${VSG_FLOORPLAN:-simple}
+    volumes:
+      - ./floorplans:/etc/vsg/floorplans:ro
     read_only: true
     tmpfs:
       - /tmp:uid=101,gid=101,mode=0700,size=64m

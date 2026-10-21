@@ -12,13 +12,11 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useInvestigationStore } from "@/stores/investigation";
-import { useReportsStore } from "@/stores/reports";
 import { useSettingsStore } from "@/stores/settings";
 import { CaseFilePanel } from "./CaseFilePanel";
-import { Composer, type ComposerSubmit } from "./Composer";
+import { ATTACH_INPUT_ID, Composer, type ComposerSubmit } from "./Composer";
 import { HistoryMenu } from "./HistoryMenu";
 import { MessageList } from "./MessageList";
-import { PhaseStepper } from "./PhaseStepper";
 import { firstImageFile, useAttachment } from "./useAttachment";
 
 /**
@@ -37,9 +35,6 @@ export function AgentHub() {
   const sessionId = useInvestigationStore((s) => s.sessionId);
   const loadingSession = useInvestigationStore((s) => s.loadingSession);
   const { send, retry, stop, reset, resume } = useInvestigationStore.getState();
-  const hasReport = useReportsStore((s) =>
-    s.reports.some((r) => r.sessionId && r.sessionId === sessionId),
-  );
   const caseFileOpen = useSettingsStore((s) => s.caseFileOpen);
   const setCaseFileOpen = useSettingsStore((s) => s.setCaseFileOpen);
 
@@ -85,7 +80,7 @@ export function AgentHub() {
     const text = s.text || (image ? "Find this person." : "");
     if (!text) return;
     setDraft("");
-    void send(text, { image, tags: s.tags, start: s.start, end: s.end });
+    void send(text, { image });
   }
 
   const dropProps = {
@@ -116,11 +111,6 @@ export function AgentHub() {
     <div className="flex h-full min-h-0">
       <div className="relative flex min-w-0 flex-1 flex-col" {...dropProps}>
         <div className="flex h-11 shrink-0 items-center gap-2 border-b px-3">
-          {turns.length > 0 && (
-            <div className="hidden min-w-0 xl:block">
-              <PhaseStepper phase={phase} started hasReport={hasReport} />
-            </div>
-          )}
           <span className="flex-1" />
           <HistoryMenu
             currentId={sessionId}
@@ -174,6 +164,7 @@ export function AgentHub() {
 
         <input
           ref={fileInput}
+          id={ATTACH_INPUT_ID}
           type="file"
           accept="image/*"
           className="hidden"

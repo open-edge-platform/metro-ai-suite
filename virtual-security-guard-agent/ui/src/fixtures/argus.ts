@@ -1,11 +1,29 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 import { lastDirective } from "@/protocol/parser";
+import { MOCK_SEARCH_QUERY } from "./vss";
 
 export interface ScriptedReply {
-  tools: { tool: string; args: string; preview: string }[];
+  /** `result` is the full tool output Hermes stores in the transcript. */
+  tools: { tool: string; args: string; preview: string; result?: string }[];
   text: string;
 }
+
+/** A vss_search_video tool result as the VSS MCP server returns it. */
+export const MOCK_SEARCH_RESULT = JSON.stringify({
+  query_id: MOCK_SEARCH_QUERY.queryId,
+  results: MOCK_SEARCH_QUERY.hits.map((h) => ({
+    match_id: h.matchId,
+    video_id: h.videoId,
+    video_name: h.videoName,
+    tags: h.cameraTag ? [h.cameraTag] : [],
+    start_s: h.startS,
+    end_s: h.endS,
+    seek_s: h.seekS,
+    score: h.score,
+    created_at: h.ingestedAt,
+  })),
+});
 
 const fence = (name: string, body: unknown) =>
   "```" + name + "\n" + JSON.stringify(body) + "\n```";
@@ -37,7 +55,7 @@ export const MOCK_REPORT = {
     "Ask the day shift to check the lift foyer camera for later footage.",
   ],
   confidence: "medium",
-  vss_query_id: "mock-q-trace",
+  vss_query_id: "mock-q-search",
 };
 
 /** Deterministic Argus behaviour for offline demos and tests. */
@@ -89,15 +107,15 @@ export function scriptedReply(input: string): ScriptedReply {
         tool: `${MCP}vss_search_video`,
         args: '{"query":"person in a blue jacket","limit":16}',
         preview: '{"query_id":"mock-q-search","hits":8}',
+        result: MOCK_SEARCH_RESULT,
       },
     ],
     text: [
       "I searched all 12 Level 4 cameras. Six sightings look strong; two are weaker and one may not show a person at all.",
-      "Please confirm the right person or mark false positives.",
+      "Please confirm the right sightings.",
       "",
       fence("vsg-matches", {
         v: 1,
-        vss_query_id: "mock-q-search",
         keep: ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8"],
         note: "Top six score 0.6 or higher.",
         notes: { m7: "No person detected in the best frame." },

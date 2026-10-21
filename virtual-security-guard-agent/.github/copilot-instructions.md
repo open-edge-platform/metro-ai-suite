@@ -30,10 +30,10 @@ live in [`docs/user-guide/design.md`](../docs/user-guide/design.md).
 | Phase | What happens | Where in code |
 |---|---|---|
 | Search | Operator types a description and/or drops a photo; Argus calls `vss_search_video` and replies with a `vsg-matches` block. | `stores/investigation.ts`, `protocol/instructions.ts` |
-| Review (HITL) | 3×2 grid of the top six matches; "Show N more findings" reveals six at a time, up to 20. Operator only confirms; unconfirmed shown matches are sent as false positives in a `vsg-feedback` block. Every grid stays confirmable all session; re-sending replaces that grid's verdicts. | `features/agent/ValidationGrid.tsx`, `useSubmitReview.ts`, `stores/hitl.ts` (`confirmedSightings`) |
-| Crop & re-search | From a review clip the operator crops the person out of a frame, saves the crop to VSS as the new subject image, and Argus runs a follow-up image search for that person (a new grid). | `features/agent/ClipPlayerDialog.tsx`, `CropTool.tsx`, `lib/crop.ts`, `stores/investigation.ts` (`setSubject`) |
-| Historical route | The session's confirmed sightings (all grids, de-duplicated, in time order) become the route on the floorplan and feed reports. | `stores/trace.ts`, `stores/watch.ts` (`seed`) |
-| Live search (optional) | Only after operator consent: a watched VSS query (`vss_watch_search` / `PATCH /search/:id/watch`) polled every 10 s; UI shows the 4 nearest live matches; Stop is always visible. | `stores/watch.ts`, `features/agent/LiveWatch.tsx` |
+| Review (HITL) | 3×2 grid of the top six matches; "Show N more findings" reveals six at a time, up to 20. Operator only confirms; unconfirmed shown matches are sent as false positives in a `vsg-feedback` block. Only the latest grid can be changed; re-sending replaces its verdicts. | `features/agent/ValidationGrid.tsx`, `useSubmitReview.ts`, `stores/investigation.ts` (`reviews`) |
+| Crop & re-search | From a review clip the operator crops the person out of a frame, saves the crop to VSS, and Argus runs a plain image search for it (a new grid). The crop becomes the subject (latest image, else latest prompt). | `features/agent/ClipPlayerDialog.tsx`, `CropTool.tsx`, `lib/crop.ts` |
+| Historical route | The session's confirmed sightings (all grids and confirmed live hits, de-duplicated, in time order) become the route on the floorplan and feed reports. | `stores/case.ts` (`confirmedSightings`), `hooks/useRoute.ts` |
+| Live search (optional) | Only after operator consent: a watched VSS query started by the UI button (`PATCH /search/:id/watch`) polled every 10 s; hits fold into a live timeline of per-camera sightings, saved per session in the browser; Stop is always visible. | `stores/watch.ts`, `stores/liveTimeline.ts`, `features/agent/LiveWatch.tsx` |
 | Report | Argus gets the time-ordered sightings with movement gaps and replies with a `vsg-report` block; UI renders an editable draft and builds a PDF (sightings in time order plus a Movement section) in the browser. | `features/agent/ReportCard.tsx`, `features/reports/` |
 
 ## Architecture at a Glance
@@ -49,25 +49,25 @@ Hermes (Argus) ──► VSS MCP server (:8000/mcp) and the VSS /manager API
 - **Hermes runs API**: `POST /v1/runs`, SSE `GET /v1/runs/:id/events`,
   `POST /v1/runs/:id/stop`; sessions under `/api/sessions`.
 - **Directive protocol**: Argus answers in fenced `vsg-*` JSON blocks
-  (`vsg-matches`, `vsg-track` (legacy), `vsg-report`, `vsg-status`); the UI
+  (`vsg-matches`, `vsg-report`, `vsg-status`); the UI
   sends `vsg-context` and `vsg-feedback`. Schemas: `ui/src/protocol/directives.ts`.
 - **Grounding**: match hits are re-read from the real tool result in the
-  Hermes transcript (`protocol/grounding.ts`); the model's inline copy is a
-  fallback only.
+  Hermes transcript (`protocol/grounding.ts`); the model's own JSON is never
+  shown.
 
 ## Repository Map
 
 | Path | Contents |
 |---|---|
 | `Makefile` | Dev entrypoint: `install`, `dev`, `dev-mock`, `lint`, `test`, `check`, `build`, `up`, `down`, `logs`, `install-skills`. |
-| `deploy/` | `compose.yaml` and `.env.example` (copy to gitignored `deploy/.env`). |
+| `deploy/` | `compose.yaml`, `.env.example` (copy to gitignored `deploy/.env`) and `floorplans/` (default plans; `VSG_FLOORPLAN` picks one, served as `/floorplan.json`). |
 | `ui/` | Vite + React 19 + TypeScript app, `Dockerfile`, nginx config. |
 | `ui/nginx/templates/` | Gateway allowlist (`default.conf.template`) and upstream includes. |
 | `ui/src/adapters/` | `hermes/` and `vss/` HTTP + mock adapters (`getAdapters()`). |
 | `ui/src/protocol/` | Directive schemas, parser, grounding, Argus run instructions. |
-| `ui/src/stores/` | Zustand stores: `investigation`, `hitl`, `watch`, `trace`, `cameras`, `floorplan`, `reports`, `settings`. |
+| `ui/src/stores/` | Zustand stores: `investigation` (the case: turns, reviews, route), `watch`, `cameras`, `floorplan`, `reports`, `settings`; pure route helpers in `case.ts`. |
 | `ui/src/features/` | `agent` (chat, review, live search, report), `cameras`, `map`, `reports`, `settings`. |
-| `hermes-skills/` | Skills installed **on the Hermes host**: `virtual-security-guard` (Argus) and `vsg-incident-report`. |
+| `hermes-skills/` | Installed **on the Hermes host** by `install.sh` (`make install-skills`; `INSTALL_ARGS=--exclusive` moves every other skill aside): `SOUL.md` (Argus identity) and the skills `virtual-security-guard` (Argus) and `vsg-incident-report`. Hermes and OVMS come from agent-harness-install; see `docs/user-guide/get-started/set-up-hermes.md`. |
 | `docs/user-guide/` | Design and user documentation. |
 | `.github/skills/` | Coding-agent skills for working on this repo. |
 

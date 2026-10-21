@@ -60,10 +60,6 @@ export function managerPath(path: string, base: string = env.vssBase) {
   return `${base}/manager${path.startsWith("/") ? path : `/${path}`}`;
 }
 
-export function hermesPath(path: string, base: string = env.hermesBase) {
-  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
-}
-
 /** Same-origin JPEG of one stored frame (a live hit's detected crop). */
 export function framePath(
   f: {

@@ -3,7 +3,8 @@
 import { z } from "zod";
 import type { HermesMessage } from "@/adapters/hermes/types";
 import type { VssHit } from "@/adapters/vss/types";
-import { clipPathForVideo, framePath, toDatastorePath } from "@/lib/urls";
+import { firstTag, hitMedia } from "@/lib/hits";
+import { toDatastorePath } from "@/lib/urls";
 
 /**
  * Tool-result grounding.
@@ -19,8 +20,10 @@ import { clipPathForVideo, framePath, toDatastorePath } from "@/lib/urls";
 export interface SearchGrounding {
   /** Stored query id when the MCP returned one (see the plan prerequisite). */
   queryId?: string;
-  /** Hits in tool-result order; matchId = tool match_id or m<position>. */
+  /** Hits in tool-result order; matchId = tool match_id or m<row number>. */
   hits: VssHit[];
+  /** Result rows that were dropped: malformed, unscored or a duplicate ref. */
+  unreadable: number;
 }
 
 const SEARCH_TOOL_RE = /(?:^|__|\.|\/)vss_search_video$/;
@@ -32,6 +35,11 @@ export const isSearchTool = (name: string | undefined) =>
   !!name && SEARCH_TOOL_RE.test(name);
 
 const optNum = z.coerce.number().finite().optional().catch(undefined);
+/** A numeric string is accepted; null, "" and booleans are not a score. */
+const score = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() ? Number(v) : v),
+  z.number().finite(),
+);
 const optStr = (max: number) => z.string().max(max).optional().catch(undefined);
 
 const toolHit = z.object({
@@ -51,7 +59,7 @@ const toolHit = z.object({
   start_s: optNum,
   end_s: optNum,
   seek_s: optNum,
-  score: optNum,
+  score,
   url: optStr(2048),
   created_at: optStr(64),
   source: z.enum(["live", "video"]).optional().catch(undefined),
@@ -142,27 +150,21 @@ export function parseToolJson(content: string): unknown {
  */
 const isSearchPayload = (o: Json) =>
   Array.isArray(o.results) || Array.isArray(o.hits);
-const isWatchPayload = (o: Json) =>
-  Array.isArray(o.sightings) && typeof o.query_id === "string";
 
-function findPayload(
-  v: unknown,
-  depth = 0,
-  match: (o: Json) => boolean = isSearchPayload,
-): Json | undefined {
+function findPayload(v: unknown, depth = 0): Json | undefined {
   if (depth > 5 || v == null) return undefined;
   if (typeof v === "string") {
     const s = v.trim();
     if (!s.startsWith("{") && !s.startsWith("[")) return undefined;
     try {
-      return findPayload(JSON.parse(s), depth + 1, match);
+      return findPayload(JSON.parse(s), depth + 1);
     } catch {
       // MCP tools often append human-readable text (e.g. "resource link"
       // lines) after the JSON payload; retry on just the balanced prefix.
       const leading = extractLeadingJson(s);
       if (!leading) return undefined;
       try {
-        return findPayload(JSON.parse(leading), depth + 1, match);
+        return findPayload(JSON.parse(leading), depth + 1);
       } catch {
         return undefined;
       }
@@ -171,37 +173,39 @@ function findPayload(
   if (Array.isArray(v)) {
     for (const c of v) {
       const text = (c as Json | null)?.text;
-      const r = findPayload(
-        typeof text === "string" ? text : c,
-        depth + 1,
-        match,
-      );
+      const r = findPayload(typeof text === "string" ? text : c, depth + 1);
       if (r) return r;
     }
     return undefined;
   }
   if (typeof v !== "object") return undefined;
   const o = v as Json;
-  if (match(o)) return o;
+  if (isSearchPayload(o)) return o;
   for (const k of ["structuredContent", "result", "content", "data"]) {
-    const r = findPayload(o[k], depth + 1, match);
+    const r = findPayload(o[k], depth + 1);
     if (r) return r;
   }
   return undefined;
 }
 
-function firstTag(v: string | string[] | undefined): string | undefined {
-  const t = Array.isArray(v) ? v[0] : v?.split(",")[0];
-  return t?.trim() || undefined;
-}
-
-function hitsFromRows(rows: unknown[]): VssHit[] {
+/**
+ * Typed hits from raw result rows. Refs follow the protocol: `m<N>` is the
+ * Nth row of the tool result, so a dropped row never shifts later refs.
+ */
+function hitsFromRows(rows: unknown[]): { hits: VssHit[]; unreadable: number } {
   const hits: VssHit[] = [];
-  rows.forEach((row) => {
+  const seen = new Set<string>();
+  let unreadable = 0;
+  rows.forEach((row, idx) => {
     const r = toolHit.safeParse(row);
-    if (!r.success) return;
+    const matchId = r.success ? (r.data.match_id ?? `m${idx + 1}`) : undefined;
+    if (!r.success || !matchId || seen.has(matchId)) {
+      unreadable++;
+      return;
+    }
+    seen.add(matchId);
     const d = r.data;
-    const position = hits.length + 1;
+    const position = idx + 1;
     const rank = d.match_id
       ? Number(d.match_id.slice(1)) || position
       : position;
@@ -219,31 +223,27 @@ function hitsFromRows(rows: unknown[]): VssHit[] {
         ? d.observed_at
         : undefined;
     hits.push({
-      matchId: d.match_id ?? `m${position}`,
+      matchId,
       rank,
       videoId: d.video_id,
       videoName: d.video_name,
-      cameraTag:
-        d.camera ??
-        firstTag(d.tags) ??
-        (live ? (d.stream_id ?? d.video_id) : undefined),
       startS: start,
       endS: d.end_s ?? start,
       seekS: d.seek_s ?? start,
-      score: d.score ?? 0,
+      score: d.score,
       ingestedAt: d.created_at,
-      playbackUrl:
-        toDatastorePath(d.url) ??
-        (live ? undefined : clipPathForVideo(d.video_id)),
-      ...(live && {
-        source: "live" as const,
-        streamId: d.stream_id ?? d.video_id,
+      ...hitMedia({
+        live,
+        videoId: d.video_id,
+        streamId: d.stream_id,
+        tag: d.camera ?? firstTag(d.tags),
+        playbackUrl: toDatastorePath(d.url),
+        frame,
       }),
       ...(observed && { observedAt: observed }),
-      ...(frame && { frame, posterUrl: framePath(frame) }),
     });
   });
-  return hits;
+  return { hits, unreadable };
 }
 
 /** Parse a vss_search_video result into hits. Undefined if it isn't one. */
@@ -257,8 +257,7 @@ export function parseSearchResult(
       ? payload.results
       : payload.hits) as unknown[]
   ).slice(0, MAX_HITS);
-  const hits = hitsFromRows(rows);
-  if (rows.length && !hits.length) return undefined;
+  const { hits, unreadable } = hitsFromRows(rows);
   const qid = payload.query_id ?? payload.queryId;
   return {
     queryId:
@@ -266,6 +265,7 @@ export function parseSearchResult(
         ? qid
         : undefined,
     hits,
+    unreadable,
   };
 }
 
@@ -283,70 +283,28 @@ export function groundingFromMessage(
     isSearchTool(SOURCE_RE.exec(m.content.slice(0, 512))?.[1]);
   const g = parseSearchResult(m.content);
   if (!g) return undefined;
-  return named || g.hits.length ? g : undefined;
+  return named || g.hits.length || g.unreadable ? g : undefined;
 }
 
 /**
- * Latest search grounding of the most recent run: tool messages after the
- * last user message.
+ * Latest search grounding of one run: the tool messages after the last user
+ * message whose content is `input` (the run's own prompt), up to the next
+ * user message. Without a match, the most recent run is used.
  */
-export function groundingFromLatestRun(
+export function groundingForRun(
   messages: readonly HermesMessage[],
+  input?: string,
 ): SearchGrounding | undefined {
-  let start = 0;
-  for (let i = messages.length - 1; i >= 0; i--)
-    if (messages[i].role === "user") {
+  let start = -1;
+  for (let i = messages.length - 1; i >= 0 && start < 0; i--)
+    if (messages[i].role === "user" && messages[i].content === input)
       start = i + 1;
-      break;
-    }
+  for (let i = messages.length - 1; i >= 0 && start < 0; i--)
+    if (messages[i].role === "user") start = i + 1;
   let found: SearchGrounding | undefined;
-  for (let i = start; i < messages.length; i++)
+  for (let i = Math.max(start, 0); i < messages.length; i++) {
+    if (messages[i].role === "user") break;
     found = groundingFromMessage(messages[i]) ?? found;
-  return found;
-}
-
-const QID_RE = /^[A-Za-z0-9_-]{1,128}$/;
-
-/** A vss_watch_search result: the watched query and its new live sightings. */
-export interface WatchGrounding {
-  queryId: string;
-  watch: boolean;
-  expired: boolean;
-  sightings: VssHit[];
-  expiresAt?: string;
-  pollAfterS?: number;
-}
-
-/** Parse a vss_watch_search result. Undefined if it isn't one. */
-export function parseWatchResult(content: string): WatchGrounding | undefined {
-  const p = findPayload(parseToolJson(content), 0, isWatchPayload);
-  if (!p || !QID_RE.test(p.query_id as string)) return undefined;
-  const poll = Number(p.poll_after_seconds);
-  return {
-    queryId: p.query_id as string,
-    watch: p.watch === true,
-    expired: p.expired === true,
-    sightings: hitsFromRows((p.sightings as unknown[]).slice(0, MAX_HITS)),
-    expiresAt:
-      typeof p.expires_at === "string" &&
-      !Number.isNaN(Date.parse(p.expires_at))
-        ? p.expires_at
-        : undefined,
-    pollAfterS: Number.isFinite(poll) && poll > 0 ? poll : undefined,
-  };
-}
-
-/** Latest vss_watch_search result of the most recent run. */
-export function watchFromLatestRun(
-  messages: readonly HermesMessage[],
-): WatchGrounding | undefined {
-  let found: WatchGrounding | undefined;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (m.role === "user") break;
-    if (m.role !== "tool") continue;
-    found = parseWatchResult(m.content);
-    if (found) break;
   }
   return found;
 }

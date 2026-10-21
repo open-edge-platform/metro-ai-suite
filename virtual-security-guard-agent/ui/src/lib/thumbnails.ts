@@ -138,12 +138,6 @@ export function getThumbnail(url: string, seekS: number): Promise<string> {
   return p;
 }
 
-/** Full-resolution JPEG of a frame, e.g. to use as the trace anchor image. */
-export async function grabFrameBlob(url: string, seekS: number): Promise<Blob> {
-  const canvas = await schedule(() => grabFrameCanvas(url, seekS, 1280));
-  return canvasToBlob(canvas, "image/jpeg", 0.9);
-}
-
 /** Read any image URL (blob:, data:, same-origin) into a data URL for the PDF. */
 export async function toDataUrl(src: string): Promise<string> {
   if (src.startsWith("data:image/") && !src.startsWith("data:image/svg"))

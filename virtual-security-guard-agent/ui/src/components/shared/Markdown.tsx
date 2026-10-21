@@ -10,7 +10,10 @@ import { cn } from "@/lib/utils";
  */
 function inline(text: string, key: string): ReactNode[] {
   const out: ReactNode[] = [];
-  const re = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*|_[^_\s][^_]*_)/g;
+  // `_` emphasis only at word boundaries (as in GFM), so tags like
+  // P_Lev_4_Entry_Way_ip_107 keep their underscores.
+  const re =
+    /(\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*|(?<![\p{L}\p{N}])_[^_\s][^_]*_(?![\p{L}\p{N}]))/gu;
   let last = 0;
   let i = 0;
   for (const m of text.matchAll(re)) {

@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
+import { Link } from "react-router";
 import {
   Cctv,
   MoreVertical,
@@ -22,6 +23,7 @@ import { timeAgo } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Camera } from "@/stores/cameras";
 import { STATUS_META } from "./status";
+import { useCameraLocation } from "@/stores/floorplan";
 
 const num = new Intl.NumberFormat();
 
@@ -45,6 +47,7 @@ export function CameraCard({
   onDelete: () => void;
 }) {
   const meta = STATUS_META[camera.status];
+  const location = useCameraLocation(camera.tag, camera.location);
   const paused = camera.status === "paused";
   return (
     <article
@@ -91,18 +94,22 @@ export function CameraCard({
       <div className="flex items-start gap-2 p-3">
         <Cctv className="mt-0.5 size-4 shrink-0 text-camera" />
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-sm font-semibold" title={camera.name}>
-            {camera.name}
+          <h3 className="truncate text-sm font-semibold" title={camera.tag}>
+            {camera.tag}
           </h3>
           <p className="truncate text-xs text-muted-foreground">
-            {camera.location || "No location"}
+            {location || (
+              <Link to="/floorplan" className="text-pending underline">
+                Not on the floorplan
+              </Link>
+            )}
           </p>
         </div>
         <Button
           size="icon-xs"
           variant="ghost"
           onClick={onTogglePause}
-          aria-label={paused ? `Resume ${camera.name}` : `Pause ${camera.name}`}
+          aria-label={paused ? `Resume ${camera.tag}` : `Pause ${camera.tag}`}
           title={paused ? "Resume ingest" : "Pause ingest"}
         >
           {paused ? <Play /> : <Pause />}
@@ -112,7 +119,7 @@ export function CameraCard({
             <Button
               size="icon-xs"
               variant="ghost"
-              aria-label={`Actions for ${camera.name}`}
+              aria-label={`Actions for ${camera.tag}`}
             >
               <MoreVertical />
             </Button>
@@ -142,14 +149,6 @@ export function CameraCard({
           {num.format(camera.framesProcessed ?? 0)} processed,{" "}
           {num.format(camera.embeddingsCreated ?? 0)} indexed
         </dd>
-        {!!camera.tags.length && (
-          <>
-            <dt className="text-muted-foreground">Tags</dt>
-            <dd className="truncate" title={camera.tags.join(", ")}>
-              {camera.tags.join(", ")}
-            </dd>
-          </>
-        )}
       </dl>
     </article>
   );

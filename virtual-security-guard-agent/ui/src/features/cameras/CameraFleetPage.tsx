@@ -1,23 +1,15 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Cctv, Loader2, Plus, RefreshCw, Search } from "lucide-react";
 import { toast } from "sonner";
 import type { StreamInput } from "@/adapters/vss/types";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  useCameraPolling,
   useCamerasStore,
   type Camera,
   type CameraStatus,
@@ -25,8 +17,7 @@ import {
 import { CameraCard } from "./CameraCard";
 import { STATUS_META } from "./status";
 import { CameraFormDialog } from "./CameraFormDialog";
-
-const POLL_MS = 10_000;
+import { useFloorplanStore, zoneOf } from "@/stores/floorplan";
 
 /** Live cameras: the RTSP streams VSS is ingesting, with add/edit/pause/remove. */
 export function CameraFleetPage() {
@@ -35,32 +26,28 @@ export function CameraFleetPage() {
   const [filter, setFilter] = useState("");
   const [editing, setEditing] = useState<Camera | "new">();
   const [deleting, setDeleting] = useState<Camera>();
-  const [removing, setRemoving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    void load();
-    const t = setInterval(() => {
-      if (document.visibilityState === "visible") void load();
-    }, POLL_MS);
-    return () => clearInterval(t);
-  }, [load]);
+  useCameraPolling();
 
+  // Locations come from the plan, so re-sort when it or the mapping changes.
+  const plan = useFloorplanStore((s) => s.plan);
   const shown = useMemo(() => {
     const f = filter.trim().toLowerCase();
+    const where = (c: Camera) => zoneOf(plan, c.tag) ?? c.location;
     return cameras
       .filter(
         (c) =>
           !f ||
-          `${c.name} ${c.streamId} ${c.location} ${c.ip ?? ""} ${c.tags.join(" ")}`
+          `${c.tag} ${c.streamId} ${where(c)} ${c.ip ?? ""}`
             .toLowerCase()
             .includes(f),
       )
       .sort(
         (a, b) =>
-          a.location.localeCompare(b.location) || a.name.localeCompare(b.name),
+          where(a).localeCompare(where(b)) || a.tag.localeCompare(b.tag),
       );
-  }, [cameras, filter]);
+  }, [cameras, filter, plan]);
   const tally = useMemo(() => {
     const t: Record<CameraStatus, number> = {
       live: 0,
@@ -85,7 +72,7 @@ export function CameraFleetPage() {
     try {
       await update(c.streamId, { state });
       toast.success(
-        state === "paused" ? `Paused ${c.name}` : `Resumed ${c.name}`,
+        state === "paused" ? `Paused ${c.tag}` : `Resumed ${c.tag}`,
       );
     } catch (e) {
       toast.error("Couldn't change the camera", {
@@ -97,33 +84,20 @@ export function CameraFleetPage() {
   async function save(input: StreamInput) {
     if (editing === "new") {
       await add(input);
-      toast.success(`Added ${input.name ?? "camera"}`);
+      toast.success(`Added ${input.name}`);
     } else if (editing) {
       await update(editing.streamId, {
-        name: input.name,
-        description: input.description ?? "",
-        tags: input.tags,
         frameInterval: input.frameInterval,
         objectDetection: input.objectDetection,
       });
-      toast.success(`Saved ${input.name ?? editing.name}`);
+      toast.success(`Saved ${editing.tag}`);
     }
   }
 
   async function confirmDelete() {
     if (!deleting) return;
-    setRemoving(true);
-    try {
-      await remove(deleting.streamId);
-      toast.success(`Removed ${deleting.name}`);
-      setDeleting(undefined);
-    } catch (e) {
-      toast.error("Couldn't remove the camera", {
-        description: (e as Error).message,
-      });
-    } finally {
-      setRemoving(false);
-    }
+    await remove(deleting.streamId);
+    toast.success(`Removed ${deleting.tag}`);
   }
 
   return (
@@ -144,7 +118,7 @@ export function CameraFleetPage() {
           <Input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filter by name, tag, location or IP"
+            placeholder="Filter by camera, zone or IP"
             className="w-72 pl-8"
             aria-label="Filter cameras"
           />
@@ -163,9 +137,10 @@ export function CameraFleetPage() {
         </Button>
       </div>
 
-      {error && !cameras.length && (
-        <p className="mb-4 text-sm text-destructive">
+      {error && (
+        <p role="alert" className="mb-4 text-sm text-destructive">
           Couldn't reach VSS: {error}
+          {cameras.length > 0 && " Camera statuses below may be out of date."}
         </p>
       )}
 
@@ -210,34 +185,15 @@ export function CameraFleetPage() {
         onSave={save}
       />
 
-      <AlertDialog
+      <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(undefined)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove {deleting?.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              VSS stops ingesting this RTSP stream. Footage and embeddings
-              already indexed stay searchable.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                void confirmDelete();
-              }}
-              disabled={removing}
-              className="bg-destructive text-white hover:bg-destructive/90"
-            >
-              {removing && <Loader2 className="animate-spin" />}
-              Remove camera
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={`Remove ${deleting?.tag}?`}
+        description="VSS stops ingesting this RTSP stream. Footage and embeddings already indexed stay searchable."
+        action="Remove camera"
+        errorTitle="Couldn't remove the camera"
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

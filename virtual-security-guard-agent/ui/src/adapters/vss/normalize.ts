@@ -1,11 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import {
-  clipPathForVideo,
-  framePath,
-  redactUrl,
-  toDatastorePath,
-} from "@/lib/urls";
+import { firstTag, hitMedia } from "@/lib/hits";
+import { redactUrl, toDatastorePath } from "@/lib/urls";
 import type { FrameLocator, VssHit, VssStoredQuery, VssStream } from "./types";
 
 type Json = Record<string, unknown>;
@@ -18,12 +14,6 @@ const str = (v: unknown): string | undefined =>
   typeof v === "string" && v ? v : undefined;
 const obj = (v: unknown): Json =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Json) : {};
-
-function firstTag(v: unknown): string | undefined {
-  if (Array.isArray(v)) return str(v[0]);
-  const s = str(v);
-  return s?.split(",")[0]?.trim() || undefined;
-}
 
 /** A live segment object is named after the epoch second it started. */
 const SEGMENT_EPOCH_RE = /(?:^|\/)(\d{9,11})(?:\.\d+)?\.mp4$/;
@@ -66,24 +56,22 @@ export function normalizeHit(r: Json, index: number): VssHit {
   const endS = num(m.segment_end, startS);
   const live = best.is_live === true;
   const frame = frameFrom(best, videoId);
-  const playbackUrl =
-    toDatastorePath(str(r.videoPlaybackUrl)) ??
-    toDatastorePath(str(video.url)) ??
-    (live ? toDatastorePath(str(m.video_url)) : undefined) ??
-    (videoId && !live ? clipPathForVideo(videoId) : undefined);
   return {
     matchId: `m${rank}`,
     rank,
     videoId,
     videoName: str(video.name),
-    // VSS stores one tag per hit, unique to its camera, live or recorded.
-    cameraTag:
-      firstTag(m.tags) ??
-      firstTag(vmeta.tags) ??
-      firstTag(video.tags) ??
-      (live ? videoId : undefined),
-    source: live ? "live" : "video",
-    streamId: live ? videoId : undefined,
+    ...hitMedia({
+      live,
+      videoId,
+      // VSS stores one tag per hit, unique to its camera, live or recorded.
+      tag: firstTag(m.tags) ?? firstTag(vmeta.tags) ?? firstTag(video.tags),
+      playbackUrl:
+        toDatastorePath(str(r.videoPlaybackUrl)) ??
+        toDatastorePath(str(video.url)) ??
+        (live ? toDatastorePath(str(m.video_url)) : undefined),
+      frame,
+    }),
     observedAt: live
       ? liveObservedAt(
           frame?.mediaPath,
@@ -91,15 +79,12 @@ export function normalizeHit(r: Json, index: number): VssHit {
           str(vmeta.created_at) ?? str(m.created_at),
         )
       : undefined,
-    frame,
-    posterUrl: live && frame ? framePath(frame) : undefined,
     startS,
     endS,
     seekS: num(m.seek_timestamp, num(best.timestamp, startS)),
     score: num(m.relevance_score, num(m.score)),
     ingestedAt: str(m.created_at) ?? str(vmeta.created_at),
     fileName: str(obj(video.dataStore).fileName),
-    playbackUrl,
     durationS: num(vmeta.duration, NaN) || undefined,
     detection: Object.keys(best).length
       ? {
@@ -122,10 +107,18 @@ function queryImage(v: unknown): string | undefined {
   return toDatastorePath(s);
 }
 
-/** Normalise GET /manager/search/:queryId. Hits are kept in stored (rank) order. */
+const QUERY_STATUSES = ["idle", "running", "error"] as const;
+
+/**
+ * Normalise GET /manager/search/:queryId. Hits are kept in stored (rank)
+ * order; a hit without a video id identifies no clip or camera and is dropped.
+ */
 export function normalizeStoredQuery(q: Json): VssStoredQuery {
   const results = Array.isArray(q.results) ? (q.results as Json[]) : [];
-  const hits = results.map(normalizeHit).sort((a, b) => a.rank - b.rank);
+  const hits = results
+    .map(normalizeHit)
+    .filter((h) => h.videoId)
+    .sort((a, b) => a.rank - b.rank);
   const tags = Array.isArray(q.tags)
     ? (q.tags as unknown[]).filter((t): t is string => typeof t === "string")
     : (str(q.tags)
@@ -136,7 +129,7 @@ export function normalizeStoredQuery(q: Json): VssStoredQuery {
     queryId: String(q.queryId ?? ""),
     query: String(q.query ?? ""),
     image: queryImage(q.image) ?? queryImage(q.imageUrl),
-    status: String(q.queryStatus ?? "idle"),
+    status: QUERY_STATUSES.find((st) => st === q.queryStatus) ?? "unknown",
     tags,
     createdAt: str(q.createdAt),
     errorMessage: str(q.errorMessage),
