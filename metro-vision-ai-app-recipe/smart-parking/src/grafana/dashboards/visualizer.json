@@ -277,18 +277,18 @@
     "list": [
       {
         "current": {
-          "text": "https://0.0.0.0/mediamtx/",
-          "value": "https://0.0.0.0/mediamtx/"
+          "text": "https://localhost/mediamtx/",
+          "value": "https://localhost/mediamtx/"
         },
         "name": "WEBRTC_URL",
         "options": [
           {
             "selected": true,
-            "text": "https://0.0.0.0/mediamtx/",
-            "value": "https://0.0.0.0/mediamtx/"
+            "text": "https://localhost/mediamtx/",
+            "value": "https://localhost/mediamtx/"
           }
         ],
-        "query": "https://0.0.0.0/mediamtx/",
+        "query": "https://localhost/mediamtx/",
         "type": "textbox"
       }
     ]

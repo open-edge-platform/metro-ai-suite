@@ -157,6 +157,7 @@ By following this guide, you will learn how to:
 ## Other Deployment Options
 
 - [Deploy Using Helm](./get-started/deploy-with-helm.md): Use Helm to deploy the application to a Kubernetes cluster for scalable and production-ready deployments.
+- [Get Started with SceneScape](./get-started-scenescape.md): Run the application with Intel® SceneScape to track vehicles on a 2D map and report per-slot occupancy.
 
 ## Supporting Resources
 
@@ -169,6 +170,7 @@ By following this guide, you will learn how to:
 
 get-started/system-requirements.md
 get-started/deploy-with-helm.md
+get-started-scenescape.md
 
 :::
 hide_directive-->

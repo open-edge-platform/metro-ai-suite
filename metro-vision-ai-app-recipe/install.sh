@@ -13,8 +13,16 @@ fi
 SAMPLE_APP_ARG="$1"
 if [ -z "$SAMPLE_APP_ARG" ]; then
     echo "Error: First argument (SAMPLE_APP) is required."
-    echo "Usage: $0 <smart-parking|loitering-detection|smart-intersection> [HOST_IP]"
+    echo "Usage: $0 <smart-parking|loitering-detection|smart-intersection> [ss] [HOST_IP]"
     exit 1
+fi
+
+# Optional second argument "ss" selects the SceneScape variant; HOST_IP then shifts to the third argument
+SCENESCAPE_ENABLED=false
+HOST_IP_ARG="$2"
+if [ "$2" = "ss" ]; then
+    SCENESCAPE_ENABLED=true
+    HOST_IP_ARG="$3"
 fi
 
 case "$SAMPLE_APP_ARG" in
@@ -33,8 +41,7 @@ case "$SAMPLE_APP_ARG" in
 esac
 
 # Update the HOST_IP in .env file
-# Check if HOST_IP is provided as second argument, otherwise use hostname -I
-HOST_IP_ARG="$2"
+# Use HOST_IP from the command line if provided, otherwise use hostname -I
 if [ -z "$HOST_IP_ARG" ]; then
     HOST_IP=$(hostname -I | cut -f1 -d' ')
 else
@@ -66,7 +73,7 @@ if docker compose ps >/dev/null 2>&1; then
 fi
 
 # Copy appropriate docker-compose file
-if [ "$SAMPLE_APP" = "smart-intersection" ]; then
+if [ "$SAMPLE_APP" = "smart-intersection" ] || [ "$SCENESCAPE_ENABLED" = "true" ]; then
     cp compose-scenescape.yml docker-compose.yml
 else
     cp compose-without-scenescape.yml docker-compose.yml
@@ -84,7 +91,11 @@ cd "$SAMPLE_APP" || exit 1
 
 if [ -f "./install.sh" ]; then
     chmod +x ./install.sh
-    ./install.sh $HOST_IP
+    if [ "$SCENESCAPE_ENABLED" = "true" ]; then
+        ./install.sh "$HOST_IP" ss
+    else
+        ./install.sh $HOST_IP
+    fi
 else
     echo "Error: install.sh not found in $SAMPLE_APP directory."
     exit 1

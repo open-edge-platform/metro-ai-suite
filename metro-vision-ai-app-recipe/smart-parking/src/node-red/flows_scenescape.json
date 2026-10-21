@@ -1,0 +1,189 @@
+[
+    {
+        "id": "sp_ss_tab",
+        "type": "tab",
+        "label": "Smart Parking (SceneScape)",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "mqtt_broker",
+        "type": "mqtt-broker",
+        "name": "MQTT Broker",
+        "broker": "broker.scenescape.intel.com",
+        "port": "1883",
+        "tls": "f5cfea783bb942f1",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": true,
+        "compatmode": false,
+        "protocolVersion": 4,
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "f5cfea783bb942f1",
+        "type": "tls-config",
+        "name": "Broker TLS",
+        "cert": "/run/secrets/broker-cert",
+        "key": "/run/secrets/broker-key",
+        "ca": "/run/secrets/root-cert",
+        "certname": "",
+        "keyname": "",
+        "caname": "",
+        "servername": "",
+        "verifyservercert": false,
+        "alpnprotocol": ""
+    },
+    {
+        "id": "c2dff2cbcb5e51e0",
+        "type": "influxdb",
+        "hostname": "127.0.0.1",
+        "port": 8086,
+        "protocol": "http",
+        "database": "database",
+        "name": "influx",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "2.0",
+        "url": "http://influxdb2:8086",
+        "timeout": 10,
+        "rejectUnauthorized": false
+    },
+    {
+        "id": "sp_ss_region_in",
+        "type": "mqtt in",
+        "z": "sp_ss_tab",
+        "name": "SceneScape region events",
+        "topic": "scenescape/event/region/+/+/objects",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "mqtt_broker",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 190,
+        "y": 120,
+        "wires": [
+            [
+                "sp_ss_spot_state"
+            ]
+        ]
+    },
+    {
+        "id": "sp_ss_scene_in",
+        "type": "mqtt in",
+        "z": "sp_ss_tab",
+        "name": "SceneScape zone vehicles",
+        "topic": "scenescape/data/scene/+/vehicle",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "mqtt_broker",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 190,
+        "y": 240,
+        "wires": [
+            [
+                "sp_ss_spot_state"
+            ]
+        ]
+    },
+    {
+        "id": "sp_ss_rois_in",
+        "type": "mqtt in",
+        "z": "sp_ss_tab",
+        "name": "SceneScape slot lists (retained)",
+        "topic": "scenescape/data/child/rois/+",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "mqtt_broker",
+        "nl": false,
+        "rap": false,
+        "inputs": 0,
+        "x": 190,
+        "y": 60,
+        "wires": [
+            [
+                "sp_ss_spot_state"
+            ]
+        ]
+    },
+    {
+        "id": "sp_ss_tick",
+        "type": "inject",
+        "z": "sp_ss_tab",
+        "name": "Refresh dwell time",
+        "props": [
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "5",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "5",
+        "topic": "tick",
+        "x": 180,
+        "y": 180,
+        "wires": [
+            [
+                "sp_ss_spot_state"
+            ]
+        ]
+    },
+    {
+        "id": "sp_ss_spot_state",
+        "type": "function",
+        "z": "sp_ss_tab",
+        "name": "Parking spot state",
+        "func": "// Parking spot state per zone (SceneScape scene) and slot (region); emits one InfluxDB point per known slot.\n// Inputs: retained slot lists, per-zone vehicle stream, slot (region) events, and a periodic tick.\nconst spots = flow.get('spots') || {};\nconst rois = flow.get('rois') || {};          // scene uid -> [slot names]\nconst sceneNames = flow.get('sceneNames') || {};\nconst attrs = flow.get('attrs') || {};        // tracked object id -> {type, color, seen}\nconst now = Date.now();\nconst ATTR_TTL_MS = 120000;\nconst pad = n => String(n).padStart(2, '0');\nconst fmtTime = ms => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };\n// 'Smart-Parking-Zone1' -> '1', 'Slot3' -> '3', matching the numeric IDs of the default dashboard\nconst idOf = name => (String(name).match(/(\\d+)$/) || [])[1] || String(name);\nconst fmtDur = s => { s = Math.max(0, Math.floor(s)); return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`; };\nconst topic = msg.topic || '';\n\nfunction seed(uid) {\n    const name = sceneNames[uid];\n    (rois[uid] || []).forEach(slot => {\n        const key = `${name}/${slot}`;\n        if (name && !spots[key]) {\n            spots[key] = { zone: idOf(name), spot: idOf(slot), occupied: false };\n        }\n    });\n}\n\nif (topic.startsWith('scenescape/data/child/rois/')) {\n    const uid = topic.split('/').pop();\n    rois[uid] = (Array.isArray(msg.payload) ? msg.payload : []).map(r => r.title);\n    seed(uid);\n} else if (topic.startsWith('scenescape/data/scene/')) {\n    const uid = topic.split('/')[3];\n    if (msg.payload && msg.payload.name && !sceneNames[uid]) {\n        sceneNames[uid] = msg.payload.name;\n        seed(uid);\n    }\n    ((msg.payload && msg.payload.objects) || []).forEach(o => {\n        const a = attrs[o.id] || {};\n        attrs[o.id] = { type: o.vehicle_type || a.type, color: o.color || a.color, seen: now };\n    });\n    Object.keys(attrs).forEach(id => { if (now - attrs[id].seen > ATTR_TTL_MS) delete attrs[id]; });\n    flow.set('attrs', attrs);\n} else if (topic.startsWith('scenescape/event/region/')) {\n    const p = msg.payload;\n    if (!p || !p.scene_name || !p.region_name) {\n        return null;\n    }\n    sceneNames[p.scene_id] = p.scene_name;\n    const key = `${p.scene_name}/${p.region_name}`;\n    const spot = spots[key] || { zone: idOf(p.scene_name), spot: idOf(p.region_name), occupied: false };\n    const vehicles = (p.objects || []).filter(o => o.category === 'vehicle');\n    if (vehicles.length > 0) {\n        if (!spot.occupied) {\n            spot.occupied = true;\n            spot.entry = Date.parse(p.timestamp) || now;\n        }\n        spot.objId = vehicles[0].id;\n        const a = vehicles.map(o => attrs[o.id]).find(x => x) || {};\n        spot.type = a.type || spot.type;\n        spot.color = a.color || spot.color;\n    } else {\n        spot.occupied = false;\n        spot.entry = null;\n        spot.objId = null;\n        spot.type = '';\n        spot.color = '';\n    }\n    spots[key] = spot;\n}\nflow.set('spots', spots);\nflow.set('rois', rois);\nflow.set('sceneNames', sceneNames);\n\nif (topic !== 'tick') {\n    return null;\n}\n// Fill Type/Color for occupied slots whose attributes arrived after the region event\nObject.values(spots).forEach(s => {\n    const a = s.occupied && s.objId && attrs[s.objId];\n    if (a) {\n        s.type = s.type || a.type;\n        s.color = s.color || a.color;\n    }\n});\nconst points = Object.values(spots).map(s => [\n    {\n        status: s.occupied ? 'Occupied' : 'Empty',\n        occupied: s.occupied ? 1 : 0,\n        // Never write empty strings: they are dropped when InfluxDB results are returned as CSV, shifting table rows\n        type: s.type || '-',\n        color: s.color || '-',\n        entry_time: s.entry ? fmtTime(s.entry) : '-',\n        dwell_time: s.entry ? fmtDur((now - s.entry) / 1000) : '00:00:00',\n        time: new Date(now)\n    },\n    { zone: s.zone, spot: s.spot }\n]);\nif (points.length === 0) {\n    return null;\n}\nreturn { measurement: 'parking_spot', payload: points };",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 150,
+        "wires": [
+            [
+                "sp_ss_influx_out"
+            ]
+        ]
+    },
+    {
+        "id": "sp_ss_influx_out",
+        "type": "influxdb out",
+        "z": "sp_ss_tab",
+        "influxdb": "c2dff2cbcb5e51e0",
+        "name": "SS-Parking",
+        "measurement": "",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "ITM",
+        "bucket": "SS-Parking",
+        "x": 690,
+        "y": 150,
+        "wires": []
+    }
+]

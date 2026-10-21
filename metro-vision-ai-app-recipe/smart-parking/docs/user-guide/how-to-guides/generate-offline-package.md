@@ -27,17 +27,29 @@ cloud-dependent deployments are not feasible.
 
 **Objective**: Create a complete offline deployment package containing all necessary components for the Smart Parking application.
 
-```bash
-cd metro-ai-suite/metro-vision-ai-app-recipe/smart-parking
+- **Default (Without SceneScape)**:
+  ```bash
+  cd metro-ai-suite/metro-vision-ai-app-recipe/smart-parking
 
-./offline-package-generator.sh
-```
+  ./offline-package-generator.sh
+  ```
+
+- **With SceneScape (`ss` mode)**:
+  ```bash
+  cd metro-ai-suite/metro-vision-ai-app-recipe/smart-parking
+
+  ./offline-package-generator.sh ss
+  ```
+
+> [!NOTE]
+> For environments requiring a specific host IP address, you can pass the target host IP as an argument, for example: `./offline-package-generator.sh ss <HOST_IP>` or `./offline-package-generator.sh <HOST_IP>`.
 
 **What happens during generation:**
-- Downloads and packages all Docker images (~2-3 GB)
+- Downloads and packages all Docker images (~2-3 GB for default mode, ~4-5 GB for SceneScape mode)
 - Collects AI models and sample videos (~500 MB)
-- Gathers Grafana plugins and configurations (~100 MB)
+- Gathers Grafana plugins/dashboards and Node-RED module dependencies
 - Prepares deployment scripts and documentation
+- Excludes sensitive runtime secrets so they can be generated securely upon offline deployment
 - Creates a complete `offline-package/` directory
 
 ## Step 2: Prepare Package for Transfer
@@ -96,10 +108,20 @@ docker images | grep -E "(grafana|influxdb|nginx|dlstreamer)"
 
 ### 3.3 Start the Application
 
-```bash
-docker compose up -d
-docker ps
-```
+- **Default Mode**:
+  ```bash
+  docker compose up -d
+  docker ps
+  ```
+
+- **SceneScape Mode (`ss`)**:
+  Before starting SceneScape microservices, ensure runtime secrets are generated and export the SceneScape admin password:
+  ```bash
+  ./init-scenescape.sh
+  export SUPASS=$(cat ./src/secrets/supass)
+  docker compose up -d
+  docker ps
+  ```
 
 ## Step 4: Run the Application
 
@@ -168,8 +190,14 @@ To stop the pipelines without waiting for video streams to finish replay:
 
 ## Stop the Application
 
-To stop the application microservices, use the following command:
+To stop the application microservices:
 
-```bash
-docker compose down
-```
+- **Default Mode**:
+  ```bash
+  docker compose down
+  ```
+
+- **SceneScape Mode (`ss`)**:
+  ```bash
+  docker compose down -v
+  ```
