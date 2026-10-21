@@ -2093,6 +2093,31 @@
       ],
       "title": "NBEBRTLANE - dwell time",
       "type": "gauge"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 6,
+        "x": 9,
+        "y": 44
+      },
+      "id": 40,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style=\"display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center\">\n  <h3 style=\"margin:0 0 8px 0\">Scan for Documentation</h3>\n  <img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUgAAAFIAQMAAAAI2vVwAAAABlBMVEUAAAD///+l2Z/dAAAAAnRSTlP//8i138cAAAAJcEhZcwAACxIAAAsSAdLdfvwAAAG6SURBVGiB7ZXBksIwDEP1/z/tndaSbYZhcTjARaE0SfPMQVINYjtg0uQvSOS4N9d03ZEnuUbtTW5ICot7BW25rq3JNXkpW3x6wCfoU5OH5H3v2KrG5Ickpb4vRfiFRyb/JZXhvuIhz2HyhGR8X3xGuE1uyBpqBcGzlL9OTe5I6j5j27QMMLkmJXHm9iHckSxMHpD9/jPNbQHG3uSSrCjTApQXKftIssklGcOFumGIb3JNQipzDuVa4qtxmFySgVBfqCBjFJQ1JnckAwupHFDlwEzuyFqX6uoM9RMmD0hQ4bFAdKncMLkkK7j5xXPHaGtMvicxaiDZyxZMB0xuyKSrijNN6BZsckcGxc1JerMCQQtMbkmKyyBnoqtLlB0mt+S45bH0Dv6dVWcwuSG7RZDmElJ/9BCTG1JdAdSdEVZ9tg6TWzKm+jlnafLywOSW5GNqnCZg5jlMnpJMcQxUoVbMTa5IDT6pY5QlYfKA7MfIMFN8OTE6g8kNOYSVziwKdoUweUJS44qyissT/ZTJE1IryZ5HvEx+QjamDHfETW7Jji8pxAh1YyZXpN5/lPqhVHd3MLkll8Okye+Tf1NpG4sHotebAAAAAElFTkSuQmCC\" style=\"width:140px;height:140px\" alt=\"QR code linking to the smart intersection documentation\"/>\n  <a href=\"https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/smart-intersection/index.html\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"margin-top:8px;font-size:12px\">Smart Intersection Documentation</a>\n</div>",
+        "mode": "html"
+      },
+      "pluginVersion": "11.5.4",
+      "title": "",
+      "type": "text"
     }
   ],
   "preload": false,
