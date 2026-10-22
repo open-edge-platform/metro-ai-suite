@@ -63,6 +63,7 @@ samples at https://github.com/milestonesys/MIP-AIBridge-samples
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -72,7 +73,8 @@ import structlog
 
 from plugin.base.interfaces import DetectionPublishContext, IVmsShim
 from plugin.core.config import VmsInstanceConfig
-from plugin.core.models.domain import Camera, CommandResult, DetectionFrame
+from plugin.core.models.domain import AnalyticsEvent, Camera, CommandResult, DetectionFrame
+from vms_shim.milestone.analytics_event import caption_to_event
 from vms_shim.milestone import queries
 from vms_shim.milestone.manifest import (
     TYPE_TOPIC_MAP,
@@ -112,6 +114,8 @@ class MilestoneVmsShim(IVmsShim):
         # Set in on_startup; lets POST /v1/vms/{name}/register re-register the
         # currently configured Analytics Apps.
         self._orchestrator: Orchestrator | None = None
+        # camera_id -> monotonic time of the last caption event sent (throttle).
+        self._last_event_at: dict[str, float] = {}
 
     # -- Configuration helpers -----------------------------------------
     @property
@@ -539,6 +543,28 @@ class MilestoneVmsShim(IVmsShim):
         return await self._post_to_topic(
             sink, json.dumps(event), "text/json",
         )
+
+    async def publish_event(self, camera_id: str, event: AnalyticsEvent) -> bool:
+        """Translate a neutral event to an ``ANALYTICS_EVENT`` and push it.
+
+        ``vendor_options.event_min_interval_s`` (default 0 = off) drops events
+        arriving sooner than that after the previous one for the same camera,
+        so chatty apps do not flood the XProtect event list. A dropped event
+        counts as success.
+        """
+        min_interval = float(self._options.get("event_min_interval_s") or 0)
+        now = time.monotonic()
+        last = self._last_event_at.get(camera_id)
+        if min_interval > 0 and last is not None and now - last < min_interval:
+            return True
+
+        doc = caption_to_event(
+            event.text, camera_id, snapshot_jpeg_b64=event.snapshot_jpeg_b64,
+        )
+        ok = await self.push_analytics_event(camera_id, doc, event.app_id)
+        if ok:
+            self._last_event_at[camera_id] = now
+        return ok
 
     # -- Write-back operations -----------------------------------------
     async def acknowledge_event(

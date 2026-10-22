@@ -274,3 +274,26 @@ async def test_integration_client_uses_ca_bundle_when_tls_verify_enabled(monkeyp
 
     assert ok is True
     assert captured["verify"] == "/tmp/nx-ca.pem"
+
+
+@pytest.mark.asyncio
+async def test_publish_event_creates_bookmark_with_truncated_text(nx_config):
+    from datetime import datetime, timezone
+
+    from plugin.core.models.domain import AnalyticsEvent
+    from plugin.core.models.domain import CommandResult
+
+    shim = NxWitnessVmsShim(nx_config)
+    ts = datetime.now(tz=timezone.utc)
+    shim.set_bookmark = AsyncMock(return_value=CommandResult(
+        command_id="c", camera_id="nx:cam1", command_type="set_bookmark", status="accepted",
+    ))
+    event = AnalyticsEvent(text="x" * 600, timestamp=ts, app_id="live_captioning")
+
+    assert await shim.publish_event("nx:cam1", event) is True
+    shim.set_bookmark.assert_awaited_once_with("nx:cam1", ts, "x" * 500)
+
+    shim.set_bookmark.return_value = CommandResult(
+        command_id="c", camera_id="nx:cam1", command_type="set_bookmark", status="unsupported",
+    )
+    assert await shim.publish_event("nx:cam1", event) is False

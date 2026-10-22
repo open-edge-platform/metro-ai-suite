@@ -43,6 +43,10 @@ vms_instances:
       # Metadata format for object_detection apps. Event-based apps
       # (live_captioning) always use ANALYTICS_EVENT.
       metadata_format: ONVIF_ANALYTICS_FRAME
+      # Optional: minimum seconds between analytics events (e.g. LVC captions)
+      # per camera, so chatty apps don't flood the XProtect event list.
+      # 0 or omitted disables throttling.
+      # event_min_interval_s: 10
 
 analytics_apps:
   # - type: live_captioning

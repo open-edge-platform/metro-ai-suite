@@ -643,3 +643,67 @@ def test_category_to_class_defaults_overrides_and_fallback():
     assert category_to_class("equipment", "forklift") == "forklift"
     assert category_to_class("equipment", "forklift", {"equipment": "Other"}) == "Other"
     assert category_to_class(None, "car") == "car"
+
+
+# ── Neutral event publish ────────────────────────────────────────────────────
+
+
+def _caption_event(text="A person walks by"):
+    from datetime import timezone
+
+    from plugin.core.models.domain import AnalyticsEvent
+
+    return AnalyticsEvent(
+        text=text, timestamp=datetime.now(tz=timezone.utc), app_id="live_captioning",
+    )
+
+
+async def test_publish_event_posts_analytics_event(milestone_config, monkeypatch):
+    shim = MilestoneVmsShim(milestone_config)
+    pushed = []
+
+    async def fake_push(camera_id, doc, app_id):
+        pushed.append((camera_id, doc, app_id))
+        return True
+
+    monkeypatch.setattr(shim, "push_analytics_event", fake_push)
+    cam = f"milestone:{COMPOSITE_ID}"
+
+    assert await shim.publish_event(cam, _caption_event()) is True
+    camera_id, doc, app_id = pushed[0]
+    assert (camera_id, app_id) == (cam, "live_captioning")
+    assert doc["name"] == "A person walks by"
+
+
+async def test_publish_event_throttles_per_camera(milestone_config, monkeypatch):
+    shim = MilestoneVmsShim(milestone_config)
+    shim._options["event_min_interval_s"] = 60
+    pushed = []
+
+    async def fake_push(camera_id, doc, app_id):
+        pushed.append(camera_id)
+        return True
+
+    monkeypatch.setattr(shim, "push_analytics_event", fake_push)
+
+    assert await shim.publish_event("milestone:a/1", _caption_event()) is True
+    assert await shim.publish_event("milestone:a/1", _caption_event()) is True  # dropped
+    assert await shim.publish_event("milestone:b/1", _caption_event()) is True  # other camera
+    assert pushed == ["milestone:a/1", "milestone:b/1"]
+
+
+async def test_publish_event_failure_does_not_start_throttle_window(milestone_config, monkeypatch):
+    shim = MilestoneVmsShim(milestone_config)
+    shim._options["event_min_interval_s"] = 60
+    results = iter([False, True])
+    calls = []
+
+    async def fake_push(camera_id, doc, app_id):
+        calls.append(camera_id)
+        return next(results)
+
+    monkeypatch.setattr(shim, "push_analytics_event", fake_push)
+
+    assert await shim.publish_event("milestone:a/1", _caption_event()) is False
+    assert await shim.publish_event("milestone:a/1", _caption_event()) is True
+    assert len(calls) == 2

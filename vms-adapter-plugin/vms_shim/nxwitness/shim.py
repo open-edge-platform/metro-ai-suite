@@ -48,7 +48,7 @@ import structlog
 
 from plugin.base.interfaces import DetectionPublishContext, IVmsShim
 from plugin.core.config import VmsInstanceConfig
-from plugin.core.models.domain import Camera, CommandResult, DetectionFrame
+from plugin.core.models.domain import AnalyticsEvent, Camera, CommandResult, DetectionFrame
 from vms_shim.nxwitness.settings_factory import apply_settings_model
 from vms_shim.nxwitness.translator import (
     DEFAULT_ZONE_TYPE_ID,
@@ -1161,6 +1161,11 @@ class NxWitnessVmsShim(IVmsShim):
                            resp.text)
         except httpx.HTTPError as e:
             return _result(camera_id, "set_bookmark", "timeout", str(e))
+
+    async def publish_event(self, camera_id: str, event: AnalyticsEvent) -> bool:
+        """Store the event as a bookmark on the camera timeline (text truncated to 500 chars)."""
+        result = await self.set_bookmark(camera_id, event.timestamp, event.text[:500])
+        return result.status == "accepted"
 
     async def push_label(
         self, camera_id: str, event_id: str, labels: list[str],

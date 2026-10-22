@@ -36,6 +36,7 @@ from pydantic import BaseModel
 
 from plugin.core.models.domain import (
     AnalysisResult,
+    AnalyticsEvent,
     Camera,
     CommandResult,
     DetectionFrame,
@@ -165,6 +166,15 @@ class IVmsShim(ABC):
 
         Returns True on success, False on failure. Default no-op for shims
         without analytics metadata support.
+        """
+        return False
+
+    async def publish_event(self, camera_id: str, event: AnalyticsEvent) -> bool:
+        """Render a vendor-neutral analytics event in the VMS's native form and push it.
+
+        Nx Witness stores it as a bookmark; Milestone as an ``ANALYTICS_EVENT``.
+        Returns True when the event was delivered (or intentionally dropped by
+        throttling) and False on failure or when unsupported.
         """
         return False
 

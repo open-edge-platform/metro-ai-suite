@@ -32,7 +32,8 @@ are delivered differently depending on which surface you use:
 - **Nx Witness desktop client (recommended, dashboard-free).** An operator enables the pipeline and
   sets the inference device and prompt in **Camera Settings → Integrations → VAP Analytics
   Integration**. VAP's `NxWitnessVmsShim` polls the Nx device-agent settings every 5 seconds and
-  reconciles the pipeline. Captions are pushed back as **bookmarks** on the camera's Nx timeline.
+  reconciles the pipeline. Captions are pushed back as **bookmarks** on the camera's Nx timeline (on Milestone they
+  become analytics events). The LVC shim emits a neutral `AnalyticsEvent`; each VMS shim renders it.
 - **Provider dashboard (optional).** An operator posts a run explicitly to the generic Analytics
   App API, and captions are streamed to the dashboard as an SSE-proxied overlay on a WebRTC player.
 

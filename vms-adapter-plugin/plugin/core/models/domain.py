@@ -155,6 +155,17 @@ class DetectionFrame(BaseModel):
     zones: list[DetectionZone] = Field(default_factory=list)
 
 
+class AnalyticsEvent(BaseModel):
+    """Vendor-neutral discrete event raised by an analytics app (e.g. an LVC caption)."""
+
+    kind: Literal["caption"] = "caption"
+    text: str
+    timestamp: datetime
+    app_id: str
+    run_id: str | None = None
+    snapshot_jpeg_b64: str = ""
+
+
 # ── API request/response models ─────────────────────────────────────────
 
 class CameraEnableRequest(BaseModel):
