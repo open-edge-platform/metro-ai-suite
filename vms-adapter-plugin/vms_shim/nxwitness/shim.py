@@ -46,10 +46,16 @@ DEFAULT_MANIFEST_PATH = Path(__file__).parent / "nx_integration.json"
 import httpx
 import structlog
 
-from plugin.base.interfaces import IVmsShim
+from plugin.base.interfaces import DetectionPublishContext, IVmsShim
 from plugin.core.config import VmsInstanceConfig
-from plugin.core.models.domain import Camera, CommandResult
+from plugin.core.models.domain import Camera, CommandResult, DetectionFrame
 from vms_shim.nxwitness.settings_factory import apply_settings_model
+from vms_shim.nxwitness.translator import (
+    DEFAULT_ZONE_TYPE_ID,
+    ZONE_CATEGORY,
+    category_to_type_id,
+    frame_to_nx,
+)
 
 if TYPE_CHECKING:
     from plugin.core.pipeline.orchestrator import Orchestrator
@@ -67,7 +73,7 @@ def _merge_object_types_into_manifest(
     ``engineManifest.typeLibrary.objectTypes`` and
     ``deviceAgentManifest.supportedTypes``. The typeIds are contributed
     generically by the configured analytics apps (via each app config's
-    ``object_types()``), so this VMS-side helper stays free of any
+    ``object_categories()``), so this VMS-side helper stays free of any
     app-specific concepts and works for any future app.
     """
     if not type_ids:
@@ -516,12 +522,21 @@ class NxWitnessVmsShim(IVmsShim):
             return
 
         # Declare each app's object typeIds in the manifest so Nx accepts the
-        # detections that we later push. Apps opt in via object_types() on their config.
+        # detections that we later push. Apps opt in via object_categories() on their
+        # config; categories are vendor-neutral and resolved to typeIds here.
         extra_type_ids: set[str] = set()
+        type_map = self._type_map()
         for ca_cfg in orchestrator.config.analytics_apps:
-            provider = getattr(ca_cfg, "object_types", None)
-            if callable(provider):
-                extra_type_ids.update(provider())
+            provider = getattr(ca_cfg, "object_categories", None)
+            if not callable(provider):
+                continue
+            for category in provider():
+                if category == ZONE_CATEGORY:
+                    extra_type_ids.add(
+                        self._zone_type_id(getattr(ca_cfg, "zone_type_id", None)),
+                    )
+                else:
+                    extra_type_ids.add(category_to_type_id(category, type_map))
         _merge_object_types_into_manifest(manifests, extra_type_ids)
 
         # Build the per-app camera settings panel (checkboxes/dropdowns) into the
@@ -1025,6 +1040,33 @@ class NxWitnessVmsShim(IVmsShim):
             logger.error("nx_get_device_agent_settings_failed", error=str(exc), device_id=device_id)
             return {}
 
+    def _type_map(self) -> dict[str, str]:
+        """Per-instance category → typeId overrides (``vendor_options.type_map``)."""
+        return dict(self._config.vendor_options.get("type_map") or {})
+
+    def _zone_type_id(self, app_default: str | None = None) -> str:
+        return (
+            self._config.vendor_options.get("zone_type_id")
+            or app_default
+            or DEFAULT_ZONE_TYPE_ID
+        )
+
+    async def publish_detections(
+        self,
+        camera_id: str,
+        frame: DetectionFrame,
+        context: DetectionPublishContext,
+    ) -> bool:
+        """Translate a neutral frame to Nx objects and push them to the camera."""
+        objects = frame_to_nx(
+            frame, self._type_map(), self._zone_type_id(context.zone_type_id),
+        )
+        if not objects:
+            return True
+        return await self.push_analytics_objects(
+            camera_id.removeprefix("nx:"), objects, frame.timestamp_ms,
+        )
+
     async def push_analytics_objects(
         self,
         device_id: str,
@@ -1040,7 +1082,7 @@ class NxWitnessVmsShim(IVmsShim):
 
         Args:
             device_id: Nx device UUID (without ``nx:`` prefix).
-            objects: list of Nx object dicts (from ``translate_dls_metadata``).
+            objects: list of Nx object dicts (from ``frame_to_nx``).
             timestamp_ms: epoch milliseconds for the frame.
             duration_ms: frame duration hint (default 100 ms).
 

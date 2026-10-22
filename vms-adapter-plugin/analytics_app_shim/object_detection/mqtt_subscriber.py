@@ -17,8 +17,9 @@ reconfiguration to also see VMS-driven streams.
 On each message:
 1. Parse vendor_prefix, camera_id from the trailing topic segment.
 2. Look up the VMS shim by vendor_prefix.
-3. Translate DLS metadata to Nx object-push format.
-4. Call ``vms_shim.push_analytics_objects(device_id, objects, timestamp_ms)``.
+3. Parse DLS metadata into a vendor-neutral ``DetectionFrame``.
+4. Call ``vms_shim.publish_detections(camera_id, frame, context)``; the VMS
+   shim renders the frame in its own format.
 
 When ``event_bookmark_enabled``, also subscribes to the app's own dedicated
 status-event topic (e.g. published by the loitering-detection recipe's
@@ -37,9 +38,10 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 
+from plugin.base.interfaces import DetectionPublishContext
 from plugin.common import camera_ref
 
-from .translator import translate_dls_metadata
+from .translator import parse_dls_frame
 
 if TYPE_CHECKING:
     from plugin.core.factory import VmsShimSet
@@ -65,15 +67,16 @@ class MqttSubscriber:
         mqtt_host: str,
         mqtt_port: int,
         vms_shim_sets: list[VmsShimSet],
-        label_type_map: dict[str, str] | None = None,
+        label_map: dict[str, str] | None = None,
         timestamp_offset_ms: int = 0,
         tls_context: ssl.SSLContext | None = None,
         zone_filter_enabled: bool = False,
         zones: dict[str, dict] | None = None,
-        zone_type_id: str = "vap.zone",
+        zone_type_id: str | None = None,
         metadata_topic_prefix: str = "object_tracking",
         event_bookmark_enabled: bool = False,
         event_topic_suffix: str = "loiterstatus",
+        app_id: str = "dls_vision",
     ) -> None:
         """Subscribe to MQTT and dispatch messages until cancelled.
 
@@ -91,7 +94,8 @@ class MqttSubscriber:
 
         # Build a name → shim lookup for fast dispatch
         shim_map: dict[str, Any] = {ss.name: ss.vms_shim for ss in vms_shim_sets}
-        _label_map: dict[str, str] = {k.lower(): v for k, v in (label_type_map or {}).items()}
+
+        publish_context = DetectionPublishContext(app_id=app_id, zone_type_id=zone_type_id)
 
         topic_filter = f"{metadata_topic_prefix}/+"
         event_topic_filter = f"{metadata_topic_prefix}/+/{event_topic_suffix}"
@@ -123,11 +127,12 @@ class MqttSubscriber:
                                 topic,
                                 message.payload,
                                 shim_map,
-                                _label_map,
+                                label_map,
                                 timestamp_offset_ms,
                                 zone_filter_enabled,
                                 zones,
                                 zone_type_id,
+                                publish_context,
                             )
             except asyncio.CancelledError:
                 logger.info("mqtt_subscriber_stopped")
@@ -152,11 +157,12 @@ class MqttSubscriber:
         topic: str,
         payload: bytes,
         shim_map: dict[str, Any],
-        label_type_map: dict[str, str] | None = None,
+        label_map: dict[str, str] | None = None,
         timestamp_offset_ms: int = 0,
         zone_filter_enabled: bool = False,
         zones: dict[str, dict] | None = None,
-        zone_type_id: str = "vap.zone",
+        zone_type_id: str | None = None,
+        publish_context: DetectionPublishContext | None = None,
     ) -> None:
         """Parse topic, translate payload, and dispatch to VMS shim."""
         import json
@@ -186,35 +192,34 @@ class MqttSubscriber:
         # accommodate DLS envelope {"metadata": {...}, "blob": ""} as well as just {},
         # as seen in DLS pipelines with appsink based destination vs gvametapublish based destination
         metadata = data.get("metadata", data)
-        objects, timestamp_ms = translate_dls_metadata(
+
+        frame = parse_dls_frame(
             metadata,
-            label_type_map,
             timestamp_offset_ms,
             zone_filter_enabled=zone_filter_enabled,
             zones=zones,
-            zone_type_id=zone_type_id,
+            label_map=label_map,
         )
-        if not objects:
+        if not frame.objects and not frame.zones:
             logger.debug("mqtt_no_objects_in_frame", topic=topic)
             return
 
-        device_id = camera_id
-
-        ok = await shim.push_analytics_objects(device_id, objects, timestamp_ms)
+        context = publish_context or DetectionPublishContext(app_id="dls_vision", zone_type_id=zone_type_id)
+        ok = await shim.publish_detections(f"{vms_name}:{camera_id}", frame, context)
         if not ok:
             logger.warning(
                 "mqtt_push_failed",
                 vms_name=vms_name,
-                device_id=device_id,
-                objects_count=len(objects),
+                camera_id=camera_id,
+                objects_count=len(frame.objects),
             )
         else:
             logger.debug(
                 "mqtt_pushed_objects",
                 vms_name=vms_name,
-                device_id=device_id,
-                objects_count=len(objects),
-                timestamp_ms=timestamp_ms,
+                camera_id=camera_id,
+                objects_count=len(frame.objects),
+                timestamp_ms=frame.timestamp_ms,
             )
 
     async def _handle_status_event_message(

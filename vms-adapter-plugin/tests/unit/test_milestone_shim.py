@@ -594,3 +594,52 @@ async def test_get_clip_url_returns_none(milestone_config):
         f"milestone:{COMPOSITE_ID}", datetime(2026, 1, 1), datetime(2026, 1, 2),
     )
     assert url is None
+
+
+# ── Neutral detection publish ────────────────────────────────────────────────
+
+
+async def test_publish_detections_posts_onvif_xml(milestone_config, monkeypatch):
+    from plugin.base.interfaces import DetectionPublishContext
+    from plugin.core.models.domain import DetectionFrame, DetectionObject
+
+    shim = MilestoneVmsShim(milestone_config)
+    posts = []
+
+    async def fake_sink(topic, *, metadata=True):
+        return "http://sink/topic"
+
+    async def fake_post(sink, body, content_type):
+        posts.append((sink, body, content_type))
+        return True
+
+    monkeypatch.setattr(shim, "get_topic_sink_url", fake_sink)
+    monkeypatch.setattr(shim, "_post_to_topic", fake_post)
+    ctx = DetectionPublishContext(app_id="ld")
+    frame = DetectionFrame(
+        timestamp_ms=1_000,
+        objects=[DetectionObject(
+            track_id=7, label="pedestrian", category="person", confidence=0.9,
+            x_min=0.0, y_min=0.0, x_max=1.0, y_max=1.0,
+        )],
+    )
+
+    assert await shim.publish_detections(f"milestone:{COMPOSITE_ID}", frame, ctx) is True
+    sink, body, content_type = posts[0]
+    assert (sink, content_type) == ("http://sink/topic", "text/xml")
+    assert COMPOSITE_ID in body and 'ObjectId="7"' in body and "Human" in body
+
+    # Frames without objects are not pushed
+    empty = DetectionFrame(timestamp_ms=1_000)
+    assert await shim.publish_detections(f"milestone:{COMPOSITE_ID}", empty, ctx) is True
+    assert len(posts) == 1
+
+
+def test_category_to_class_defaults_overrides_and_fallback():
+    from vms_shim.milestone.onvif_metadata import category_to_class
+
+    assert category_to_class("person", "pedestrian") == "Human"
+    assert category_to_class("vap.vehicle", "car") == "Vehicle"  # legacy typeId-style value
+    assert category_to_class("equipment", "forklift") == "forklift"
+    assert category_to_class("equipment", "forklift", {"equipment": "Other"}) == "Other"
+    assert category_to_class(None, "car") == "car"

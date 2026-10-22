@@ -28,15 +28,34 @@ from __future__ import annotations
 import asyncio
 import copy
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
-from plugin.core.models.domain import AnalysisResult, Camera, CommandResult, MetadataEvent
+from plugin.core.models.domain import (
+    AnalysisResult,
+    Camera,
+    CommandResult,
+    DetectionFrame,
+    MetadataEvent,
+)
 
 if TYPE_CHECKING:
     from plugin.core.pipeline.orchestrator import Orchestrator
+
+
+@dataclass(frozen=True)
+class DetectionPublishContext:
+    """App-level settings a VMS shim may need to publish a detection frame.
+
+    Vendor type mappings live in each VMS instance's ``vendor_options``, not here.
+    """
+
+    app_id: str
+    # Deprecated app-level override for the Nx zone marker typeId
+    zone_type_id: str | None = None
 
 
 DEFAULT_VMS_MANIFEST: dict = {
@@ -131,21 +150,21 @@ class IVmsShim(ABC):
         """
         return await self.register_analytics(body.get("manifest", {}))
 
-    async def push_analytics_objects(
+    async def publish_detections(
         self,
-        device_id: str,
-        objects: list[dict[str, Any]],
-        timestamp_ms: int,
+        camera_id: str,
+        frame: DetectionFrame,
+        context: DetectionPublishContext,
     ) -> bool:
-        """Push analytics object metadata to a VMS device.
+        """Render a vendor-neutral detection frame in the VMS's native format and push it.
 
         Args:
-            device_id: Vendor-native device identifier (e.g. Nx device UUID without prefix).
-            objects: List of Nx-format object dicts (trackId, typeId, boundingBox, confidence).
-            timestamp_ms: Frame wall-clock timestamp in milliseconds.
+            camera_id: Full VAP camera id (e.g. ``milestone:{deviceId}/{streamId}``).
+            frame: Neutral frame built by the app shim.
+            context: Vendor mapping settings configured on the app.
 
-        Returns True on success, False on failure. Default no-op for non-Nx shims.
-        Override in VMS shims that support analytics metadata push.
+        Returns True on success, False on failure. Default no-op for shims
+        without analytics metadata support.
         """
         return False
 

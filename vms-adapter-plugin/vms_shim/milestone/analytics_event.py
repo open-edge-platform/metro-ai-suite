@@ -221,7 +221,7 @@ def detections_to_event(
 
     Args:
         payload: Raw DL Streamer MQTT metadata (same shape as
-            :func:`vms_shim.milestone.onvif_metadata.normalize_detections`).
+            :func:`vms_shim.milestone.onvif_metadata.frame_to_detections`).
         camera_id: Any camera identifier form.
         event_name: Event title.
         app_display_name: Used as the event ``class``.

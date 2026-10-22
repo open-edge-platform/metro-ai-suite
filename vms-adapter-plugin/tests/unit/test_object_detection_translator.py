@@ -6,11 +6,33 @@
 from __future__ import annotations
 
 import time
-from analytics_app_shim.object_detection.translator import (
-    translate_dls_metadata,
-    _TYPE_DEFAULT,
-    _label_to_type_id,
-)
+
+from analytics_app_shim.object_detection.translator import parse_dls_frame
+from vms_shim.nxwitness.translator import TYPE_DEFAULT as _TYPE_DEFAULT
+from vms_shim.nxwitness.translator import frame_to_nx
+
+
+def translate_dls_metadata(
+    payload, label_type_map=None, timestamp_offset_ms=0,
+    zone_filter_enabled=False, zones=None, zone_type_id="vap.zone",
+):
+    """Full DLS → neutral frame → Nx pipeline (the app-shim + Nx-shim boundary)."""
+    frame = parse_dls_frame(
+        payload, timestamp_offset_ms, zone_filter_enabled=zone_filter_enabled,
+        zones=zones, label_map=label_type_map,
+    )
+    return frame_to_nx(frame, label_type_map, zone_type_id), frame.timestamp_ms
+
+
+def _label_to_type_id(label, label_type_map):
+    frame = parse_dls_frame(
+        {"objects": [{"detection": {
+            "label": label,
+            "bounding_box": {"x_min": 0, "y_min": 0, "x_max": 1, "y_max": 1},
+        }}]},
+        label_map=label_type_map,
+    )
+    return frame_to_nx(frame)[0]["typeId"]
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -406,3 +428,21 @@ def test_type_id_custom_map():
     assert objects[0]["typeId"] == "custom.forklift"
     objects, _ = translate_dls_metadata({"objects": [_make_obj("helmet")]}, custom_map)
     assert objects[0]["typeId"] == "custom.ppe.helmet"
+
+
+# ── neutral category mapping ──────────────────────────────────────────────────
+
+def test_parser_sets_neutral_category_from_label_map():
+    frame = parse_dls_frame(
+        _sample_payload(), label_map={"Pedestrian": "person"},
+    )
+    assert frame.objects[0].category == "person"
+    assert parse_dls_frame(_sample_payload()).objects[0].category is None
+
+
+def test_nx_resolves_category_to_type_id_with_override():
+    from vms_shim.nxwitness.translator import category_to_type_id
+
+    assert category_to_type_id("person") == "vap.person"
+    assert category_to_type_id("vap.vehicle") == "vap.vehicle"  # legacy typeId passthrough
+    assert category_to_type_id("person", {"person": "acme.human"}) == "acme.human"

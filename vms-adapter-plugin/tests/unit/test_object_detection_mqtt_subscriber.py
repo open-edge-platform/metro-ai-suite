@@ -31,10 +31,10 @@ async def test_handle_message_pushes_objects_to_matching_shim(mock_vms_shim):
 
     await subscriber._handle_message("object_tracking/nx:cam1", payload, shim_map)
 
-    mock_vms_shim.push_analytics_objects.assert_called_once()
-    device_id, objects, _ts = mock_vms_shim.push_analytics_objects.call_args.args
-    assert device_id == "cam1"
-    assert len(objects) == 1
+    mock_vms_shim.publish_detections.assert_awaited_once()
+    camera_id, frame, _ctx = mock_vms_shim.publish_detections.call_args.args
+    assert camera_id == "nx:cam1"
+    assert len(frame.objects) == 1
 
 
 async def test_handle_message_ignores_unknown_vms(mock_vms_shim):
@@ -44,21 +44,21 @@ async def test_handle_message_ignores_unknown_vms(mock_vms_shim):
 
     await subscriber._handle_message("object_tracking/frigate:cam1", payload, shim_map)
 
-    mock_vms_shim.push_analytics_objects.assert_not_called()
+    mock_vms_shim.publish_detections.assert_not_called()
 
 
 async def test_handle_message_ignores_malformed_topic(mock_vms_shim):
     subscriber = MqttSubscriber()
     shim_map = {"nx-main": mock_vms_shim}
     await subscriber._handle_message("not/a/valid/topic/shape", b"{}", shim_map)
-    mock_vms_shim.push_analytics_objects.assert_not_called()
+    mock_vms_shim.publish_detections.assert_not_called()
 
 
 async def test_handle_message_ignores_topic_missing_vendor_colon(mock_vms_shim):
     subscriber = MqttSubscriber()
     shim_map = {"nx-main": mock_vms_shim}
     await subscriber._handle_message("object_tracking/cam1", b"{}", shim_map)
-    mock_vms_shim.push_analytics_objects.assert_not_called()
+    mock_vms_shim.publish_detections.assert_not_called()
 
 
 # ── _handle_status_event_message (app's dedicated threshold-crossing topic) ───

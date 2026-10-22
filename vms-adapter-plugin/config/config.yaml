@@ -75,13 +75,17 @@ analytics_apps:
       gpu: ${DLS_PIPELINE_GPU:-}
       npu: ${DLS_PIPELINE_NPU:-}
 
-    # Map detection labels (case-insensitive) to Nx Witness object typeIds.
-    # Labels not listed here fall back to "python.detected.object".
-    # These types are also registered in the Nx manifest automatically at startup.
-    label_type_map:
-      vehicle: vap.vehicle
-      pedestrian: vap.pedestrian
-      background: vap.background
+    # Map detection labels (case-insensitive) to vendor-neutral categories.
+    # Each VMS maps a category to its own type: Nx uses typeId "vap.<category>"
+    # (registered in the Nx manifest at startup), Milestone uses an ONVIF class
+    # (person/pedestrian -> Human, vehicle -> Vehicle). Override per VMS instance
+    # with vendor_options.type_map (Nx) or vendor_options.class_map (Milestone).
+    # Labels not listed here fall back to "python.detected.object" on Nx.
+    # (label_type_map with typeId values is still accepted but deprecated.)
+    label_map:
+      vehicle: vehicle
+      pedestrian: pedestrian
+      background: background
 
     # The DLSPS pipeline runs detection full-frame (gvaanalytics zone/dwell
     # analytics)

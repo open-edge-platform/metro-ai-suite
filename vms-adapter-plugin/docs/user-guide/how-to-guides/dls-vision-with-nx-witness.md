@@ -38,8 +38,8 @@ with Nx Witness as the VMS. At the end of this tutorial, you will have:
 2. `dls_vision`'s DL Streamer Pipeline Server processes the RTSP stream, runs detection, and
    publishes inference metadata to the MQTT broker on topic `object_tracking/nx:{device_uuid}`.
 3. VAP's `MqttSubscriber` receives the MQTT messages, translates DL Streamer GStreamer Video
-   Analytics (GVA) JSON to Nx analytics object format, and calls
-   `NxWitnessVmsShim.push_analytics_objects()`.
+   Analytics (GVA) JSON into a vendor-neutral detection frame, and calls
+   `NxWitnessVmsShim.publish_detections()`, which converts it to Nx analytics object format.
 4. Nx Witness receives the push and overlays bounding boxes on the camera feed.
 
 ## Part 1 — Set Up the Loitering Detection Application
@@ -313,25 +313,28 @@ analytics_apps:
       cpu: ${DLS_PIPELINE_CPU:-}
       gpu: ${DLS_PIPELINE_GPU:-}
       npu: ${DLS_PIPELINE_NPU:-}
-    label_type_map:
-      vehicle: vap.vehicle
-      pedestrian: vap.pedestrian
-      background: vap.background
+    label_map:
+      vehicle: vehicle
+      pedestrian: pedestrian
+      background: background
 ```
 
 At least one of `DLS_PIPELINE_CPU`, `DLS_PIPELINE_GPU`, or `DLS_PIPELINE_NPU` must be set.
 In the Nx UI, the **Device** dropdown only shows configured devices, and selecting one starts
 the corresponding configured pipeline with the same device in `detection-properties.device`.
 
-### 3.3 Configure the `label_type_map`
+### 3.3 Configure the `label_map`
 
-The `label_type_map` translates DL Streamer detection labels (from the model) into Nx Witness
-object typeIds. These typeIds are automatically added to the Nx analytics manifest at startup,
-so Nx knows which object types to expect.
+The `label_map` translates DL Streamer detection labels (from the model) into vendor-neutral
+categories. The Nx shim turns each category into an Nx Witness object typeId (`vap.<category>`),
+and these typeIds are automatically added to the Nx analytics manifest at startup, so Nx knows
+which object types to expect. To use a different typeId, set `vendor_options.type_map`
+(category → typeId) on the Nx VMS instance. The older `label_type_map` (label → typeId) is
+deprecated but still accepted.
 
 **How it works:**
 
-- When `dls_vision` detects a `"pedestrian"`, VAP pushes it to Nx as typeId `"vap.pedestrian"`.
+- When `dls_vision` detects a `"pedestrian"` mapped to category `pedestrian`, VAP pushes it to Nx as typeId `"vap.pedestrian"`.
 - Nx renders this as an object overlay on the camera feed with the label `"vap.pedestrian"`.
 - Labels not listed in the map fall back to `"python.detected.object"`.
 
@@ -339,15 +342,15 @@ so Nx knows which object types to expect.
 (for example, `"car"`, `"person"`, etc.), add them to the map.
 
 ```yaml
-label_type_map:
-  car: vap.vehicle
-  truck: vap.vehicle
-  bus: vap.vehicle
-  motorcycle: vap.vehicle
-  bicycle: vap.vehicle
-  van: vap.vehicle
-  person: vap.person
-  pedestrian: vap.person
+label_map:
+  car: vehicle
+  truck: vehicle
+  bus: vehicle
+  motorcycle: vehicle
+  bicycle: vehicle
+  van: vehicle
+  person: person
+  pedestrian: person
 ```
 
 Any `vap.*` typeId you add here is automatically registered in the Nx manifest. You do not need
@@ -396,7 +399,7 @@ Witness. You do not need to register it manually. The process is:
 
 1. VAP reads the integration manifest — the bundled `vms_shim/nxwitness/nx_integration.json`
    by default, or a custom path if `analytics_manifest_path` is set in `config.yaml`.
-2. Any `label_type_map` entries from `config.yaml` are merged into the manifest automatically
+2. The categories from each app's `label_map` in `config.yaml` are resolved to typeIds and merged into the manifest automatically
    (so Nx knows all typeIds without manual edits).
 3. VAP calls `POST /rest/v4/analytics/integrations/*/requests` on the Nx API.
 4. VAP immediately approves the request via `POST .../requests/{requestId}/approve`.
@@ -815,7 +818,7 @@ Server.
 | Start `dls_vision` with MQTT broker exposed to host | `metro-vision-ai-app-recipe/loitering-detection/` → `docker compose up -d` |
 | **Nx Witness:** install Server + Client, add cameras, enable digest auth, enable API Integrations | Nx Witness Desktop Client |
 | Configure Nx Witness connection and MQTT settings in `.env` | `metro-ai-suite/vms-adapter-plugin/.env` |
-| Configure `app_id`, `display_name`, `label_type_map` in `config.yaml` | `config/config.yaml` |
+| Configure `app_id`, `display_name`, `label_map` in `config.yaml` | `config/config.yaml` |
 | Start VAP (integration auto-registers on startup) | `cd metro-ai-suite/vms-adapter-plugin` → `docker compose up -d --build` |
 | Discover cameras | Dashboard → Discover Cameras |
 | Enable cameras for analytics | Dashboard → Camera toggle |

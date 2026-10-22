@@ -3,7 +3,7 @@
 
 """Detection metadata → ONVIF analytics XML for Milestone AI Bridge.
 
-Translates the normalized inference metadata produced by DL Streamer Pipeline
+Translates the vendor-neutral detection frame built from DL Streamer Pipeline
 Server into the two ONVIF payloads AI Bridge accepts on a *metadata topic*:
 
 * :func:`build_frame_xml`            → ``ONVIF_ANALYTICS_FRAME`` (a bare
@@ -54,6 +54,8 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Iterable
 from xml.sax.saxutils import escape, quoteattr
+
+from plugin.core.models.domain import DetectionFrame
 
 ONVIF_NS = "http://www.onvif.org/ver10/schema"
 
@@ -114,7 +116,7 @@ def _object_xml(obj: dict[str, Any], indent: str = "    ") -> str:
     """Render a single ``tt:Object`` element.
 
     ``obj`` is a normalized detection dict as produced by
-    :func:`normalize_detections`.
+    :func:`frame_to_detections`.
     """
     box = obj["bbox"]
     pad = indent
@@ -182,7 +184,7 @@ def build_frame_xml(
     """Build an ``ONVIF_ANALYTICS_FRAME`` payload (bare ``tt:Frame``).
 
     Args:
-        objects: Normalized detections from :func:`normalize_detections`.
+        objects: Normalized detections from :func:`frame_to_detections`.
         source_stream_id: AI Bridge composite ``"{deviceId}/{streamId}"``.
         timestamp_ms: Frame wall-clock time in epoch ms; now when ``None``.
 
@@ -227,104 +229,90 @@ def build_metadata_stream_xml(
     )
 
 
-def normalize_detections(
-    payload: dict[str, Any],
+# Neutral category → ONVIF class. Matching Smart Client's Metadata Search
+# People/Vehicles filters requires Human/Vehicle.
+DEFAULT_CLASS_MAP = {
+    "person": "Human",
+    "pedestrian": "Human",
+    "human": "Human",
+    "vehicle": "Vehicle",
+}
+
+
+def category_to_class(
+    category: str | None, label: str, class_map: dict[str, str] | None = None,
+) -> str:
+    """Resolve an object's ONVIF class; unmapped objects keep their label.
+
+    The last dotted part of ``category`` is used, so legacy typeId-style values
+    (``vap.vehicle``) resolve like ``vehicle``.
+    """
+    if not category:
+        return label
+    key = category.rsplit(".", 1)[-1].lower()
+    return (class_map or {}).get(key) or DEFAULT_CLASS_MAP.get(key) or label
+
+
+def frame_to_detections(
+    frame: DetectionFrame,
     label_class_map: dict[str, str] | None = None,
     show_labels: bool = True,
-) -> tuple[list[dict[str, Any]], int]:
-    """Convert a DL Streamer metadata payload into renderable detection dicts.
-
-    Mirrors ``analytics_app_shim.object_detection.translator.translate_dls_metadata``
-    (which targets Nx) but emits ONVIF-space boxes for Milestone.
+) -> list[dict[str, Any]]:
+    """Convert a neutral frame into renderable ONVIF-space detection dicts.
 
     Args:
-        payload: Raw DL Streamer MQTT metadata. Expected shape::
-
-            {"objects": [{"detection": {"bounding_box": {"x_min":…,"x_max":…,
-                                                         "y_min":…,"y_max":…},
-                                        "confidence":…, "label":…},
-                          "region_id": 1}],
-             "rtp": {"sender_ntp_unix_timestamp_ns": …}}
-
-        label_class_map: Optional case-insensitive detection label → ONVIF class
-            name (e.g. ``{"car": "Vehicle"}``). Unmapped labels pass through
-            unchanged.
+        frame: Neutral frame produced by an app shim.
+        label_class_map: Optional neutral category → ONVIF class overrides
+            (``vendor_options.class_map``), on top of :data:`DEFAULT_CLASS_MAP`.
         show_labels: Render the label/confidence as on-screen text.
 
-    Returns ``(detections, timestamp_ms)``. Detections missing any bounding-box
-    edge are skipped rather than emitted with partial geometry.
-
-    The timestamp is taken from ``rtp.sender_ntp_unix_timestamp_ns`` when
-    present so boxes line up with the video frame; otherwise wall-clock now.
+    Static zones on the frame are not rendered yet.
     """
     class_map = {k.lower(): v for k, v in (label_class_map or {}).items()}
 
-    rtp = payload.get("rtp") or {}
-    ntp_ns = rtp.get("sender_ntp_unix_timestamp_ns", 0)
-    timestamp_ms = ntp_ns // 1_000_000 if ntp_ns else int(time.time() * 1000)
-
     detections: list[dict[str, Any]] = []
-    for index, obj in enumerate(payload.get("objects") or [], start=1):
-        detection = obj.get("detection") or {}
-        bbox = detection.get("bounding_box") or {}
-        edges = (
-            bbox.get("x_min"), bbox.get("y_min"),
-            bbox.get("x_max"), bbox.get("y_max"),
-        )
-        if any(edge is None for edge in edges):
-            continue
-
-        label = detection.get("label") or obj.get("roi_type") or ""
-        confidence = float(detection.get("confidence", 0.0) or 0.0)
-        onvif_class = class_map.get(str(label).lower(), label)
-
+    for index, obj in enumerate(frame.objects, start=1):
         description = ""
-        if show_labels and label:
+        if show_labels and obj.label:
             description = (
-                f"{label} {confidence:.0%}" if confidence else str(label)
+                f"{obj.label} {obj.confidence:.0%}" if obj.confidence else obj.label
             )
-
         detections.append({
-            # ONVIF ObjectId must be an integer; region_id is a stable per-track
-            # id when the pipeline tracks, else fall back to frame ordinal.
-            "object_id": int(obj.get("region_id") or index),
-            "label": onvif_class,
-            "confidence": confidence,
+            # ONVIF ObjectId must be an integer; fall back to the frame ordinal
+            # when the pipeline does not track.
+            "object_id": obj.track_id or obj.region_id or index,
+            "label": category_to_class(obj.category, obj.label, class_map),
+            "confidence": obj.confidence,
             "description": description,
-            "bbox": to_onvif_bbox(*(float(e) for e in edges)),
+            "bbox": to_onvif_bbox(obj.x_min, obj.y_min, obj.x_max, obj.y_max),
         })
+    return detections
 
-    return detections, timestamp_ms
 
-
-def translate_dls_to_onvif(
-    payload: dict[str, Any],
+def frame_to_onvif(
+    frame: DetectionFrame,
     source_stream_id: str,
     metadata_format: str = "ONVIF_ANALYTICS_FRAME",
     label_class_map: dict[str, str] | None = None,
-    timestamp_offset_ms: int = 0,
 ) -> str:
-    """One-shot DL Streamer metadata → ONVIF XML for the configured format.
+    """Neutral frame → ONVIF XML for the configured format.
 
     Args:
-        payload: Raw DL Streamer MQTT metadata dict.
+        frame: Neutral frame; its timestamp already includes any latency offset.
         source_stream_id: AI Bridge composite ``"{deviceId}/{streamId}"``.
         metadata_format: ``ONVIF_ANALYTICS_FRAME`` or ``ONVIF_ANALYTICS``;
             must match what was registered for the topic.
         label_class_map: Detection label → ONVIF class name.
-        timestamp_offset_ms: Added to the frame timestamp. Use a negative value
-            to compensate for inference latency so boxes align with the video.
 
     Raises:
         ValueError: if ``metadata_format`` is not an ONVIF format.
     """
-    detections, timestamp_ms = normalize_detections(payload, label_class_map)
-    timestamp_ms += timestamp_offset_ms
+    detections = frame_to_detections(frame, label_class_map)
 
     if metadata_format == "ONVIF_ANALYTICS_FRAME":
-        return build_frame_xml(detections, source_stream_id, timestamp_ms)
+        return build_frame_xml(detections, source_stream_id, frame.timestamp_ms)
     if metadata_format == "ONVIF_ANALYTICS":
-        return build_metadata_stream_xml(detections, source_stream_id, timestamp_ms)
+        return build_metadata_stream_xml(detections, source_stream_id, frame.timestamp_ms)
     raise ValueError(
         f"metadata_format '{metadata_format}' is not an ONVIF format; "
         "expected ONVIF_ANALYTICS_FRAME or ONVIF_ANALYTICS",

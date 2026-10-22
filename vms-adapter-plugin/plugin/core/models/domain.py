@@ -112,6 +112,49 @@ class CommandResult(BaseModel):
     vendor_message: str | None = None
 
 
+# ── Neutral detection frame (produced by app shims, rendered by VMS shims) ──
+
+
+class DetectionObject(BaseModel):
+    """One detected object; the bbox is normalized 0..1 with a top-left origin."""
+
+    # gvatrack-assigned stable id, when the pipeline tracks
+    track_id: int | None = None
+    # Legacy per-region seed, usable as a stable id when track_id is absent
+    region_id: int | None = None
+    label: str = "unknown"
+    # Vendor-neutral category (e.g. person, vehicle) from the app's label_map;
+    # each VMS shim maps it to its own type. None when the label is unmapped.
+    category: str | None = None
+    confidence: float = 0.0
+    x_min: float
+    y_min: float
+    x_max: float
+    y_max: float
+    zone_ids: list[str] = Field(default_factory=list)
+    # Pipeline-computed dwell time in seconds; None when the pipeline emits none
+    dwell_s: float | None = None
+
+
+class DetectionZone(BaseModel):
+    """A static monitored zone, with a normalized 0..1 bounding box."""
+
+    zone_id: str
+    label: str
+    x_min: float
+    y_min: float
+    x_max: float
+    y_max: float
+
+
+class DetectionFrame(BaseModel):
+    """Vendor-neutral detections for one video frame."""
+
+    timestamp_ms: int
+    objects: list[DetectionObject] = Field(default_factory=list)
+    zones: list[DetectionZone] = Field(default_factory=list)
+
+
 # ── API request/response models ─────────────────────────────────────────
 
 class CameraEnableRequest(BaseModel):

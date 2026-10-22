@@ -70,9 +70,9 @@ from typing import TYPE_CHECKING, Any
 import httpx
 import structlog
 
-from plugin.base.interfaces import IVmsShim
+from plugin.base.interfaces import DetectionPublishContext, IVmsShim
 from plugin.core.config import VmsInstanceConfig
-from plugin.core.models.domain import Camera, CommandResult
+from plugin.core.models.domain import Camera, CommandResult, DetectionFrame
 from vms_shim.milestone import queries
 from vms_shim.milestone.manifest import (
     TYPE_TOPIC_MAP,
@@ -82,7 +82,7 @@ from vms_shim.milestone.manifest import (
     topic_name,
     validated_metadata_format,
 )
-from vms_shim.milestone.onvif_metadata import translate_dls_to_onvif
+from vms_shim.milestone.onvif_metadata import frame_to_onvif
 
 if TYPE_CHECKING:
     from plugin.core.pipeline.orchestrator import Orchestrator
@@ -481,38 +481,37 @@ class MilestoneVmsShim(IVmsShim):
             logger.error("milestone_topic_post_failed", error=str(e))
             return False
 
-    async def push_detection_metadata(
+    async def publish_detections(
         self,
         camera_id: str,
-        payload: dict[str, Any],
-        analytics_app_id: str,
-        label_class_map: dict[str, str] | None = None,
-        timestamp_offset_ms: int = 0,
+        frame: DetectionFrame,
+        context: DetectionPublishContext,
     ) -> bool:
-        """Translate DL Streamer metadata to ONVIF XML and push it to XProtect.
+        """Translate a neutral frame to ONVIF XML and push it to XProtect.
 
         Args:
             camera_id: VAP camera id (``milestone:{deviceId}/{streamId}``).
-            payload: Raw DL Streamer MQTT metadata dict.
-            analytics_app_id: Selects the registered topic for this app.
-            label_class_map: Detection label → ONVIF class name.
-            timestamp_offset_ms: Negative values compensate for inference
-                latency so boxes align with the video frame.
+            frame: Neutral frame; empty frames are skipped.
+            context: ``app_id`` selects the registered topic;
+                ONVIF classes come from the object's neutral category, with
+                optional ``vendor_options.class_map`` overrides.
 
         Returns True when XProtect accepted the payload.
         """
-        topic = topic_name(analytics_app_id, TYPE_TOPIC_MAP["object_detection"]["suffix"])
+        if not frame.objects:
+            return True
+
+        topic = topic_name(context.app_id, TYPE_TOPIC_MAP["object_detection"]["suffix"])
         sink = await self.get_topic_sink_url(topic, metadata=True)
         if not sink:
             return False
 
         try:
-            body = translate_dls_to_onvif(
-                payload,
+            body = frame_to_onvif(
+                frame,
                 source_stream_id=camera_id.removeprefix(CAMERA_ID_PREFIX),
                 metadata_format=validated_metadata_format(self._options),
-                label_class_map=label_class_map,
-                timestamp_offset_ms=timestamp_offset_ms,
+                label_class_map=self._options.get("class_map"),
             )
         except (ValueError, TypeError, KeyError) as e:
             logger.error(

@@ -146,17 +146,25 @@ def test_control_params_include_zone_with_normalized_default():
 
 # ── zones config ──────────────────────────────────────────────────────────────
 
-def test_object_types_excludes_zone_type_id_when_no_zones():
-    cfg = _make_config(label_type_map={"pedestrian": "vap.pedestrian"})
-    assert cfg.object_types() == ["vap.pedestrian"]
+def test_object_categories_exclude_zone_when_no_zones():
+    cfg = _make_config(label_map={"pedestrian": "person", "person": "person"})
+    assert cfg.object_categories() == ["person"]
 
 
-def test_object_types_includes_zone_type_id_when_zones_configured():
+def test_object_categories_include_zone_when_zones_configured():
     cfg = _make_config(
-        label_type_map={"pedestrian": "vap.pedestrian"},
+        label_map={"pedestrian": "person"},
         zones={"region1": {"bounding_box": [0.0, 0.0, 0.5, 0.5]}},
     )
-    assert cfg.object_types() == ["vap.pedestrian", "vap.zone"]
+    assert cfg.object_categories() == ["person", "zone"]
+
+
+def test_deprecated_label_type_map_merges_into_label_map():
+    cfg = _make_config(
+        label_type_map={"car": "vap.vehicle", "person": "vap.person"},
+        label_map={"person": "human"},
+    )
+    assert cfg.label_map == {"car": "vap.vehicle", "person": "human"}
 
 
 def test_zones_bounding_box_normalized_to_tuple():
@@ -265,17 +273,36 @@ def test_milestone_camera_ref_is_single_topic_level_and_round_trips():
     assert camera_ref.encode("nx:abc123") == "nx:abc123"
 
 
-@pytest.mark.asyncio
-async def test_subscriber_decodes_milestone_topic_for_dispatch(monkeypatch):
-    from analytics_app_shim.object_detection import mqtt_subscriber as mod
+_DLS_PAYLOAD = json.dumps({
+    "objects": [{
+        "detection": {
+            "bounding_box": {"x_min": 0.1, "y_min": 0.2, "x_max": 0.3, "y_max": 0.4},
+            "confidence": 0.9, "label": "person",
+        },
+        "id": 7,
+    }],
+    "rtp": {"sender_ntp_unix_timestamp_ns": 1_000_000_000},
+}).encode()
 
-    monkeypatch.setattr(mod, "translate_dls_metadata", lambda *a, **k: ([{"o": 1}], 123))
+
+@pytest.mark.asyncio
+async def test_subscriber_decodes_milestone_topic_and_publishes_neutral_frame():
+    from analytics_app_shim.object_detection.mqtt_subscriber import MqttSubscriber
+    from plugin.base.interfaces import DetectionPublishContext
+
     vms = MagicMock()
-    vms.push_analytics_objects = AsyncMock(return_value=True)
-    await mod.MqttSubscriber()._handle_message(
-        "object_tracking/milestone:dev~stream", b"{}", {"milestone": vms}
+    vms.publish_detections = AsyncMock(return_value=True)
+    ctx = DetectionPublishContext(app_id="ld")
+    await MqttSubscriber()._handle_message(
+        "object_tracking/milestone:dev~stream", _DLS_PAYLOAD,
+        {"milestone": vms}, timestamp_offset_ms=-100, publish_context=ctx,
     )
-    vms.push_analytics_objects.assert_awaited_once_with("dev/stream", [{"o": 1}], 123)
+    camera_id, frame, passed_ctx = vms.publish_detections.await_args.args
+    assert camera_id == "milestone:dev/stream"
+    assert passed_ctx is ctx
+    assert frame.timestamp_ms == 900
+    assert frame.objects[0].track_id == 7
+    assert frame.objects[0].label == "person"
 
 
 # ── per-camera zone: resolution lookup + normalized->pixel translation ────────
