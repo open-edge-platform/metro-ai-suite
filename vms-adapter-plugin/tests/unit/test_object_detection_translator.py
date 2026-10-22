@@ -250,6 +250,151 @@ def test_type_id_unknown_label_falls_back_to_default():
     assert objects[0]["typeId"] == _TYPE_DEFAULT
 
 
+# ── Zone-aware fields (gvaanalytics dwell_times / zone_violations) ───────────
+
+def _make_zone_obj(*, id_: int = 1, zone_violations=None, dwell_times=None) -> dict:
+    obj = {
+        "detection": {
+            "bounding_box": {"x_min": 0.1, "y_min": 0.2, "x_max": 0.3, "y_max": 0.4},
+            "confidence": 0.8,
+            "label": "pedestrian",
+        },
+        "id": id_,
+        "region_id": id_,
+        "roi_type": "pedestrian",
+    }
+    if zone_violations is not None:
+        obj["zone_violations"] = zone_violations
+    if dwell_times is not None:
+        obj["dwell_times"] = dwell_times
+    return obj
+
+
+def test_stable_track_id_prefers_top_level_id_over_region_id():
+    obj = _make_zone_obj(id_=7)
+    obj["region_id"] = 99  # different from id -> must not be used
+    objects1, _ = translate_dls_metadata({"objects": [obj]})
+    objects2, _ = translate_dls_metadata({"objects": [obj]})
+    assert objects1[0]["trackId"] == objects2[0]["trackId"]
+    import uuid
+    assert objects1[0]["trackId"] == str(uuid.UUID(int=7))
+
+
+def test_zone_filter_disabled_keeps_objects_outside_zone():
+    obj = _make_zone_obj(zone_violations=[])
+    objects, _ = translate_dls_metadata({"objects": [obj]}, zone_filter_enabled=False)
+    assert len(objects) == 1
+
+
+def test_zone_filter_enabled_drops_objects_outside_zone():
+    obj = _make_zone_obj(zone_violations=[])
+    objects, _ = translate_dls_metadata({"objects": [obj]}, zone_filter_enabled=True)
+    assert objects == []
+
+
+def test_zone_filter_enabled_drops_objects_with_no_zone_key_at_all():
+    obj = _make_zone_obj()  # no zone_violations/dwell_times keys present
+    objects, _ = translate_dls_metadata({"objects": [obj]}, zone_filter_enabled=True)
+    assert objects == []
+
+
+def test_zone_filter_enabled_keeps_objects_inside_zone():
+    obj = _make_zone_obj(zone_violations=["region1"])
+    objects, _ = translate_dls_metadata({"objects": [obj]}, zone_filter_enabled=True)
+    assert len(objects) == 1
+
+
+def test_zone_filter_falls_back_to_dwell_times_when_zone_violations_absent():
+    obj = _make_zone_obj(dwell_times=[{"zone_id": "region1", "dwell_time_sec": 1.0}])
+    objects, _ = translate_dls_metadata({"objects": [obj]}, zone_filter_enabled=True)
+    assert len(objects) == 1
+
+
+def test_dwell_attributes_attached_when_dwell_times_present():
+    obj = _make_zone_obj(
+        zone_violations=["region1"],
+        dwell_times=[{"zone_id": "region1", "dwell_time_sec": 6.5}],
+    )
+    objects, _ = translate_dls_metadata({"objects": [obj]})
+    names = {a["name"]: a["value"] for a in objects[0]["attributes"]}
+    assert names["zone_id"] == "region1"
+    assert names["dwell_time_sec"] == "6.5"
+
+
+def test_id_attribute_attached_when_object_has_stable_id():
+    obj = _make_zone_obj(id_=37)
+    objects, _ = translate_dls_metadata({"objects": [obj]})
+    names = {a["name"]: a["value"] for a in objects[0]["attributes"]}
+    assert names["id"] == "37"
+
+
+def test_id_attribute_absent_when_object_has_no_id():
+    obj = _make_zone_obj()
+    obj.pop("id")
+    objects, _ = translate_dls_metadata({"objects": [obj]})
+    names = {a["name"] for a in objects[0]["attributes"]}
+    assert "id" not in names
+
+
+def test_no_loitering_attribute_is_ever_derived():
+    """VMS never recomputes/duplicates the LD app's own threshold decision."""
+    obj = _make_zone_obj(
+        zone_violations=["region1"],
+        dwell_times=[{"zone_id": "region1", "dwell_time_sec": 999.0}],
+    )
+    objects, _ = translate_dls_metadata({"objects": [obj]})
+    names = {a["name"] for a in objects[0]["attributes"]}
+    assert "loitering" not in names
+
+
+def test_no_dwell_attributes_when_no_dwell_times():
+    obj = _make_zone_obj()
+    objects, _ = translate_dls_metadata({"objects": [obj]})
+    names = {a["name"] for a in objects[0]["attributes"]}
+    assert names == {"label", "id"}
+
+
+# ── Zone marker boxes ─────────────────────────────────────────────────────────
+
+_ZONES = {
+    "region1": {"label": "Loitering Zone", "bounding_box": (0.0, 0.2778, 0.2344, 0.5556)},
+}
+
+
+def test_zone_marker_pushed_even_with_no_detections():
+    objects, _ = translate_dls_metadata({"objects": []}, zones=_ZONES)
+    assert len(objects) == 1
+    assert objects[0]["typeId"] == "vap.zone"
+    assert objects[0]["attributes"][0]["value"] == "Loitering Zone"
+
+
+def test_zone_marker_bounding_box_matches_config():
+    objects, _ = translate_dls_metadata({"objects": []}, zones=_ZONES)
+    bbox = objects[0]["boundingBox"]
+    x_min_s, y_min_s, wh = bbox.split(",")
+    w_s, h_s = wh.split("x")
+    assert abs(float(x_min_s) - 0.0) < 1e-3
+    assert abs(float(y_min_s) - 0.2778) < 1e-3
+    assert abs(float(w_s) - 0.2344) < 1e-3
+    assert abs(float(h_s) - 0.2778) < 1e-3
+
+
+def test_zone_marker_track_id_stable_across_calls():
+    objects1, _ = translate_dls_metadata({"objects": []}, zones=_ZONES)
+    objects2, _ = translate_dls_metadata({"objects": []}, zones=_ZONES)
+    assert objects1[0]["trackId"] == objects2[0]["trackId"]
+
+
+def test_zone_marker_uses_custom_type_id():
+    objects, _ = translate_dls_metadata({"objects": []}, zones=_ZONES, zone_type_id="custom.zone")
+    assert objects[0]["typeId"] == "custom.zone"
+
+
+def test_no_zone_marker_when_zones_not_configured():
+    objects, _ = translate_dls_metadata({"objects": []})
+    assert objects == []
+
+
 def test_type_id_no_map_always_default():
     objects, _ = translate_dls_metadata({"objects": [_make_obj("car")]})
     assert objects[0]["typeId"] == _TYPE_DEFAULT

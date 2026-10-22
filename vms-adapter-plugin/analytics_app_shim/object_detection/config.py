@@ -5,12 +5,16 @@
 
 from __future__ import annotations
 
+import json
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-
 _DEVICE_ORDER = ("CPU", "GPU", "NPU")
+
+# Default "zone" control value: the original LD app region1 zone's rectangle
+# corners, normalized (0-1), as [x, y] polygon points.
+_DEFAULT_ZONE_POLYGON = [[0.0, 0.2778], [0.2344, 0.2778], [0.2344, 0.5556], [0.0, 0.5556]]
 
 
 class ObjectDetectionAnalyticsAppConfig(BaseModel):
@@ -29,26 +33,55 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
     mqtt_ca_bundle: str = ""
     mqtt_client_cert: str = ""
     mqtt_client_key: str = ""
-    # Maps detection labels (case-insensitive) to Nx Witness object typeIds.
-    # Any label not present here falls back to "python.detected.object".
-    # These typeIds are also merged into the Nx analytics manifest at startup
-    # so that Nx accepts pushed objects for all configured types.
-    # Example:
-    #   label_type_map:
-    #     car: vap.vehicle
-    #     truck: vap.vehicle
-    #     person: vap.person
-    #     forklift: custom.forklift
+    # Topic prefix for metadata pub/sub, matching the LD app's own SOURCE_TOPIC_PREFIX
+    # convention (not a VMS-invented scheme). Final topic:
+    # "{metadata_topic_prefix}/{vendor}:{device_id}". Part of the pipeline-start payload.
+    metadata_topic_prefix: str = "object_tracking"
+    # Maps detection labels (case-insensitive) to Nx typeIds; unmapped labels fall
+    # back to "python.detected.object". Also merged into the Nx manifest at startup.
+    # Example: {car: vap.vehicle, person: vap.person}
     label_type_map: dict[str, str] = Field(default_factory=dict)
-    # Compensates for the delay between frame capture and MQTT message arrival
-    # (inference latency + pipeline overhead). A negative value shifts the pushed
-    # metadata timestamp backward so it aligns with the corresponding video frame
-    # in Nx. For example, -300 corrects for ~300 ms of inference latency.
-    # Has no effect when sender_ntp_unix_timestamp_ns is present in the payload.
+    # Shifts the pushed metadata timestamp (ms) to compensate for pipeline latency;
+    # ignored when sender_ntp_unix_timestamp_ns is present in the payload.
     metadata_timestamp_offset_ms: int = 0
     # Per-device pipeline mapping used by Nx UI controls and run startup.
     # At least one of CPU/GPU/NPU must be configured with a non-empty value.
     pipeline: dict[str, str] = Field(default_factory=dict)
+
+    # Only push objects with a "zone_violations"/"dwell_times" entry (gvaanalytics
+    # zone/dwell output); no-op on pipelines that don't emit those fields.
+    zone_filter_enabled: bool = False
+    # Zone geometry drawn as a persistent marker box in Nx (replaces the fake ROI
+    # object older pipelines emitted). bounding_box is normalized [x_min, y_min,
+    # x_max, y_max]; keyed by zone id, must match the DLSPS zones/<video>.json.
+    # Example: {region1: {label: "Loitering Zone", bounding_box: [0, 0.28, 0.23, 0.56]}}
+    zones: dict[str, dict] = Field(default_factory=dict)
+    # Nx typeId for the pushed zone marker box(es); auto-registered when zones is set.
+    zone_type_id: str = "vap.zone"
+
+    # Subscribes to the app's dedicated status-event topic (e.g. the loitering-
+    # detection recipe's mqtt-table-flattener sidecar) and pushes an Nx bookmark
+    # for every row received - no dedup/threshold logic here, the app already
+    # decided the event occurred.
+    event_bookmark_enabled: bool = False
+    # Must match the publisher's destination topic suffix (e.g. mqtt-table-flattener's
+    # DEST_TOPIC_SUFFIX env var).
+    event_topic_suffix: str = "loiterstatus"
+
+    @model_validator(mode="after")
+    def _normalize_and_validate_zones(self):
+        normalized: dict[str, dict] = {}
+        for zone_id, zone_cfg in (self.zones or {}).items():
+            zone_cfg = dict(zone_cfg or {})
+            bbox = zone_cfg.get("bounding_box")
+            if not bbox or len(bbox) != 4:
+                raise ValueError(
+                    f"Zone '{zone_id}' bounding_box must be [x_min, y_min, x_max, y_max]"
+                )
+            zone_cfg["bounding_box"] = tuple(float(v) for v in bbox)
+            normalized[str(zone_id)] = zone_cfg
+        self.zones = normalized
+        return self
 
     @model_validator(mode="after")
     def _normalize_and_validate_pipeline_map(self):
@@ -81,21 +114,14 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
         """Return configured pipeline name for a given device (case-insensitive)."""
         return self.pipeline.get(str(device or "").strip().upper(), "")
     def object_types(self) -> list[str]:
-        """Return the object type ids this app emits (VMS-neutral).
-
-        Derived from ``label_type_map`` values so a VMS shim can register them
-        generically, without knowing this app exists. Apps that do not push
-        object detections simply omit this method.
-        """
-        return sorted(set(self.label_type_map.values()))
+        """Object type ids this app emits (label_type_map values, plus zone_type_id if zones is set)."""
+        types = set(self.label_type_map.values())
+        if self.zones:
+            types.add(self.zone_type_id)
+        return sorted(types)
 
     def control_params(self) -> list[dict]:
-        """Declare this app's per-camera control knobs (VMS-neutral).
-
-        A ``bool`` named ``pipelineEnabled`` is the start/stop toggle; ``device``
-        selects the inference device. Only configured devices are exposed.
-        A VMS shim renders these into its own UI.
-        """
+        """Per-camera control knobs (VMS-neutral): pipelineEnabled toggle + device enum."""
         device_options = self.configured_pipeline_devices()
         return [
             {
@@ -112,6 +138,18 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
                 "options": device_options,
                 "label": "Device",
                 "description": "Inference device mapped to a configured pipeline",
+            },
+            {
+                "name": "zone",
+                "type": "text",
+                "default": json.dumps(_DEFAULT_ZONE_POLYGON),
+                "label": "Loitering Zone",
+                "description": (
+                    "Normalized zone polygon as [[x,y],...] points, each 0-1 "
+                    "(fraction of frame width/height). Any number of points/shape "
+                    "is supported. Translated to this camera's actual pixel "
+                    "resolution automatically when the pipeline starts."
+                ),
             },
         ]
 
