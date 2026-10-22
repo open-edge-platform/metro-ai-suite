@@ -253,6 +253,31 @@ def test_build_mqtt_topic_uses_configured_prefix():
     assert shim._build_mqtt_topic("nx:abc123") == "object_tracking/nx:abc123"
 
 
+def test_milestone_camera_ref_is_single_topic_level_and_round_trips():
+    from plugin.common import camera_ref
+
+    shim = _make_shim(metadata_topic_prefix="object_tracking")
+    ref = "milestone:dev-guid/stream-guid"
+    topic = shim._build_mqtt_topic(ref)
+    assert topic == "object_tracking/milestone:dev-guid~stream-guid"
+    assert len(topic.split("/")) == 2
+    assert camera_ref.decode(topic.split("/")[-1]) == ref
+    assert camera_ref.encode("nx:abc123") == "nx:abc123"
+
+
+@pytest.mark.asyncio
+async def test_subscriber_decodes_milestone_topic_for_dispatch(monkeypatch):
+    from analytics_app_shim.object_detection import mqtt_subscriber as mod
+
+    monkeypatch.setattr(mod, "translate_dls_metadata", lambda *a, **k: ([{"o": 1}], 123))
+    vms = MagicMock()
+    vms.push_analytics_objects = AsyncMock(return_value=True)
+    await mod.MqttSubscriber()._handle_message(
+        "object_tracking/milestone:dev~stream", b"{}", {"milestone": vms}
+    )
+    vms.push_analytics_objects.assert_awaited_once_with("dev/stream", [{"o": 1}], 123)
+
+
 # ── per-camera zone: resolution lookup + normalized->pixel translation ────────
 
 def _camera_with_resolution(resolution: str = "1280x720") -> Camera:

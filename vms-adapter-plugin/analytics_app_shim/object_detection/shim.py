@@ -34,6 +34,7 @@ import structlog
 from pydantic import BaseModel, create_model
 
 from plugin.base.interfaces import IAnalyticsAppShim
+from plugin.common import camera_ref
 from plugin.core.models.domain import AnalysisResult, MetadataEvent
 from .config import ObjectDetectionAnalyticsAppConfig
 from .api_client import ObjectDetectionApiClient
@@ -197,7 +198,7 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
         ``vendor:device_id`` segment to find the right VMS shim.
         """
         ref = camera_id_ref or "vap:unknown"
-        return f"{self._config.metadata_topic_prefix}/{ref}"
+        return f"{self._config.metadata_topic_prefix}/{camera_ref.encode(ref)}"
 
     def _lookup_vms_shim(self, camera_id_ref: str) -> Any | None:
         """Exact match first, then prefix match, mirroring MqttSubscriber._lookup_shim."""

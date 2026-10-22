@@ -37,6 +37,8 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 
+from plugin.common import camera_ref
+
 from .translator import translate_dls_metadata
 
 if TYPE_CHECKING:
@@ -165,7 +167,7 @@ class MqttSubscriber:
             logger.warning("mqtt_unexpected_topic_format", topic=topic)
             return
 
-        vms_name, camera_id = parts[-1].split(":", 1)
+        vms_name, camera_id = camera_ref.decode(parts[-1]).split(":", 1)
 
         shim = self._lookup_shim(shim_map, vms_name)
         if shim is None:
@@ -234,7 +236,7 @@ class MqttSubscriber:
         if len(parts) != 3 or ":" not in parts[1]:  # noqa: PLR2004
             logger.warning("mqtt_unexpected_event_topic_format", topic=topic)
             return
-        vms_name, device_id = parts[1].split(":", 1)
+        vms_name, device_id = camera_ref.decode(parts[1]).split(":", 1)
 
         shim = self._lookup_shim(shim_map, vms_name)
         if shim is None or not hasattr(shim, "set_bookmark"):
