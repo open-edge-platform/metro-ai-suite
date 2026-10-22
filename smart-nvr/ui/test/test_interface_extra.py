@@ -102,3 +102,9 @@ def test_ui_builder_callable(monkeypatch):
     monkeypatch.setattr(iface, "fetch_search_responses", lambda: {})
     ui_obj = iface.create_ui()
     assert ui_obj is not None
+
+
+def test_extract_search_row_fields_handles_variant_payloads():
+    assert iface.extract_search_row_fields({"video_id": "vid-1", "message": "done"}) == ("vid-1", "done")
+    assert iface.extract_search_row_fields({"videoId": "vid-2", "status": "Pending"}) == ("vid-2", "Pending")
+    assert iface.extract_search_row_fields("not-a-dict") == ("", "")
