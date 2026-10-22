@@ -12,7 +12,9 @@ Events are tagged with the broker `id` to route them to the correct Frigate came
 - **One entry per SI node.** In `brokers.yaml`, `host` is the MQTT broker IP used at
   runtime; `rtsp_host` and `rtsp_port` are the RTSP stream IP and port, read only by `setup.sh`.
 - **Camera naming.** Frigate cameras must be named `{broker_id}-camera{n}`
-  (e.g. `si1-camera1`). The broker `id` must match this prefix exactly.
+  (e.g. `si1-camera1`). The broker `id` must match this prefix exactly. The `id` can use
+  any prefix (`si1`, `intersection_1`, ...) as long as it ends with the SI node number,
+  a number from 1 to 20, which `setup.sh` uses to pair the node with its RTSP settings.
 - **Brokers persist.** On startup, the broker manager reads `brokers.yaml`, seeds
   Redis, and starts one connection per enabled broker. The API persists changes back
   to this file.
@@ -61,7 +63,7 @@ brokers:
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `id` | ✅ | — | Unique identifier. Must match the Frigate camera name prefix (e.g. `si1` → `si1-camera*`). |
+| `id` | ✅ | — | Unique identifier. Must match the Frigate camera name prefix (e.g. `si1` → `si1-camera*`) and end in the node number, 1 to 20 (e.g. `si1`, `intersection_1`). |
 | `name` | ✅ | — | Human-readable label. |
 | `host` | ✅ | — | MQTT broker IP address. |
 | `topic` | ✅ | — | MQTT topic to subscribe to. |
@@ -86,12 +88,15 @@ brokers:
 | `SI{N}_RTSP_HOST` | — | `brokers.yaml` | RTSP IP for siN (N ≥ 2). Overrides `rtsp_host` for `siN`. |
 | `SI_RTSP_PORT` | — | `brokers.yaml` | RTSP port for si1. Overrides `rtsp_port` for `si1`. Used by `start-nvr` only. |
 | `SI{N}_RTSP_PORT` | — | `brokers.yaml` | RTSP port for siN (N ≥ 2). Overrides `rtsp_port` for `siN`. Used by `start-nvr` only. |
-| `SI_NODE_COUNT` | — | highest `siN` in `brokers.yaml` | Number of SI nodes to generate Frigate cameras for (max 20). |
+| `SI_NODE_COUNT` | — | highest node number in `brokers.yaml` | Number of SI nodes to generate Frigate cameras for (max 20). |
 | `RTSP_STREAM_PORT` | — | `8554` | Local RTSP streamer port for `start` and `start-si`. Not used as a fallback by `start-nvr`. |
 | `SCENESCAPE_MQTT_BROKER` | — | — | Legacy: seeds si1 MQTT broker into Redis on startup. Prefer `brokers.yaml` or the API. |
 | `BROKERS_CONFIG_PATH` | — | `resources/broker-config/brokers.yaml` | Path to broker config file. |
 | `MAX_CONCURRENT_EVENTS` | — | `50` | Maximum simultaneous in-flight event tasks. |
 | `BROKER_RECONNECT_DELAY` | — | `5.0` | Seconds before reconnecting after a broker disconnect. |
+
+> In the `SI*` variables, `N` is the node number: the trailing digits of the broker `id`
+> (for example, `intersection_2` is node 2, so `SI2_RTSP_HOST` applies to it).
 
 ## Deployment
 
@@ -239,6 +244,13 @@ docker logs nvr-event-router | grep "reconnecting"
 
 - Verify the broker `id` matches the Frigate camera prefix (e.g. `id: si2` → `si2-camera1..4`).
 - Confirm SI is publishing to `scenescape/data/camera/#`.
+
+**`Ignoring broker id '...': it must end with a node number`**
+
+The broker `id` in `brokers.yaml` must end with a number from 1 to 20 (for example `si1` or
+`intersection_2`). An id without a trailing number is skipped, and `setup.sh start-nvr` then fails
+with `No SI node has a resolvable rtsp_host`. A number outside 1–20 is also ignored. Rename the id
+(for example `intersection` → `intersection_1`) and re-run `setup.sh start-nvr`.
 
 **`[siN] connection error: [Errno 111] Connect call failed`**
 

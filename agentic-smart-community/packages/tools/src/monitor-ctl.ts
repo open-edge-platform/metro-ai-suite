@@ -1,4 +1,6 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { validatePrefilterConfig } from "./prefilter-config.js";
+import { readFileSync, writeFileSync, renameSync, rmSync } from "node:fs";
+import { fingerprint, mergePatch } from "./config-patch.js";
 import { parseDocument, isMap, Scalar } from "yaml";
 import type { SmartCommunityDB } from "@smart-community-video/db";
 
@@ -16,7 +18,10 @@ export interface IWorkerService {
 }
 
 export interface MonitorCtlParams {
-  action: "start" | "stop" | "register_source" | "unregister" | "status" | "list" | "prefilter_options";
+  action: "start" | "stop" | "register_source" | "unregister" | "status" | "list" | "prefilter_options" | "update_pipeline";
+  dry_run?: boolean;
+  expected_revision?: string;
+  candidate_hash?: string;
   monitor_id?: string;
   source_url?: string;
   name?: string;
@@ -272,6 +277,9 @@ export async function monitorCtl(
     }
 
     // -----------------------------------------------------------------------
+    case "update_pipeline": {
+      return updatePipeline(db, analyticsUrl, params);
+    }
     case "register_source": {
       if (!params.monitor_id) throw new Error("monitor_id is required for register_source");
       if (!params.source_url) throw new Error("source_url is required for register_source");
@@ -280,6 +288,7 @@ export async function monitorCtl(
       if (!params.data_dir)
         throw new Error("data_dir is required for register_source (where analytics should write latest.jpg / recordings/ / motion_events/)");
 
+      validatePrefilterConfig(params.pipeline_config);
       const monitorId = params.monitor_id;
       // Guard against conflating the monitor id with the VLM task name — a common
       // agent mistake. Monitor ids follow the cam_<use_case> convention;
@@ -310,7 +319,11 @@ export async function monitorCtl(
 
       // ✅/✅/✅ — all running, idempotent return
       if (dbExists && analyticsExists && workerRunning) {
-        return { success: true, monitor_id: monitorId, status: "already_running" };
+        const existing = db.getMonitor(monitorId)!;
+        if (existing.sourceUrl === params.source_url && existing.videoSummaryTask === params.video_summary_task) {
+          if (params.pipeline_config) return updatePipeline(db, analyticsUrl, params, true);
+          return { success: true, monitor_id: monitorId, status: "already_running" };
+        }
       }
 
       // Stop worker if running (graceful, waits for in-flight poll)
@@ -490,4 +503,106 @@ export async function detachMonitor(
     ...(analyticsError ? { analytics_error: analyticsError } : {}),
     ...persistOutcome,
   };
+}
+
+
+const pipelineLocks = new Map<string, Promise<void>>();
+async function updatePipeline(db: SmartCommunityDB, url: string, params: MonitorCtlParams, approvedUpsert = false): Promise<unknown> {
+  const id = params.monitor_id;
+  if (!id) throw new Error("monitor_id is required for update_pipeline");
+  const lockKey = `${url}/${id}`;
+  const previous = pipelineLocks.get(lockKey) ?? Promise.resolve();
+  let release!: () => void;
+  const hold = new Promise<void>(resolve => { release = resolve; });
+  const tail = previous.then(() => hold); pipelineLocks.set(lockKey, tail);
+  await previous;
+  const started = performance.now();
+  try {
+    validatePrefilterConfig(params.pipeline_config);
+    const monitor = db.getMonitor(id);
+    if (!monitor) throw new Error(`Monitor not found: ${id}`);
+    const response = await fetch(`${url}/sources/${encodeURIComponent(id)}/status`, { signal: AbortSignal.timeout(5000) });
+    if (!response.ok) throw new Error(`cannot read running pipeline: HTTP ${response.status}`);
+    const live: any = await response.json();
+    if (!live.pipeline_config) throw new Error("analytics does not expose pipeline_config; upgrade analytics before updating");
+    let raw: string | undefined, declaration: any = {};
+    if (params.monitors_path) {
+      raw = readFileSync(params.monitors_path, "utf8");
+      const doc = parseDocument(raw); if (doc.errors.length) throw new Error("invalid monitors YAML");
+      declaration = doc.toJS()?.monitors?.[id] ?? {};
+    }
+    if (params.persist && !params.monitors_path) throw new Error("pipeline persistence requires --monitors");
+    const before = live.pipeline_config;
+    const after = mergePatch(before, params.pipeline_config ?? {});
+    if (after.roi?.enabled && !after.prefilter?.enabled) throw new Error("ROI requires prefilter");
+    validatePrefilterConfig(after);
+    const validation = await fetch(`${url}/sources/${encodeURIComponent(id)}/pipeline/validate`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pipeline: { prefilter: after.prefilter, roi: after.roi } }), signal: AbortSignal.timeout(8000),
+    });
+    if (!validation.ok) throw new Error(`pipeline validation failed: HTTP ${validation.status} ${await validation.text()}`);
+    const revision = fingerprint({ before, declaration });
+    const hash = fingerprint({ revision, patch: params.pipeline_config ?? {} });
+    const common = { monitor_id: id, revision, candidate_hash: hash, diff: { before, after } };
+    if (params.dry_run) return { ...common, success: true, dry_run: true, total_ms: performance.now() - started };
+    if (!approvedUpsert && (params.expected_revision !== revision || params.candidate_hash !== hash)) throw new Error("revision/candidate mismatch; preview update_pipeline and confirm the exact difference");
+    const override = mergePatch(declaration.pipeline_config ?? {}, params.pipeline_config ?? {});
+    for (const key of Object.keys(params.pipeline_config ?? {})) {
+      if (!["motion", "segment", "prefilter", "roi", "recording", "health"].includes(key) && fingerprint(before[key]) !== fingerprint(after[key])) {
+        throw new Error(`pipeline update does not support changing ${key}; re-register the source explicitly`);
+      }
+    }
+    const changed = fingerprint(before) !== fingerprint(after);
+    let nextYaml: string | undefined;
+    if (params.persist) {
+      const doc = parseDocument(raw!);
+      doc.setIn(["monitors", id], { ...declaration, enabled: declaration.enabled ?? true, name: params.name ?? declaration.name ?? monitor.name,
+        source_url: monitor.sourceUrl, use_case: monitor.useCase, pipeline_config: override });
+      nextYaml = doc.toString();
+    }
+    const verifyPrefilter = (status: any, pipeline: any) => {
+      if (pipeline.prefilter?.enabled && status.prefilter_status?.status !== "ready") {
+        throw new Error(`prefilter is not ready: ${status.prefilter_status?.error ?? "analytics did not report a ready detector"}`);
+      }
+    };
+    const put = async (pipeline: Record<string, any>) => {
+      const resp = await fetch(`${url}/sources/${encodeURIComponent(id)}/pipeline`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pipeline }), signal: AbortSignal.timeout(30000),
+      });
+      if (!resp.ok) throw new Error(`pipeline update failed: HTTP ${resp.status}`);
+    };
+    try {
+      if (changed) {
+        const delta = Object.fromEntries(Object.entries(params.pipeline_config!).filter(([key]) => ["motion", "segment", "prefilter", "roi", "recording", "health"].includes(key)));
+        await put(delta);
+        const check = await fetch(`${url}/sources/${encodeURIComponent(id)}/status`, { signal: AbortSignal.timeout(5000) });
+        if (!check.ok) throw new Error(`pipeline verification failed: HTTP ${check.status}`);
+        const actual: any = await check.json();
+        if (!actual.pipeline_config || fingerprint(mergePatch(actual.pipeline_config, delta)) !== fingerprint(actual.pipeline_config)) {
+          throw new Error("running pipeline did not apply requested changes");
+        }
+        verifyPrefilter(actual, after);
+      }
+      if (!changed) verifyPrefilter(live, after);
+      if (nextYaml !== undefined && nextYaml !== raw) {
+        if (readFileSync(params.monitors_path!, "utf8") !== raw) throw new Error("monitors YAML changed during update");
+        const temporary = `${params.monitors_path}.${process.pid}.tmp`;
+        try { writeFileSync(temporary, nextYaml); renameSync(temporary, params.monitors_path!); }
+        finally { rmSync(temporary, { force: true }); }
+      }
+    } catch (error: any) {
+      if (changed) {
+        try { const restorable = Object.fromEntries(Object.entries(before).filter(([key]) => ["motion", "segment", "prefilter", "roi", "recording", "health"].includes(key))); await put(restorable);
+          const restored = await fetch(`${url}/sources/${encodeURIComponent(id)}/status`, { signal: AbortSignal.timeout(5000) });
+          if (!restored.ok) throw new Error(`pipeline restore verification failed: HTTP ${restored.status}`);
+          const actual: any = await restored.json();
+          if (!actual.pipeline_config || fingerprint(mergePatch(actual.pipeline_config, restorable)) !== fingerprint(actual.pipeline_config)) throw new Error("restored pipeline does not match original configuration");
+          verifyPrefilter(actual, before);
+        }
+        catch (restore: any) { return { ...common, success: false, degraded: true, error: error.message, restore_error: restore.message }; }
+      }
+      throw error;
+    }
+    return { ...common, success: true, status: changed ? "updated" : "unchanged", monitors_yaml: params.persist ? "written" : "skipped", total_ms: performance.now() - started };
+  } finally { release(); if (pipelineLocks.get(lockKey) === tail) pipelineLocks.delete(lockKey); }
 }

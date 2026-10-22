@@ -1,3 +1,4 @@
+import { validatePrefilterConfig } from "./prefilter-config.js";
 import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -7,9 +8,16 @@ import { SchemaManager, type SchemaExtension } from "@smart-community-video/db";
 import { parseOverrideStdout } from "./rule-engine/index.js";
 import type { UseCaseValidateResult } from "./use-case-validate.js";
 import { useCaseValidate } from "./use-case-validate.js";
+import { useCaseUpdate } from "./use-case-update.js";
 
 export interface UseCaseRegisterParams {
-  action: "register" | "generate_task" | "unregister" | "list";
+  action: "register" | "generate_task" | "unregister" | "list" | "get" | "update";
+  detection_events?: string[];
+  schema_additions?: SchemaExtension[];
+  expected_revision?: string;
+  candidate_hash?: string;
+  dry_run?: boolean;
+  monitor_defaults?: Record<string, unknown>;
   /** Required for register/generate_task/unregister; omitted for list. */
   use_case?: string;
   video_summary_task?: string;
@@ -33,6 +41,8 @@ export interface UseCaseRegisterParams {
 }
 
 export interface UseCaseRegisterDeps {
+  boundMonitors?: (useCase: string) => Array<{ id: string; [key: string]: unknown }>;
+  pauseWorkers?: (useCase: string) => Promise<() => void>;
   useCaseDict: Record<string, any>;
   summaryServiceUrl: string;
   db: any;
@@ -63,7 +73,13 @@ export interface UseCaseListEntry {
 }
 
 export interface UseCaseRegisterResult {
-  action: "register" | "generate_task" | "unregister" | "list";
+  action: UseCaseRegisterParams["action"];
+  snapshot?: Record<string, any>;
+  revision?: string;
+  candidate_hash?: string;
+  diff?: Record<string, unknown>;
+  unchanged?: boolean;
+  timings?: Record<string, number>;
   /** Empty string for action=list (no single use case in scope). */
   use_case: string;
   ok: boolean;
@@ -482,6 +498,7 @@ export async function useCaseRegister(
   params: UseCaseRegisterParams,
   deps: UseCaseRegisterDeps,
 ): Promise<UseCaseRegisterResult> {
+  if (params.action === "get" || params.action === "update") return useCaseUpdate(params, deps);
   const result: UseCaseRegisterResult = {
     action: params.action,
     use_case: params.use_case ?? "",
@@ -508,6 +525,11 @@ export async function useCaseRegister(
   if (params.action === "unregister") {
     return await unregister({ ...params, use_case: params.use_case }, deps, result);
   }
+
+  try {
+    validatePrefilterConfig(params.monitor_defaults);
+    if (params.detection_events !== undefined && (!params.detection_events.length || params.detection_events.some(event => !/^[a-z][a-z0-9_]*$/.test(event)) || new Set(params.detection_events).size !== params.detection_events.length)) throw new Error("detection_events must contain unique event identifiers");
+  } catch (error: any) { result.errors.push(error.message); return result; }
 
   if (params.action === "generate_task") {
     return await registerTaskOnly({ ...params, use_case: params.use_case }, deps, result);
@@ -736,6 +758,8 @@ export async function useCaseRegister(
     video_summary_task: taskName,
   };
   entry.description = params.description ?? `${params.use_case} use case`;
+  if (params.monitor_defaults) { validatePrefilterConfig(params.monitor_defaults); entry.monitor_defaults = params.monitor_defaults; }
+  if (params.detection_events) entry.detection_events = params.detection_events;
   if (stagedEvaluateRulesPath !== undefined) entry.evaluate_rules_path = stagedEvaluateRulesPath;
   entry.reports = params.reports ?? { data_source: "alerts", default_type: "daily", filter: {} };
   // Never trust the caller's method verbatim — normalize so an illegal value
@@ -957,7 +981,7 @@ async function registerTaskOnly(
   return result;
 }
 
-async function validateEvaluateRulesOverride(
+export async function validateEvaluateRulesOverride(
   useCase: string,
   overridePath: string,
   schemaExtensions: SchemaExtension[],
@@ -1218,7 +1242,7 @@ async function registerVlmTask(
   throw new Error(`POST /v1/tasks HTTP ${postResp.status}: ${detail.slice(0, 300)}`);
 }
 
-function buildPromptContent(raw: string): string {
+export function buildPromptContent(raw: string): string {
   if (/GLOBAL_PROMPT\s*=|LOCAL_PROMPT\s*=/.test(raw)) {
     return raw;
   }

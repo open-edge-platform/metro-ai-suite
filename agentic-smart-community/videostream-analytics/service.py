@@ -339,6 +339,7 @@ def create_app(config: AppConfig) -> FastAPI:
                 "class_names": [],
                 "labels_source": "unavailable",
                 "available_devices": _available_devices(),
+                "defaults": pf.model_dump(),
             }
         from stream_monitor.pipeline.prefilter_yolo import read_model_labels
 
@@ -349,6 +350,7 @@ def create_app(config: AppConfig) -> FastAPI:
             "class_names": class_names,
             "labels_source": labels_source,
             "available_devices": _available_devices(),
+                "defaults": pf.model_dump(),
         }
 
     def _model_roots() -> list[str]:
@@ -549,14 +551,45 @@ def create_app(config: AppConfig) -> FastAPI:
             raise HTTPException(status_code=404, detail=f"Source not found: {source_id}")
         return result
 
+    def validate_effective_prefilter(source_id: str, pipeline: PipelineConfig) -> PrefilterConfig:
+        resolved = validate_model_path(pipeline.prefilter)
+        status = get_manager().get_source_status(source_id)
+        if status is None:
+            raise HTTPException(status_code=404, detail=f"Source not found: {source_id}")
+        current = status.get("pipeline_config", {})
+        values = config.defaults.prefilter.model_dump() | current.get("prefilter", {})
+        if pipeline.prefilter is not None:
+            values.update(pipeline.prefilter.model_dump(exclude_unset=True))
+        effective = PrefilterConfig.model_validate(values)
+        # Validate the request-supplied path without treating inherited trusted
+        # deployment paths as client input.
+        if resolved:
+            effective.model_path = resolved
+        _validate_target_classes(effective, effective.model_path)
+        if effective.enabled and effective.device not in _available_devices():
+            raise HTTPException(status_code=422, detail="unsupported prefilter device")
+        roi = config.defaults.roi.model_dump() | current.get("roi", {})
+        if pipeline.roi is not None:
+            roi.update(pipeline.roi.model_dump(exclude_unset=True))
+        if roi.get("enabled") and not effective.enabled:
+            raise HTTPException(status_code=422, detail="ROI requires prefilter")
+        return effective
+
+    @app.post("/sources/{source_id}/pipeline/validate")
+    def validate_pipeline(source_id: SourceIdPath, req: UpdatePipelineRequest) -> dict[str, Any]:
+        """Validate a candidate without stopping or changing the source."""
+        with _guard("validate_pipeline"):
+            effective = validate_effective_prefilter(source_id, req.pipeline)
+        return {"valid": True, "prefilter": effective.model_dump()}
+
     @app.put("/sources/{source_id}/pipeline")
     def update_pipeline(
         source_id: SourceIdPath, req: UpdatePipelineRequest
     ) -> dict[str, Any]:
         mgr = get_manager()
         with _guard("update_pipeline"):
-            model_path = validate_model_path(req.pipeline.prefilter)
-            _validate_target_classes(req.pipeline.prefilter, model_path)
+            if req.pipeline.prefilter is not None or req.pipeline.roi is not None:
+                validate_effective_prefilter(source_id, req.pipeline)
             result = mgr.update_pipeline_config(
                 source_id=source_id,
                 motion=req.pipeline.motion,

@@ -319,6 +319,7 @@ class TestPrefilterCapabilities:
         assert data["labels_source"] == "unavailable"
         assert data["class_names"] == []
         assert data["available_devices"]  # non-empty (at least ["CPU"])
+        assert data["defaults"]["min_confidence"] == 0.4
 
     def test_capabilities_embedded_labels(self, client, monkeypatch, tmp_path):
         model = tmp_path / "model.xml"
@@ -924,3 +925,40 @@ class TestConfiguredModelPathStatFailure:
             },
         )
         assert resp.status_code == 200
+
+
+class TestPrefilterUpdateValidation:
+    def test_preview_validates_merged_classes_without_updating(self, client, mock_mgr, monkeypatch, tmp_path):
+        import stream_monitor.pipeline.prefilter_yolo as pf
+        model = tmp_path / "model.xml"
+        model.write_text("model")
+        client.app.state.config.defaults.prefilter.model_path = str(model)
+        monkeypatch.setattr(pf, "read_model_labels", lambda _: (["cat", "dog"], "embedded"))
+        mock_mgr.get_source_status.return_value = {
+            "pipeline_config": {"prefilter": {"enabled": True, "model_path": str(model), "target_classes": ["cat"], "min_confidence": .4}}
+        }
+        resp = client.post("/sources/cam1/pipeline/validate", json={"pipeline": {"prefilter": {"target_classes": ["unknown"]}}})
+        assert resp.status_code == 422
+        mock_mgr.update_pipeline_config.assert_not_called()
+        resp = client.post("/sources/cam1/pipeline/validate", json={"pipeline": {"prefilter": {"min_frames_hit": 3, "detect_fps": 4, "long_side": 0}}})
+        assert resp.status_code == 200
+        assert resp.json()["prefilter"]["enabled"] is True
+        assert resp.json()["prefilter"]["target_classes"] == ["cat"]
+        assert resp.json()["prefilter"]["min_frames_hit"] == 3
+        mock_mgr.update_pipeline_config.assert_not_called()
+
+    @pytest.mark.parametrize("patch", [{"nms_iou": .5}, {"min_frames_hit": 0}, {"detect_fps": 0}, {"long_side": -1}])
+    def test_invalid_fields_never_update(self, client, mock_mgr, patch):
+        resp = client.post("/sources/cam1/pipeline/validate", json={"pipeline": {"prefilter": patch}})
+        assert resp.status_code == 422
+        mock_mgr.update_pipeline_config.assert_not_called()
+
+    def test_commit_validates_partial_classes_against_current_model(self, client, mock_mgr, monkeypatch, tmp_path):
+        import stream_monitor.pipeline.prefilter_yolo as pf
+        model = tmp_path / "custom.xml"
+        model.write_text("model")
+        monkeypatch.setattr(pf, "read_model_labels", lambda _: (["cat"], "embedded"))
+        mock_mgr.get_source_status.return_value = {"pipeline_config": {"prefilter": {"enabled": True, "model_path": str(model), "target_classes": ["cat"]}}}
+        resp = client.put("/sources/cam1/pipeline", json={"pipeline": {"prefilter": {"target_classes": ["person"]}}})
+        assert resp.status_code == 422
+        mock_mgr.update_pipeline_config.assert_not_called()

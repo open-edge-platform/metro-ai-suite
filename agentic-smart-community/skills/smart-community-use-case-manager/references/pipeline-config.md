@@ -28,7 +28,7 @@ hard-code them:
 smart_community_monitor_ctl action=prefilter_options
 ```
 
-Returns `{ enabled, model_path, class_names, labels_source, available_devices }`.
+Returns `{ enabled, model_path, class_names, labels_source, available_devices, defaults }`.
 Present `class_names` and let the user pick `target_classes`. Interpret
 `labels_source`:
 
@@ -139,3 +139,34 @@ Monitor Created | Monitor Updated
   Pipeline Config: <exact approved config>
   Persistence: enabled
 ```
+
+## Explicit prefilter parameters and fast updates
+
+Extract all explicit supported parameters into pipeline_config.prefilter:
+
+| Field | Constraint |
+|---|---|
+| enabled | boolean; explicit false must be preserved |
+| target_classes | nonempty class-name array, validated against selected model |
+| min_confidence | finite number 0..1; explicit 65% becomes 0.65 |
+| min_frames_hit | integer >=1 |
+| detect_fps | finite number >0 |
+| device | deployed OpenVINO device |
+| model_path | server model path allowed by existing containment rules |
+| long_side | integer >=0; 0 disables resizing |
+
+Never confuse confidence with VLM, severity, motion or IoU/NMS. Reject unknown
+parameters; clarify ambiguous units. Unspecified values inherit deployed defaults
+on creation and retain existing values on update. prefilter_options.defaults
+exposes defaults; monitor status exposes effective pipeline_config. Explicit
+values override recommendations and saved preferences. Do not materialize all
+defaults into overrides. Preserve zero and false, and replace class arrays.
+
+Display all requested values in the binding config and result, with their
+source. An inactive prefilter can store numeric parameters; report them inactive
+without implicitly enabling it. Resolve ROI dependencies explicitly. Without a
+stream, save monitor_defaults and report saved for future binding. On binding,
+merge preferences before explicit parameters; do not ask users to repeat supplied
+switches or classes. Existing pipeline-only edits use update-use-case.md instead
+of repeating M1–M4. Event edits without explicit parameters never change prefilter.
+Global defaults and restore-default override removal are outside this flow.

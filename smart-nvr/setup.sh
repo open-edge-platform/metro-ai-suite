@@ -61,18 +61,26 @@ BROKERS_CONFIG_FILE="${BROKERS_CONFIG_FILE:-./resources/broker-config/brokers.ya
 SI_MAX_NODES=20
 declare -A _SI_YAML_RTSP
 declare -A _SI_YAML_RTSP_PORT
+declare -A _SI_YAML_ID
 
 _is_valid_port() {
     [[ "$1" =~ ^[1-9][0-9]{0,4}$ ]] && [ "$1" -le 65535 ]
 }
 
-# Parses one "- id: x" / "  rtsp_host: y" / "  rtsp_port: z" block into _SI_YAML_RTSP[node]/_SI_YAML_RTSP_PORT[node].
+# Parses one "- id: x" / "  rtsp_host: y" / "  rtsp_port: z" block into _SI_YAML_RTSP[node]/_SI_YAML_RTSP_PORT[node]/_SI_YAML_ID[node].
+# The node number is whatever digits the id ends in, so any prefix works (si1, intersection_1, ...).
 _si_apply_broker_host() {
-    local id_re='^si([0-9]+)$'
+    local id_re='^.*[^0-9]([0-9]+)$'
     local host_re='^[A-Za-z0-9._:-]+$'
+    [ -n "${_si_cur_id}" ] || return 0
+    if [[ ! "${_si_cur_id}" =~ [0-9]$ ]]; then
+        print_warning "Ignoring broker id '${_si_cur_id}' in ${BROKERS_CONFIG_FILE}: it must end with a node number (e.g. si1, intersection_1)."
+        return 0
+    fi
     [[ "${_si_cur_id}" =~ ${id_re} ]] || return 0
     local node="${BASH_REMATCH[1]}"
     [ "${node}" -ge 1 ] && [ "${node}" -le "${SI_MAX_NODES}" ] || return 0
+    _SI_YAML_ID["${node}"]="${_si_cur_id}"
     if [ -n "${_si_cur_port}" ]; then
         if _is_valid_port "${_si_cur_port}"; then
             _SI_YAML_RTSP_PORT["${node}"]="${_si_cur_port}"
@@ -90,6 +98,7 @@ _si_apply_broker_host() {
 load_si_rtsp_from_brokers() {
     _SI_YAML_RTSP=()
     _SI_YAML_RTSP_PORT=()
+    _SI_YAML_ID=()
     unset _SI_YAML_NODE_COUNT
     [ -f "${BROKERS_CONFIG_FILE}" ] || return 0
 
@@ -194,9 +203,9 @@ generate_scenescape_config() {
     printf '\ncameras:\n' >> "${config_file}"
 
     local added_nodes=0
-    # Loop through all SI nodes (si1 to siN)
+    # Loop through all configured nodes; camera prefix is the broker's own id (falls back to si{N} when unconfigured).
     for node_num in $(seq 1 "${total_nodes}"); do
-        local si_id="si${node_num}"
+        local si_id="${_SI_YAML_ID[$node_num]:-si${node_num}}"
         local rtsp_ip
         local env_var="SI${node_num}_RTSP_HOST"
         [ "${node_num}" -eq 1 ] && env_var="SI_RTSP_HOST"
@@ -304,7 +313,7 @@ download_videos() {
     for video in "${videos[@]}"; do
         if [ ! -f "${video_dir}/${video}" ]; then
             print_info "Downloading ${video}..."
-            if ! curl -fL "${video_url}/${video}" -o "${video_dir}/${video}"; then
+            if ! curl -fL --retry 3 --retry-delay 5 --retry-all-errors "${video_url}/${video}" -o "${video_dir}/${video}"; then
                 print_error "Failed to download ${video}"
                 return 1
             fi
