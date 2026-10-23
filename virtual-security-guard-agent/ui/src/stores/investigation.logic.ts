@@ -127,7 +127,9 @@ export function applyRunEvent(t: AgentTurn, ev: RunEvent): AgentTurn {
       return {
         ...t,
         status: "done",
-        text: t.text || ev.output || "",
+        // After a dropped stream the final output holds what the deltas missed.
+        text:
+          ev.output && ev.output.length > t.text.length ? ev.output : t.text,
         tools: closeTools(t.tools),
       };
     case "failed":
@@ -176,11 +178,22 @@ export function runningPhase(
 }
 
 const REPORT_RE =
-  /\b(report|handover|hand-over|escalat\w*|incident (pdf|summary)|write ?up)\b/i;
+  /\b(report|handover|hand-over|escalat(?:e|es|ed|ing|ion)|incident (pdf|summary)|write ?up)\b/i;
 
-/** Camera management: add/remove/pause/list streams, or any RTSP URL. */
-const STREAMS_RE =
-  /rtsps?:\/\/|\b(add|remove|delete|pause|resume|rename|list|show)\b[^.?!]{0,40}\b(cameras?|streams?|feeds?)\b/i;
+/**
+ * Up to three words between a verb and "camera", none of which puts the
+ * camera after someone else ("show me the person on camera 3").
+ */
+const GAP = String.raw`(?:\s+(?!(?:on|at|in|from|near|by|of|with|for|to|across|between|through|around|which|where|when|who)\b)[\w-]+){0,3}`;
+
+/**
+ * Camera management: add/remove/pause/resume/rename a camera, list or show
+ * the cameras, or any RTSP URL.
+ */
+const STREAMS_RE = new RegExp(
+  String.raw`rtsps?:\/\/|\b(?:add|remove|delete|pause|resume|rename)\b${GAP}\s+(?:cameras?|streams?|feeds?)(?:_\w+)?\b|\b(?:list|show)\b${GAP}\s+(?:cameras|streams|feeds)\b`,
+  "i",
+);
 
 /**
  * Split a report request into the line the operator sees and the evidence
@@ -246,6 +259,18 @@ export function groundingPending(turns: Turn[], turnId: string): boolean {
   return t?.role === "agent" && (t.status === "streaming" || !!t.grounding);
 }
 
+/** Parsed directives per agent turn; a streaming token only re-parses its turn. */
+const directiveCache = new WeakMap<AgentTurn, Directive[]>();
+
+function directivesOf(t: AgentTurn): Directive[] {
+  let ds = directiveCache.get(t);
+  if (!ds) {
+    ds = extractDirectives(t.text);
+    directiveCache.set(t, ds);
+  }
+  return ds;
+}
+
 /** Agent turn whose vsg-matches grid an operator feedback turn reviewed. */
 export function reviewedTurnId(
   turns: Turn[],
@@ -253,10 +278,7 @@ export function reviewedTurnId(
 ): string | undefined {
   for (let k = feedbackIndex - 1; k >= 0; k--) {
     const t = turns[k];
-    if (
-      t.role === "agent" &&
-      extractDirectives(t.text).some((d) => d.type === "matches")
-    )
+    if (t.role === "agent" && directivesOf(t).some((d) => d.type === "matches"))
       return t.id;
   }
   return undefined;
@@ -269,7 +291,7 @@ export function latestDirective<T extends Directive["type"]>(
   for (let i = turns.length - 1; i >= 0; i--) {
     const t = turns[i];
     if (t.role !== "agent") continue;
-    const ds = extractDirectives(t.text).filter((d) => d.type === type);
+    const ds = directivesOf(t).filter((d) => d.type === type);
     if (ds.length)
       return {
         turnId: t.id,

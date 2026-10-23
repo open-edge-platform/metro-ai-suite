@@ -19,6 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { VssHit } from "@/adapters/vss/types";
 import type { ReportContent } from "@/features/reports/content";
 import { formatClock, timeAgo } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -84,7 +85,8 @@ export function LiveTraceCard() {
   const toggleConfirmed = useLiveTimelineStore((s) => s.toggleConfirmed);
   const liveCameras = useCamerasStore(selectLiveCameraCount);
   const watchMinutes = useSettingsStore((s) => s.watchMinutes);
-  const [playingId, setPlayingId] = useState<string>();
+  // The clip as opened: a better hit arriving later must not reload it.
+  const [opened, setOpened] = useState<{ id: string; hit: VssHit }>();
   const [showTimeline, setShowTimeline] = useState(false);
   const [, tick] = useState(0);
   const [replay, setReplay] = useState(0);
@@ -101,7 +103,7 @@ export function LiveTraceCard() {
 
   // The route: every confirmed sighting, historical and live.
   const stops = useRoute();
-  const playing = sightings.find((x) => x.id === playingId);
+  const playing = opened && sightings.find((x) => x.id === opened.id);
   const toggle = (x: LiveSighting) =>
     sessionId && toggleConfirmed(sessionId, x.id);
 
@@ -270,12 +272,12 @@ export function LiveTraceCard() {
           sightings={sightings}
           watching={active ? w.queryId : undefined}
           onToggle={toggle}
-          onPlay={(x) => setPlayingId(x.id)}
+          onPlay={(x) => setOpened({ id: x.id, hit: x.best })}
         />
       )}
       <ClipPlayerDialog
-        hit={playing?.best}
-        onOpenChange={(o) => !o && setPlayingId(undefined)}
+        hit={opened?.hit}
+        onOpenChange={(o) => !o && setOpened(undefined)}
         verdict={playing?.confirmed ? "confirm" : undefined}
         onVerdict={
           playing && active && playing.watch === w.queryId

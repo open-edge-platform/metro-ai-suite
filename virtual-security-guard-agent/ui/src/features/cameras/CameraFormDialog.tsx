@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import type { StreamInput } from "@/adapters/vss/types";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,11 @@ const empty = (tag = ""): FormState => ({
 
 const NO_ZONE = "Other";
 
-function validateStream(f: FormState, editing: boolean) {
+function validateStream(
+  f: FormState,
+  editing: boolean,
+  taken: ReadonlySet<string>,
+) {
   const errors: Partial<Record<keyof FormState, string>> = {};
   if (!editing) {
     const url = f.streamUrl.trim();
@@ -61,6 +65,8 @@ function validateStream(f: FormState, editing: boolean) {
   }
   if (!editing && !f.tag)
     errors.tag = "Choose where this camera is on the floorplan.";
+  else if (!editing && taken.has(f.tag))
+    errors.tag = `${f.tag} already has a live stream. Choose another camera.`;
   const n = Number(f.frameInterval);
   if (!Number.isInteger(n) || n < 1 || n > 60)
     errors.frameInterval = "Choose a whole number from 1 to 60.";
@@ -76,7 +82,7 @@ function validateStream(f: FormState, editing: boolean) {
 export function CameraFormDialog({
   open,
   onOpenChange,
-  camera,
+  camera: cameraProp,
   tag: initialTag,
   onSave,
 }: {
@@ -88,18 +94,30 @@ export function CameraFormDialog({
   onSave: (input: StreamInput) => Promise<void>;
 }) {
   const plan = useFloorplanStore((s) => s.plan);
+  const planMissing = useFloorplanStore(
+    (s) => s.source === "default" && s.defaultStatus !== "ready",
+  );
+  const planError = useFloorplanStore((s) => s.defaultError);
   const cameras = useCamerasStore((s) => s.cameras);
   const loadCameras = useCamerasStore((s) => s.load);
   const [form, setForm] = useState<FormState>(empty);
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string>();
+  /** Bumped on every open, so a save from an earlier opening is ignored. */
+  const opening = useRef(0);
+  // While it animates closed the dialog keeps showing the camera it had open.
+  const [shown, setShown] = useState(cameraProp);
+  if (open && shown !== cameraProp) setShown(cameraProp);
+  const camera = open ? cameraProp : shown;
   const editing = !!camera;
 
   useEffect(() => {
     if (!open) return;
+    opening.current++;
     void loadCameras();
     setTouched(false);
+    setSaving(false);
     setSaveError(undefined);
     setForm(
       camera
@@ -126,7 +144,7 @@ export function CameraFormDialog({
   }, [plan]);
   const free = freePlanTags(plan, cameras).length;
 
-  const errors = validateStream(form, editing);
+  const errors = validateStream(form, editing, taken);
   const set =
     (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -139,7 +157,8 @@ export function CameraFormDialog({
   async function submit(e: FormEvent) {
     e.preventDefault();
     setTouched(true);
-    if (Object.keys(errors).length) return;
+    if (saving || Object.keys(errors).length) return;
+    const mine = opening.current;
     setSaving(true);
     setSaveError(undefined);
     try {
@@ -150,13 +169,20 @@ export function CameraFormDialog({
           objectDetection: form.objectDetection,
         }),
       );
-      onOpenChange(false);
+      // The dialog may since have been reopened for another camera.
+      if (mine === opening.current) onOpenChange(false);
     } catch (err) {
-      setSaveError((err as Error).message);
+      if (mine === opening.current) setSaveError((err as Error).message);
     } finally {
-      setSaving(false);
+      if (mine === opening.current) setSaving(false);
     }
   }
+
+  // VSS may still add the camera after an early close, so wait for the answer.
+  const close = (o: boolean) => {
+    if (!o && saving) return;
+    onOpenChange(o);
+  };
 
   const field = (
     k: keyof FormState,
@@ -179,7 +205,7 @@ export function CameraFormDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={close}>
       <DialogContent className="sm:max-w-lg">
         <form onSubmit={submit} className="grid gap-4" noValidate>
           <DialogHeader>
@@ -225,9 +251,11 @@ export function CameraFormDialog({
                 >
                   <SelectValue
                     placeholder={
-                      free
-                        ? `Choose a camera on ${plan.name ?? "the plan"} (${free} free)`
-                        : "Every camera on the plan has a live stream"
+                      planMissing
+                        ? "The floorplan isn't loaded"
+                        : free
+                          ? `Choose a camera on ${plan.name ?? "the plan"} (${free} free)`
+                          : "Every camera on the plan has a live stream"
                     }
                   />
                 </SelectTrigger>
@@ -251,7 +279,13 @@ export function CameraFormDialog({
                   ))}
                 </SelectContent>
               </Select>
-              {touched && errors.tag ? (
+              {planMissing ? (
+                <p className="text-xs text-destructive">
+                  {planError ?? "The floorplan is still loading."} Cameras are
+                  placed on a floorplan camera; upload a plan on the Floorplan
+                  page.
+                </p>
+              ) : touched && errors.tag ? (
                 <p className="text-xs text-destructive">{errors.tag}</p>
               ) : (
                 tag && (
@@ -287,7 +321,8 @@ export function CameraFormDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              disabled={saving}
+              onClick={() => close(false)}
             >
               Cancel
             </Button>

@@ -3,6 +3,7 @@
 import { toast } from "sonner";
 import { create } from "zustand";
 import { getAdapters } from "@/adapters";
+import { VssError } from "@/adapters/vss/types";
 import { useLiveTimelineStore } from "./liveTimeline";
 import { useSettingsStore } from "./settings";
 
@@ -46,9 +47,23 @@ export const STOP_FAILED = "Couldn't stop the live search on VSS";
 
 /** Live matches refresh every 10 seconds. */
 const POLL_MS = 10_000;
+/** Failed checks in a row before the live search is reported as failed. */
+export const MAX_POLL_FAILURES = 3;
+/**
+ * The watched query id, per tab: a reload finds a watch the page left
+ * running and unwatches it (the pagehide request is best-effort).
+ */
+const PENDING_KEY = "vsg.watch.pending";
 
 let timer: ReturnType<typeof setTimeout> | undefined;
 let generation = 0;
+let failures = 0;
+
+/** Forget the pending query id, unless a newer watch replaced it. */
+function forget(queryId: string) {
+  if (sessionStorage.getItem(PENDING_KEY) === queryId)
+    sessionStorage.removeItem(PENDING_KEY);
+}
 
 function stopTimer() {
   if (timer) clearTimeout(timer);
@@ -63,12 +78,14 @@ function stopTimer() {
 function unwatchDetached(queryId: string) {
   getAdapters()
     .vss.setWatch(queryId, false)
-    .catch((e: Error) =>
-      toast.error(STOP_FAILED, {
-        description: e.message,
-        action: { label: "Retry", onClick: () => unwatchDetached(queryId) },
-      }),
-    );
+    .catch((e: Error) => stopFailedToast(queryId, e));
+}
+
+function stopFailedToast(queryId: string, e: Error) {
+  toast.error(STOP_FAILED, {
+    description: e.message,
+    action: { label: "Retry", onClick: () => unwatchDetached(queryId) },
+  });
 }
 
 export const useWatchStore = create<WatchState>()((set, get) => {
@@ -100,17 +117,37 @@ export const useWatchStore = create<WatchState>()((set, get) => {
       // VSS and browser clocks may differ: idle time is measured in browser time.
       if (useLiveTimelineStore.getState().addHits(sessionId, queryId, q.hits))
         set({ lastSightingAt: Date.now() });
+      failures = 0;
       set({ error: undefined });
       if (get().status === "starting") set({ status: "watching" });
     } catch (e) {
       if (gen !== generation) return;
-      set({ error: (e as Error).message });
+      const err = e as Error;
+      if (err instanceof VssError && err.status === 404) {
+        // The query is gone on VSS: nothing to unwatch, retrying can't help.
+        stopTimer();
+        forget(queryId);
+        return void set({
+          status: "error",
+          error: `VSS no longer has this live search (${err.message})`,
+        });
+      }
+      if (++failures >= MAX_POLL_FAILURES) {
+        await get().stop("error");
+        if (!get().stopFailed)
+          set({
+            error: `${failures} checks in a row failed: ${err.message}`,
+          });
+        return;
+      }
+      set({ error: err.message });
     }
     timer = setTimeout(() => void poll(gen, intervalMs), intervalMs);
   }
 
   function beginPolling() {
     stopTimer();
+    failures = 0;
     const gen = generation;
     void poll(gen, POLL_MS);
   }
@@ -147,18 +184,23 @@ export const useWatchStore = create<WatchState>()((set, get) => {
         return;
       }
       if (gen !== generation) return unwatchDetached(queryId);
+      sessionStorage.setItem(PENDING_KEY, queryId);
       set({ queryId });
       beginPolling();
     },
 
     async stop(status = "stopped") {
       stopTimer();
+      const gen = generation;
       const { queryId } = get();
       set({ status, stopFailed: undefined });
       if (!queryId) return;
       try {
         await getAdapters().vss.setWatch(queryId, false);
+        forget(queryId);
       } catch (e) {
+        // Cleared or restarted meanwhile: the store no longer shows this watch.
+        if (gen !== generation) return stopFailedToast(queryId, e as Error);
         set({
           status: "error",
           stopFailed: true,
@@ -170,8 +212,11 @@ export const useWatchStore = create<WatchState>()((set, get) => {
     clear() {
       const { queryId, status, stopFailed } = get();
       stopTimer();
-      if (queryId && (status === "watching" || stopFailed))
+      // Also while starting: VSS already has the query once queryId is set.
+      if (queryId && (isWatchActive({ status }) || stopFailed)) {
+        forget(queryId);
         unwatchDetached(queryId);
+      }
       set({
         queryId: undefined,
         subject: undefined,
@@ -183,5 +228,25 @@ export const useWatchStore = create<WatchState>()((set, get) => {
   };
 });
 
-export const isWatchActive = (s: { status?: WatchStatus }) =>
-  s.status === "starting" || s.status === "watching";
+export function isWatchActive(s: { status?: WatchStatus }) {
+  return s.status === "starting" || s.status === "watching";
+}
+
+// A watch the last page load left running in this tab (reload, crash).
+const leftOver = sessionStorage.getItem(PENDING_KEY);
+if (leftOver) {
+  sessionStorage.removeItem(PENDING_KEY);
+  unwatchDetached(leftOver);
+}
+
+// Closing or reloading the tab stops the watch on VSS.
+window.addEventListener("pagehide", () => {
+  const { queryId, status, stopFailed } = useWatchStore.getState();
+  if (queryId && (isWatchActive({ status }) || stopFailed))
+    getAdapters().vss.unwatchOnUnload(queryId);
+});
+// Back from the back/forward cache: the watch was unwatched on pagehide.
+window.addEventListener("pageshow", (e) => {
+  if (e.persisted && isWatchActive(useWatchStore.getState()))
+    void useWatchStore.getState().stop();
+});

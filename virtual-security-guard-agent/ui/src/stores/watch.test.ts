@@ -1,15 +1,16 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { VssHit } from "@/adapters/vss/types";
+import { VssError, type VssHit } from "@/adapters/vss/types";
 import { useSettingsStore } from "./settings";
 import { useLiveTimelineStore } from "./liveTimeline";
-import { useWatchStore } from "./watch";
+import { MAX_POLL_FAILURES, useWatchStore } from "./watch";
 
 const vss = {
   startWatch: vi.fn(),
   getQuery: vi.fn(),
   setWatch: vi.fn(),
+  unwatchOnUnload: vi.fn(),
 };
 vi.mock("@/adapters", () => ({ getAdapters: () => ({ vss }) }));
 
@@ -144,5 +145,66 @@ describe("watch store", () => {
       error: "model crashed",
     });
     expect(vss.setWatch).toHaveBeenCalledWith("q-1", false);
+  });
+
+  it("clear while starting unwatches the query VSS already created", async () => {
+    vss.getQuery.mockReturnValue(new Promise(() => {}));
+    await useWatchStore.getState().start({ query: "blue jacket" }, "s1");
+    expect(useWatchStore.getState()).toMatchObject({
+      status: "starting",
+      queryId: "q-1",
+    });
+    useWatchStore.getState().clear();
+    expect(vss.setWatch).toHaveBeenCalledWith("q-1", false);
+  });
+
+  it("clear after a successful stop doesn't unwatch again", async () => {
+    await useWatchStore.getState().start({ query: "blue jacket" }, "s1");
+    await flush();
+    await useWatchStore.getState().stop();
+    useWatchStore.getState().clear();
+    expect(vss.setWatch).toHaveBeenCalledTimes(1);
+  });
+
+  it("a query VSS no longer has is a failure, not retried", async () => {
+    vss.getQuery.mockRejectedValue(new VssError("Search q-1 not found", 404));
+    await useWatchStore.getState().start({ query: "blue jacket" }, "s1");
+    await flush();
+    expect(useWatchStore.getState().status).toBe("error");
+    expect(useWatchStore.getState().error).toMatch(/no longer has/);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(vss.getQuery).toHaveBeenCalledTimes(1);
+    expect(vss.setWatch).not.toHaveBeenCalled();
+  });
+
+  it(`fails after ${MAX_POLL_FAILURES} checks in a row fail, even while starting`, async () => {
+    vss.getQuery.mockRejectedValue(new Error("502 Bad Gateway"));
+    await useWatchStore.getState().start({ query: "blue jacket" }, "s1");
+    await flush();
+    expect(useWatchStore.getState()).toMatchObject({
+      status: "starting",
+      error: "502 Bad Gateway",
+    });
+    await vi.advanceTimersByTimeAsync(10_000 * (MAX_POLL_FAILURES - 1));
+    expect(useWatchStore.getState().status).toBe("error");
+    expect(useWatchStore.getState().error).toMatch(/checks in a row failed/);
+    expect(vss.setWatch).toHaveBeenCalledWith("q-1", false);
+  });
+
+  it("closing the tab unwatches a running watch with a keepalive request", async () => {
+    await useWatchStore.getState().start({ query: "blue jacket" }, "s1");
+    await flush();
+    window.dispatchEvent(new Event("pagehide"));
+    expect(vss.unwatchOnUnload).toHaveBeenCalledWith("q-1");
+  });
+
+  it("a reload unwatches the query the last page load left running", async () => {
+    await useWatchStore.getState().start({ query: "blue jacket" }, "s1");
+    await flush();
+    vss.setWatch.mockClear();
+    vi.resetModules();
+    await import("./watch");
+    expect(vss.setWatch).toHaveBeenCalledWith("q-1", false);
+    expect(sessionStorage.getItem("vsg.watch.pending")).toBeNull();
   });
 });

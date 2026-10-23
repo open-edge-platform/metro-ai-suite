@@ -124,7 +124,8 @@ function Tools({ turn }: { turn: AgentTurn }) {
 interface AgentTurnProps {
   turn: AgentTurn;
   busy: boolean;
-  onRetry: () => void;
+  /** Omitted when this reply can't be retried (not the latest, or restored). */
+  onRetry?: () => void;
 }
 
 function DirectiveView({
@@ -193,6 +194,8 @@ export function AgentTurnView({ turn, busy, onRetry }: AgentTurnProps) {
                 Preparing {seg.fence.replace("vsg-", "")}
               </StatusChip>
             );
+          // The progress line is optional and cosmetic: hide a malformed one.
+          if (seg.kind === "invalid" && seg.fence === "vsg-status") return null;
           if (seg.kind === "invalid")
             return (
               <details key={i} className="text-xs">
@@ -201,7 +204,7 @@ export function AgentTurnView({ turn, busy, onRetry }: AgentTurnProps) {
                     <AlertTriangle /> Argus's {FENCE_NAME[seg.fence] ?? "reply"}{" "}
                     couldn't be displayed
                   </StatusChip>
-                  {!busy && (
+                  {!busy && onRetry && (
                     <Button
                       size="xs"
                       variant="outline"
@@ -251,7 +254,7 @@ export function AgentTurnView({ turn, busy, onRetry }: AgentTurnProps) {
             <span className="flex-1">
               {turn.error ?? "Argus couldn't finish this step."}
             </span>
-            {!busy && !turn.replayed && (
+            {!busy && onRetry && (
               <Button size="xs" variant="outline" onClick={onRetry}>
                 <RotateCw /> Retry
               </Button>

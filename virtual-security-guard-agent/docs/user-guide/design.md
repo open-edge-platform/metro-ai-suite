@@ -7,38 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 
 Developer reference for the Virtual Security Guard Agent (VSG) console. Read
 [How it Works](./how-it-works.md) first for the components and the
-investigation flow; this page does not repeat them. Hermes endpoints, SSE
-events and reconnect rules are in
-[Hermes API Flow](../Hermes_API_Flow.md). Hermes configuration (MCP server,
-model, API key) is in
-[Install the Hermes Skills](./get-started/install-hermes-skills.md).
+investigation flow; this page does not repeat them. Hermes configuration (MCP
+server, model, API key) is in
+[Set Up the Prerequisite Stack](./get-started/set-up-prerequisite-stack.md).
 
 ## 1. One Operator Turn
 
-```mermaid
-sequenceDiagram
-  autonumber
-  actor OP as Operator
-  participant UI as VSG UI
-  participant H as Hermes (Argus)
-  participant MCP as VSS MCP
-  participant V as VSS
-
-  OP->>UI: prompt + photo
-  UI->>V: POST /vss/manager/search/images
-  V-->>UI: image URL
-  UI->>H: POST /hermes/api/sessions (first turn only)
-  UI->>H: POST /hermes/v1/runs<br/>input + vsg-context, instructions
-  H->>MCP: vss_search_video
-  MCP->>V: search
-  H-->>UI: SSE: text, tool steps, vsg-matches
-  UI->>H: GET /hermes/api/sessions/{id}/messages
-  H-->>UI: transcript with the real tool result
-  UI->>V: GET /vss/manager/search/{id} (if a query id is known)
-  UI-->>OP: review grid
-  OP->>UI: confirm sightings
-  UI->>H: next run: vsg-feedback block
-```
+![Sequence diagram of one operator turn between UI, Hermes, VSS MCP and VSS](./_assets/vsg-operator-turn-sequence.svg)
 
 Every turn is one Hermes run in the investigation's session. Session titles
 start with `VSG · ` so past investigations can be listed
@@ -95,18 +70,7 @@ prompt (`groundingForRun` in `protocol/grounding.ts`). The tool
 output is untrusted: only typed fields are read, at most 200 hits, and media
 URLs are reduced to same-origin datastore paths.
 
-```mermaid
-%%{init: {"flowchart": {"curve": "linear"}}}%%
-flowchart TD
-  R[Run finished] --> T[Read transcript]
-  T -->|failed| E[Grid shows Retry]
-  E --> T
-  T --> F{Search result<br/>in this run?}
-  F -->|yes| G[Tool result hits]
-  F -->|no| N[No hits shown]
-  G --> K[Apply keep refs<br/>and score cut-off]
-  K --> GRID[Review grid]
-```
+![Flowchart of how a finished run becomes the review grid](./_assets/vsg-design-data-flow.svg)
 
 The transcript is the only source of hits (`features/agent/useDirectiveHits.ts`):
 nothing the model writes into a block is shown, and the query id comes only
@@ -173,18 +137,7 @@ the card shows **Retry stop** (a toast with Retry after a reset).
 `InvestigationPhase` in `stores/investigation.logic.ts`. The phase picks the
 composer placeholder and is sent in the instructions.
 
-```mermaid
-stateDiagram-v2
-  [*] --> idle
-  idle --> searching: prompt / photo
-  searching --> validating: vsg-matches
-  searching --> idle: no matches
-  validating --> searching: feedback, nothing confirmed
-  validating --> tracing: feedback with confirms
-  tracing --> traced: run done
-  traced --> reporting: report request
-  reporting --> traced: run done
-```
+![State diagram of the investigation phases](./_assets/vsg-investigation-phases.svg)
 
 **Stop** cancels the run and returns to the phase before it. Camera and
 watch requests run in the `idle` phase.
@@ -244,7 +197,7 @@ Selectors must return stable references; see
 
 - **Allowlist**: one `location` per route with a method limit and strict id
   regex; any other `/hermes/` or `/vss/` path returns `403`. Routes:
-  [API Reference](./api-reference.md).
+  `ui/nginx/templates/default.conf.template`.
 - **Hermes key**: nginx strips `/hermes` and sets
   `Authorization: Bearer ${HERMES_API_KEY}`. It clears `Origin`, `Referer`
   and `Cookie`, and hides `Set-Cookie` and CORS headers.

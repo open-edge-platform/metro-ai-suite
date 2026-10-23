@@ -13,16 +13,7 @@ import {
 import { toast } from "sonner";
 import { getAdapters } from "@/adapters";
 import { StatusChip } from "@/components/shared/media";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,7 +21,14 @@ import { Switch } from "@/components/ui/switch";
 import { env } from "@/config/env";
 import { useHealth } from "@/hooks/queries";
 import { useFloorplanStore } from "@/stores/floorplan";
-import { SETTINGS_DEFAULTS, useSettingsStore } from "@/stores/settings";
+import { useLiveTimelineStore } from "@/stores/liveTimeline";
+import {
+  clampSetting,
+  SETTINGS_DEFAULTS,
+  SETTINGS_LIMITS,
+  useSettingsStore,
+  type NumericSetting,
+} from "@/stores/settings";
 
 function Panel({
   icon: Icon,
@@ -161,6 +159,52 @@ function Connections() {
   );
 }
 
+/**
+ * Number input that can be cleared and retyped: the text is kept as typed
+ * and only committed (and clamped by the store) on blur or Enter.
+ */
+function NumberField({
+  id,
+  setting,
+  value,
+  onCommit,
+}: {
+  id: string;
+  setting: NumericSetting;
+  value: number;
+  onCommit: (v: number) => void;
+}) {
+  const [text, setText] = useState(String(value));
+  const [seen, setSeen] = useState(value);
+  if (seen !== value) {
+    setSeen(value);
+    setText(String(value));
+  }
+  const commit = () => {
+    const n = text.trim() === "" ? Number.NaN : Number(text);
+    // Empty or invalid text goes back to the current value.
+    const next = Number.isFinite(n) ? clampSetting(setting, n) : value;
+    if (next !== value) onCommit(next);
+    setText(String(next));
+  };
+  return (
+    <Input
+      id={id}
+      type="number"
+      inputMode="numeric"
+      min={SETTINGS_LIMITS[setting].min}
+      max={SETTINGS_LIMITS[setting].max}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") commit();
+      }}
+      className="w-24"
+    />
+  );
+}
+
 function Investigation() {
   const s = useSettingsStore();
   return (
@@ -191,42 +235,33 @@ function Investigation() {
         label={<Label htmlFor="limit">Matches per search</Label>}
         hint="How many candidates Argus asks VSS for, and how many the review grid shows."
       >
-        <Input
+        <NumberField
           id="limit"
-          type="number"
-          min={4}
-          max={50}
+          setting="searchLimit"
           value={s.searchLimit}
-          onChange={(e) => s.setSearchLimit(Number(e.target.value))}
-          className="w-24"
+          onCommit={s.setSearchLimit}
         />
       </Row>
       <Row
         label={<Label htmlFor="watch-min">Live watch time limit</Label>}
         hint="Minutes before a live watch stops by itself."
       >
-        <Input
+        <NumberField
           id="watch-min"
-          type="number"
-          min={1}
-          max={240}
+          setting="watchMinutes"
           value={s.watchMinutes}
-          onChange={(e) => s.setWatchMinutes(Number(e.target.value))}
-          className="w-24"
+          onCommit={s.setWatchMinutes}
         />
       </Row>
       <Row
         label={<Label htmlFor="watch-idle">Stop when quiet for</Label>}
         hint="Minutes without a new live sighting before the watch stops."
       >
-        <Input
+        <NumberField
           id="watch-idle"
-          type="number"
-          min={1}
-          max={120}
+          setting="watchIdleMinutes"
           value={s.watchIdleMinutes}
-          onChange={(e) => s.setWatchIdleMinutes(Number(e.target.value))}
-          className="w-24"
+          onCommit={s.setWatchIdleMinutes}
         />
       </Row>
       <Row
@@ -264,47 +299,35 @@ function LocalData() {
   const resetPlan = useFloorplanStore((s) => s.reset);
   const resetSettings = useSettingsStore((s) => s.reset);
 
-  async function wipe() {
+  function wipe() {
     resetPlan();
     resetSettings();
-    setConfirm(false);
+    useLiveTimelineStore.setState({ bySession: {} });
+    useLiveTimelineStore.persist.clearStorage();
     toast.success("Local data cleared");
   }
 
   return (
     <Panel icon={Database} title="Data in this browser">
       <p className="text-sm text-muted-foreground">
-        The floorplan and these settings are stored in this browser.
-        Investigations live in Hermes; cameras, footage and search results live
-        in VSS. Neither is affected here.
+        The floorplan, live search timelines and these settings are stored in
+        this browser. Investigations live in Hermes; cameras, footage and search
+        results live in VSS. Neither is affected here.
       </p>
       <div>
         <Button size="sm" variant="outline" onClick={() => setConfirm(true)}>
           <Trash2 /> Clear local data
         </Button>
       </div>
-      <AlertDialog open={confirm} onOpenChange={setConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Clear local data?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Removes the uploaded floorplan and resets settings.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                void wipe();
-              }}
-              className="bg-destructive text-white hover:bg-destructive/90"
-            >
-              Clear
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={confirm}
+        onOpenChange={setConfirm}
+        title="Clear local data?"
+        description="Removes the uploaded floorplan and saved live timelines, and resets settings."
+        action="Clear"
+        onConfirm={wipe}
+        errorTitle="Couldn't clear local data"
+      />
     </Panel>
   );
 }

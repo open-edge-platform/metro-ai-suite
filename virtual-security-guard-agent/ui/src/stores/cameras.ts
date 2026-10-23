@@ -77,33 +77,45 @@ export interface CamerasState {
   remove: (streamId: string) => Promise<void>;
 }
 
+/**
+ * Bumped after every change sent to VSS. A list read that started before a
+ * change may predate it (a removed camera would come back), so it is dropped.
+ */
+let changes = 0;
+
 /** Live camera fleet, read from VSS; every change goes straight to VSS. */
 export const useCamerasStore = create<CamerasState>()((set, get) => ({
   cameras: [],
   loaded: false,
 
   async load() {
+    const startedAt = changes;
     try {
       const streams = await getAdapters().vss.listStreams();
+      if (startedAt !== changes) return;
       const cameras = streams.map(toCamera);
       set({ cameras, loaded: true, error: undefined });
     } catch (e) {
+      if (startedAt !== changes) return;
       set({ loaded: true, error: (e as Error).message });
     }
   },
 
   async add(input) {
     await getAdapters().vss.addStream(input);
+    changes++;
     await get().load();
   },
 
   async update(streamId, patch) {
     await getAdapters().vss.updateStream(streamId, patch);
+    changes++;
     await get().load();
   },
 
   async remove(streamId) {
     await getAdapters().vss.removeStream(streamId);
+    changes++;
     set({ cameras: get().cameras.filter((c) => c.streamId !== streamId) });
   },
 }));

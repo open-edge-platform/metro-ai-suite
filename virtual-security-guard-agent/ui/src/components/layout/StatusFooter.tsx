@@ -35,27 +35,28 @@ export function StatusFooter() {
     { name: "Hermes", ok: data?.hermes },
     { name: "VSS", ok: data?.vss },
   ];
+  const summary = rows
+    .map(
+      (r) =>
+        `${r.name}: ${isLoading ? "checking" : r.ok ? "reachable" : "unreachable"}`,
+    )
+    .join(", ");
   if (collapsed)
     return (
       <Tooltip>
+        {/* A button so keyboard users can focus it to read the tooltip. */}
         <TooltipTrigger asChild>
-          <div
-            className="flex flex-col items-center gap-1.5 py-2"
-            aria-label="Backend status"
+          <button
+            type="button"
+            className="flex cursor-default flex-col items-center gap-1.5 rounded-sm py-2 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+            aria-label={`Backend status. ${summary}`}
           >
             {rows.map((r) => (
               <Dot key={r.name} ok={r.ok} loading={isLoading} />
             ))}
-          </div>
+          </button>
         </TooltipTrigger>
-        <TooltipContent side="right">
-          {rows
-            .map(
-              (r) =>
-                `${r.name}: ${isLoading ? "checking" : r.ok ? "reachable" : "unreachable"}`,
-            )
-            .join(", ")}
-        </TooltipContent>
+        <TooltipContent side="right">{summary}</TooltipContent>
       </Tooltip>
     );
   return (

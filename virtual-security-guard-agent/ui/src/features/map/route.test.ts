@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import { normalizeStoredQuery } from "@/adapters/vss/normalize";
-import { layoutRoute } from "./route";
+import { layoutRoute, stopNumbers } from "./route";
 import type { Floorplan } from "./schema";
 
 const TAG = "P_Lev_4_External_Lift_foyer_ip_70";
@@ -58,5 +58,40 @@ describe("live hits are keyed by their VSS tag", () => {
     expect(route.offMap).toEqual([]);
     expect(route.visits).toHaveLength(1);
     expect(route.visits[0].orders).toEqual([1, 2]);
+  });
+});
+
+describe("stopNumbers", () => {
+  const hit = (cameraTag: string, i: number) => ({
+    matchId: `m${i}`,
+    rank: i,
+    videoId: "v",
+    cameraTag,
+    startS: 0,
+    endS: 1,
+    seekS: 0,
+    score: 1,
+  });
+  const twoCams: Floorplan = {
+    cameras: { a: { x: 0, y: 0 }, b: { x: 10, y: 0 } },
+  };
+
+  it("numbers stops the way the map draws them", () => {
+    const stops = ["a", "a", "elsewhere", "b", "a"].map((t, i) => ({
+      hit: hit(t, i + 1),
+      order: i + 1,
+    }));
+    const n = stopNumbers(stops, twoCams);
+    // a,a merge into visit 1; the off-plan stop has no number.
+    expect([1, 2, 3, 4, 5].map((o) => n.get(o))).toEqual([
+      1,
+      1,
+      undefined,
+      2,
+      3,
+    ]);
+    expect(layoutRoute(stops, twoCams).visits.map((v) => v.index)).toEqual([
+      1, 2, 3,
+    ]);
   });
 });

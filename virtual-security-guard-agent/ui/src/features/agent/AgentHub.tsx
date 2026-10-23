@@ -46,7 +46,8 @@ export function AgentHub() {
 
   const urlSession = onArgus ? (params.get("session") ?? undefined) : undefined;
 
-  // URL -> store: open the investigation named in ?session=.
+  // URL -> store: open the investigation named in ?session=. A change made
+  // during a run (e.g. browser Back) is applied when the run ends.
   useEffect(() => {
     if (!urlSession || urlSession === sessionId || busy) return;
     resume(urlSession).catch((e) => {
@@ -56,9 +57,9 @@ export function AgentHub() {
       reset();
       setParams((p) => (p.delete("session"), p), { replace: true });
     });
-    // Only react to the URL changing.
+    // Only react to the URL changing or a run ending.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlSession]);
+  }, [urlSession, busy]);
 
   // Store -> URL: a new investigation got its Hermes session id.
   useEffect(() => {
@@ -76,6 +77,12 @@ export function AgentHub() {
 
   function onSubmit(s: ComposerSubmit) {
     if (loadingSession) return;
+    if (attachment?.status === "error") {
+      toast.error("The photo wasn't uploaded", {
+        description: "Remove it or attach it again before sending.",
+      });
+      return;
+    }
     const image = take();
     const text = s.text || (image ? "Find this person." : "");
     if (!text) return;
@@ -114,7 +121,7 @@ export function AgentHub() {
           <span className="flex-1" />
           <HistoryMenu
             currentId={sessionId}
-            disabled={busy}
+            disabled={busy || loadingSession}
             onOpen={(id) => setParams({ session: id })}
             onDeletedCurrent={newInvestigation}
           />

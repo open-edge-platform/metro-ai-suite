@@ -14,11 +14,22 @@ import {
 
 type Json = Record<string, unknown>;
 
+/** A hung VSS request must not stall the live search timers. */
+const TIMEOUT_MS = 20_000;
+
 async function getJson(url: string, init?: RequestInit): Promise<unknown> {
-  const res = await fetch(url, {
-    ...init,
-    headers: { Accept: "application/json", ...init?.headers },
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      ...init,
+      headers: { Accept: "application/json", ...init?.headers },
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "TimeoutError")
+      throw new VssError(`VSS did not answer within ${TIMEOUT_MS / 1000} s`);
+    throw e;
+  }
   const body = await readBody(res);
   if (!res.ok) {
     const msg = (body as Json | undefined)?.message;
@@ -42,16 +53,22 @@ const object = z.looseObject({});
 /** VSS Pipeline Manager client via the same-origin `/vss` prefix. */
 export function createHttpVss(base: string = env.vssBase): VssAdapter {
   const m = (p: string) => managerPath(p, base);
+  const watchInit = (watch: boolean): RequestInit => ({
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ watch }),
+  });
+  const watchUrl = (queryId: string) =>
+    m(`/search/${encodeURIComponent(queryId)}/watch`);
   const setWatch = (queryId: string, watch: boolean) =>
-    getJson(m(`/search/${encodeURIComponent(queryId)}/watch`), {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ watch }),
-    }).then(() => undefined);
+    getJson(watchUrl(queryId), watchInit(watch)).then(() => undefined);
   return {
     async health() {
       try {
-        const res = await fetch(m("/health"), { cache: "no-store" });
+        const res = await fetch(m("/health"), {
+          cache: "no-store",
+          signal: AbortSignal.timeout(TIMEOUT_MS),
+        });
         return res.ok;
       } catch {
         return false;
@@ -187,5 +204,10 @@ export function createHttpVss(base: string = env.vssBase): VssAdapter {
     },
 
     setWatch,
+
+    unwatchOnUnload(queryId) {
+      // The page is going away: nobody is left to see the result.
+      void fetch(watchUrl(queryId), { ...watchInit(false), keepalive: true });
+    },
   };
 }

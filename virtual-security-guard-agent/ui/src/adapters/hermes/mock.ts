@@ -7,11 +7,12 @@ import {
 } from "@/fixtures/argus";
 import { serializeFeedback } from "@/protocol/feedback";
 import { uid } from "@/lib/utils";
-import type {
-  HermesAdapter,
-  HermesMessage,
-  HermesSession,
-  RunEvent,
+import {
+  HermesError,
+  type HermesAdapter,
+  type HermesMessage,
+  type HermesSession,
+  type RunEvent,
 } from "./types";
 
 interface MockRun {
@@ -19,6 +20,7 @@ interface MockRun {
   input: string;
   sessionId?: string;
   cancelled: boolean;
+  done: boolean;
 }
 
 const sleep = (ms: number, signal?: AbortSignal) =>
@@ -133,10 +135,19 @@ export function createMockHermes(
       sessions.set(session.id, { session, messages: [] });
       return session;
     },
-    async listSessions() {
-      return [...sessions.values()]
+    async listSessions({ limit = 50, offset = 0 } = {}) {
+      const all = [...sessions.values()]
         .map((s) => s.session)
         .sort((a, b) => (b.lastActive ?? 0) - (a.lastActive ?? 0));
+      return {
+        sessions: all.slice(offset, offset + limit),
+        hasMore: offset + limit < all.length,
+      };
+    },
+    async getSession(id) {
+      const s = sessions.get(id);
+      if (!s) throw new HermesError(`Session not found: ${id}`, 404);
+      return s.session;
     },
     async getMessages(id) {
       return sessions.get(id)?.messages ?? [];
@@ -151,6 +162,7 @@ export function createMockHermes(
         input: req.input,
         sessionId: req.sessionId,
         cancelled: false,
+        done: false,
       });
       return { runId: id };
     },
@@ -191,6 +203,7 @@ export function createMockHermes(
       } else if (!signal?.aborted) {
         onEvent({ type: "completed", seq: ++seq, output: out });
       }
+      run.done = true;
       const s = run.sessionId ? sessions.get(run.sessionId) : undefined;
       if (s) {
         const now = Date.now() / 1000;
@@ -200,6 +213,17 @@ export function createMockHermes(
         s.session.lastActive = now;
         s.session.messageCount = s.messages.length;
       }
+    },
+    async getRun(runId) {
+      const run = runs.get(runId);
+      if (!run) throw new HermesError(`Run not found: ${runId}`, 404);
+      return {
+        status: run.done
+          ? run.cancelled
+            ? "cancelled"
+            : "completed"
+          : "running",
+      };
     },
     async stopRun(runId) {
       const run = runs.get(runId);

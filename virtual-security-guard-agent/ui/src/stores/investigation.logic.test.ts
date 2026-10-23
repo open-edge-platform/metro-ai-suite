@@ -6,7 +6,10 @@ import { placementInput } from "@/features/map/tags";
 import { hitKey } from "@/lib/hits";
 import { serializeFeedback } from "@/protocol/feedback";
 import {
+  applyRunEvent,
+  classifyPrompt,
   instructionContext,
+  newAgentTurn,
   subjectImageOf,
   subjectTextOf,
   reviewsFromTurns,
@@ -161,5 +164,69 @@ describe("investigation subject", () => {
     expect(subjectTextOf(turns)).toBe("also check camera_2");
     expect(subjectImageOf(turns.slice(0, 1))).toBeUndefined();
     expect(subjectTextOf(turns.slice(0, 1))).toBe("Can you access the VSS MCP");
+  });
+});
+
+describe("classifyPrompt", () => {
+  it.each([
+    "Find a man in a red jacket near the escalator",
+    "Search the escalators on level 2 for a person with a backpack",
+    "show me the person in a red jacket on camera 3",
+    "Show footage from camera_2 between 14:00 and 15:00",
+    "list everyone seen on camera 1",
+    "Show me which cameras saw a person in a blue jacket",
+    "Find the person reported near the gate",
+  ])("treats %j as a search", (text) => {
+    expect(classifyPrompt(text, false)).toBe("search");
+  });
+
+  it.each([
+    "Write a handover report",
+    "Escalate this incident",
+    "Draft an escalation report for the lobby",
+    "Write up what happened",
+    [
+      "Write a escalation report from the 2 confirmed sightings.",
+      "Report preset: Escalation report. The sightings, in time order, with the subject's movement between cameras:",
+      "1. camera_1 (Lobby) at 2026-01-01T10:00:00.000Z\n2. camera_2 (Hall) at 2026-01-01T10:02:00.000Z; moved from camera_1 in 2 min",
+    ].join("\n\n"),
+  ])("treats %j as a report", (text) => {
+    expect(classifyPrompt(text, false)).toBe("report");
+  });
+
+  it.each([
+    "Add a camera at rtsp://10.0.0.5/stream1",
+    "Pause camera_2",
+    "remove the lobby camera",
+    "Resume the paused streams",
+    "list cameras",
+    "show all live cameras",
+    "show me the cameras",
+  ])("treats %j as camera management", (text) => {
+    expect(classifyPrompt(text, false)).toBe("streams");
+  });
+
+  it("always treats a photo as a search", () => {
+    expect(classifyPrompt("Write a handover report", true)).toBe("search");
+  });
+});
+
+describe("applyRunEvent completed", () => {
+  const streamed = { ...newAgentTurn(), text: "Found 3.\n```vsg-mat" };
+
+  it("prefers the run output when the stream lost part of the reply", () => {
+    const full = 'Found 3.\n```vsg-matches\n{"v":1,"keep":["m1"]}\n```';
+    const t = applyRunEvent(streamed, { type: "completed", output: full });
+    expect(t.status).toBe("done");
+    expect(t.text).toBe(full);
+  });
+
+  it("keeps the streamed text when the output is shorter or missing", () => {
+    expect(
+      applyRunEvent(streamed, { type: "completed", output: "Found" }).text,
+    ).toBe(streamed.text);
+    expect(applyRunEvent(streamed, { type: "completed" }).text).toBe(
+      streamed.text,
+    );
   });
 });

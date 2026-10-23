@@ -67,3 +67,18 @@ export function layoutRoute(
   }
   return { visits, offMap };
 }
+
+/**
+ * The map marker number of each stop, by stop order, so lists and the PDF
+ * number stops the way the map does. Stops on a camera that isn't on the
+ * plan have no number.
+ */
+export function stopNumbers(
+  stops: TraceStop[],
+  plan: Floorplan,
+): Map<number, number> {
+  const out = new Map<number, number>();
+  for (const v of layoutRoute(stops, plan).visits)
+    for (const order of v.orders) out.set(order, v.index);
+  return out;
+}

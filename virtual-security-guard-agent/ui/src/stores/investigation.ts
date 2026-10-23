@@ -1,9 +1,12 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
+import { toast } from "sonner";
 import { create } from "zustand";
 import { getAdapters } from "@/adapters";
+import { HermesError } from "@/adapters/hermes/types";
 import type { UploadedImage } from "@/adapters/vss/types";
 import { env } from "@/config/env";
+import { toDatastorePath } from "@/lib/urls";
 import { uid } from "@/lib/utils";
 import {
   buildSearchInput,
@@ -99,6 +102,48 @@ interface InvestigationState {
 }
 
 let controller: AbortController | undefined;
+/** Bumped by every resume and reset; a stale resume response is dropped. */
+let loadToken = 0;
+
+/**
+ * The run this tab is following, kept in sessionStorage so a refresh can
+ * reattach to it instead of losing it (and starting a second run).
+ */
+interface ActiveRun {
+  sessionId: string;
+  runId: string;
+  op: OperatorTurn;
+}
+
+const ACTIVE_RUN_KEY = "vsg-active-run";
+/** Run statuses after which there is nothing left to follow. */
+const RUN_ENDED = new Set(["completed", "failed", "cancelled", "interrupted"]);
+
+function readActiveRun(): ActiveRun | undefined {
+  const raw = sessionStorage.getItem(ACTIVE_RUN_KEY);
+  if (!raw) return undefined;
+  try {
+    const v = JSON.parse(raw) as Partial<ActiveRun> | null;
+    if (
+      typeof v?.sessionId === "string" &&
+      typeof v.runId === "string" &&
+      v.op?.role === "operator" &&
+      typeof v.op.input === "string"
+    )
+      return v as ActiveRun;
+  } catch {
+    // Not JSON: dropped below.
+  }
+  sessionStorage.removeItem(ACTIVE_RUN_KEY);
+  return undefined;
+}
+
+function forgetActiveRun(runId: string) {
+  if (readActiveRun()?.runId === runId)
+    sessionStorage.removeItem(ACTIVE_RUN_KEY);
+}
+
+const errorText = (e: unknown) => (e as Error).message || "Request failed.";
 
 /** The agent turn whose review grid the operator can still change. */
 export function latestGridId(turns: Turn[]): string | undefined {
@@ -184,32 +229,47 @@ export const useInvestigationStore = create<InvestigationState>()((
     return { imageUrl: img?.imageUrl, previewUrl: img?.previewUrl, query };
   }
 
-  async function run(op: OperatorTurn, phase: InvestigationPhase) {
-    if (get().busy) return;
+  /** Phase to return to when a run ends without a new grid. */
+  function settledPhase(): InvestigationPhase {
+    const p = get().phase;
+    return p === "searching" || p === "tracing" || p === "reporting"
+      ? "idle"
+      : p;
+  }
+
+  /**
+   * Create the session if needed and start the Hermes run. Returns undefined
+   * when the operator pressed Stop before the run started. A session created
+   * here is deleted again if its first run doesn't start.
+   */
+  async function begin(
+    op: OperatorTurn,
+    phase: InvestigationPhase,
+  ): Promise<string | undefined> {
     const { hermes } = getAdapters();
-    const before =
-      get().phase === "searching" ||
-      get().phase === "tracing" ||
-      get().phase === "reporting"
-        ? "idle"
-        : get().phase;
-    const agent = newAgentTurn();
-    set((s) => ({
-      turns: [...s.turns, op, agent],
-      busy: true,
-      stopping: false,
-      phase,
-    }));
-    try {
-      let sessionId = get().sessionId;
-      if (!sessionId) {
-        const title = sessionTitle(op.text, !!op.image);
-        const session = await hermes.createSession(
-          `${env.sessionPrefix}${title}`,
+    let sessionId = get().sessionId;
+    let created: { id: string; title: string } | undefined;
+    if (!sessionId) {
+      const title = sessionTitle(op.text, !!op.image);
+      const session = await hermes.createSession(
+        `${env.sessionPrefix}${title}`,
+      );
+      created = { id: session.id, title };
+      sessionId = session.id;
+    }
+    /** Remove the empty session again; say so if that fails too. */
+    async function discard(e?: unknown) {
+      if (!created) return;
+      try {
+        await hermes.deleteSession(created.id);
+      } catch (de) {
+        throw new Error(
+          `${e ? `${errorText(e)} ` : ""}The empty investigation couldn't be removed from Hermes: ${errorText(de)}`,
         );
-        sessionId = session.id;
-        set({ sessionId, title });
       }
+    }
+    let runId: string | undefined;
+    try {
       const settings = useSettingsStore.getState();
       // Argus needs the plan to list the free camera positions.
       await loadDefaultFloorplan();
@@ -219,7 +279,7 @@ export const useInvestigationStore = create<InvestigationState>()((
         instructionContext(
           {
             ...get(),
-            live: liveOf(get().sessionId),
+            live: liveOf(sessionId),
             phase,
             subject: watchSubject()?.query,
           },
@@ -233,54 +293,198 @@ export const useInvestigationStore = create<InvestigationState>()((
           },
         ),
       );
-      const { runId } = await hermes.startRun({
-        input: op.input,
-        sessionId,
-        instructions,
-      });
-      patchAgent(agent.id, (t) => ({ ...t, runId }));
-      set({ activeRunId: runId });
+      if (!get().stopping)
+        runId = (
+          await hermes.startRun({ input: op.input, sessionId, instructions })
+        ).runId;
+    } catch (e) {
+      await discard(e);
+      throw e;
+    }
+    if (!runId) {
+      await discard();
+      return undefined;
+    }
+    if (created) set({ sessionId: created.id, title: created.title });
+    return runId;
+  }
+
+  /** Stream a started run into its agent turn, then settle the investigation. */
+  async function follow(
+    agentId: string,
+    runId: string,
+    op: OperatorTurn,
+    before: InvestigationPhase,
+  ) {
+    const { hermes } = getAdapters();
+    const sessionId = get().sessionId;
+    if (sessionId)
+      sessionStorage.setItem(
+        ACTIVE_RUN_KEY,
+        JSON.stringify({ sessionId, runId, op } satisfies ActiveRun),
+      );
+    try {
       controller = new AbortController();
       await hermes.streamRun(
         runId,
-        (ev) => patchAgent(agent.id, (t) => applyRunEvent(t, ev)),
+        (ev) => patchAgent(agentId, (t) => applyRunEvent(t, ev)),
         controller.signal,
       );
-      await ground(agent.id);
+      await ground(agentId);
       void useCamerasStore.getState().load();
     } catch (e) {
-      patchAgent(agent.id, (t) =>
+      patchAgent(agentId, (t) =>
         t.status === "streaming"
-          ? {
-              ...t,
-              status: "failed",
-              error: (e as Error).message || "Request failed.",
-            }
+          ? { ...t, status: "failed", error: errorText(e) }
           : t,
       );
     } finally {
       controller = undefined;
-      patchAgent(agent.id, (t) =>
-        t.status === "streaming"
-          ? { ...t, status: get().stopping ? "cancelled" : "done" }
-          : t,
-      );
-      const final = get().turns.find((t) => t.id === agent.id) as
-        AgentTurn | undefined;
-      const settled =
-        final && final.status === "done"
-          ? confirmsSightings(op)
-            ? "traced"
-            : settleAfter(final.text, before)
-          : before;
-      set((s) => ({
-        busy: false,
-        stopping: false,
-        activeRunId: undefined,
-        phase: settled,
-        revision: s.revision + 1,
+      forgetActiveRun(runId);
+      finish(agentId, op, before);
+    }
+  }
+
+  function finish(
+    agentId: string,
+    op: OperatorTurn,
+    before: InvestigationPhase,
+  ) {
+    patchAgent(agentId, (t) =>
+      t.status === "streaming"
+        ? { ...t, status: get().stopping ? "cancelled" : "done" }
+        : t,
+    );
+    const final = get().turns.find((t) => t.id === agentId) as
+      AgentTurn | undefined;
+    const settled =
+      final && final.status === "done"
+        ? confirmsSightings(op)
+          ? "traced"
+          : settleAfter(final.text, before)
+        : before;
+    set((s) => ({
+      busy: false,
+      stopping: false,
+      activeRunId: undefined,
+      phase: settled,
+      revision: s.revision + 1,
+    }));
+  }
+
+  /** Ask Hermes to stop `runId`; on failure keep following it. */
+  async function requestStop(runId: string) {
+    try {
+      await getAdapters().hermes.stopRun(runId);
+    } catch (e) {
+      // The run may still be going on Hermes: keep showing it (no Retry, no
+      // second run) and let the operator press Stop again.
+      if (get().activeRunId === runId) set({ stopping: false });
+      toast.error("Couldn't stop Argus", {
+        description: `${errorText(e)} Argus may still be working; try Stop again.`,
+      });
+      return;
+    }
+    // If Hermes never confirms the cancel, release the UI anyway.
+    setTimeout(() => {
+      if (get().activeRunId === runId) controller?.abort();
+    }, 4000);
+  }
+
+  /** Run one operator turn. Resolves true once Hermes accepted the run. */
+  async function run(
+    op: OperatorTurn,
+    phase: InvestigationPhase,
+  ): Promise<boolean> {
+    if (get().busy) return false;
+    const before = settledPhase();
+    const agent = newAgentTurn();
+    set((s) => ({
+      turns: [...s.turns, op, agent],
+      busy: true,
+      stopping: false,
+      phase,
+    }));
+    let runId: string | undefined;
+    try {
+      runId = await begin(op, phase);
+    } catch (e) {
+      patchAgent(agent.id, (t) => ({
+        ...t,
+        status: "failed",
+        error: errorText(e),
       }));
     }
+    if (!runId) {
+      finish(agent.id, op, before);
+      return false;
+    }
+    patchAgent(agent.id, (t) => ({ ...t, runId }));
+    set({ activeRunId: runId });
+    // Stop was pressed while the run was starting.
+    if (get().stopping) void requestStop(runId);
+    await follow(agent.id, runId, op, before);
+    return true;
+  }
+
+  /**
+   * After a refresh: follow the run this tab started in `sessionId` if Hermes
+   * is still running it, so its reply streams in and no second run starts.
+   */
+  async function reattach(sessionId: string, mine: number) {
+    const active = readActiveRun();
+    if (active?.sessionId !== sessionId) return;
+    let status: string;
+    try {
+      status = (await getAdapters().hermes.getRun(active.runId)).status;
+    } catch (e) {
+      if (mine !== loadToken) return;
+      if (e instanceof HermesError && e.status === 404) {
+        forgetActiveRun(active.runId);
+        return;
+      }
+      toast.warning("Couldn't check whether Argus is still working", {
+        description: `${errorText(e)} Wait for it to finish before sending.`,
+      });
+      return;
+    }
+    if (mine !== loadToken || get().busy) return;
+    if (RUN_ENDED.has(status)) {
+      forgetActiveRun(active.runId);
+      return;
+    }
+    // The transcript may already hold the run's prompt and a partial reply.
+    const turns = get().turns;
+    const isRunOp = (t: Turn) =>
+      t.role === "operator" && t.input === active.op.input;
+    let i = turns.length - 1;
+    while (i >= 0 && !isRunOp(turns[i])) i--;
+    const kept = i >= 0 ? turns.slice(0, i) : turns;
+    const stored = active.op;
+    const op: OperatorTurn =
+      i >= 0
+        ? (turns[i] as OperatorTurn)
+        : {
+            ...stored,
+            // A local preview URL died with the page.
+            image: stored.image && {
+              imageUrl: stored.image.imageUrl,
+              previewUrl:
+                toDatastorePath(stored.image.imageUrl) ??
+                stored.image.previewUrl,
+            },
+          };
+    const agent: AgentTurn = { ...newAgentTurn(), runId: active.runId };
+    const next = [...kept, op, agent];
+    set({
+      turns: next,
+      reviews: reviewsFromTurns(next),
+      busy: true,
+      stopping: false,
+      activeRunId: active.runId,
+      phase: runningPhase(op.kind, confirmsSightings(op)),
+    });
+    void follow(agent.id, active.runId, op, phaseFromTurns(kept));
   }
 
   return {
@@ -325,7 +529,13 @@ export const useInvestigationStore = create<InvestigationState>()((
       const { sessionId } = get();
       // Decided at Start, so Search again follows the latest image or prompt.
       const subject = watchSubject();
-      if (!subject || !sessionId) return;
+      if (!subject || !sessionId) {
+        toast.info("Search the footage first", {
+          description:
+            "The live camera search looks for the subject of your latest search: describe the person or add a photo.",
+        });
+        return;
+      }
       // Without a photo, show the first confirmed sighting as the subject.
       await useWatchStore.getState().start(
         {
@@ -346,6 +556,9 @@ export const useInvestigationStore = create<InvestigationState>()((
     async submitReview(turnId, verdicts, opts) {
       if (get().busy || turnId !== latestGridId(get().turns)) return;
       const { confirm, reject } = splitVerdicts(verdicts);
+      // Marked sent up front so this run's context already has the new
+      // route; rolled back if Hermes never accepts the run.
+      const prev = get().reviews[turnId];
       set((s) => ({
         reviews: { ...s.reviews, [turnId]: { verdicts, sent: verdicts } },
       }));
@@ -363,15 +576,32 @@ export const useInvestigationStore = create<InvestigationState>()((
         }),
         createdAt: Date.now(),
       };
-      await run(op, runningPhase("feedback", confirm.length > 0));
+      const started = await run(
+        op,
+        runningPhase("feedback", confirm.length > 0),
+      );
+      if (!started)
+        set((s) => ({
+          reviews: {
+            ...s.reviews,
+            [turnId]: { verdicts, ...(prev?.sent && { sent: prev.sent }) },
+          },
+        }));
     },
 
     async retry(agentTurnId) {
       const turns = get().turns;
       const i = turns.findIndex((t) => t.id === agentTurnId);
+      const turn = turns[i];
       const op = turns[i - 1];
+      // Only the latest streamed reply: retrying an older one would reorder
+      // the transcript, and a restored one is already in the Hermes session.
+      if (i !== turns.length - 1 || turn?.role !== "agent" || turn.replayed)
+        return;
       if (i < 1 || !op || op.role !== "operator") return;
-      set({ turns: turns.filter((_, k) => k !== i && k !== i - 1) });
+      const reviews = { ...get().reviews };
+      delete reviews[agentTurnId];
+      set({ turns: turns.slice(0, i - 1), reviews });
       await run(
         { ...op, id: uid("op"), createdAt: Date.now() },
         runningPhase(op.kind, confirmsSightings(op)),
@@ -383,38 +613,22 @@ export const useInvestigationStore = create<InvestigationState>()((
     },
 
     async stop() {
-      const runId = get().activeRunId;
-      if (!runId) return;
+      if (!get().busy || get().stopping) return;
       set({ stopping: true });
-      try {
-        await getAdapters().hermes.stopRun(runId);
-      } catch {
-        // Release the UI now, but don't claim Hermes cancelled the run.
-        set((s) => ({
-          turns: s.turns.map((t) =>
-            t.role === "agent" && t.runId === runId
-              ? {
-                  ...t,
-                  status: "failed",
-                  error:
-                    "Couldn't stop Argus on Hermes. The run may still be finishing in the background.",
-                }
-              : t,
-          ),
-        }));
-        controller?.abort();
-        return;
-      }
-      // If Hermes never confirms the cancel, release the UI anyway.
-      const pending = controller;
-      setTimeout(() => {
-        if (get().activeRunId === runId) pending?.abort();
-      }, 4000);
+      const runId = get().activeRunId;
+      // Without a run id yet, run() stops the run as soon as it has one.
+      if (runId) await requestStop(runId);
     },
 
     reset() {
+      loadToken++;
       controller?.abort();
+      const watching = isWatchActive(useWatchStore.getState());
       useWatchStore.getState().clear();
+      if (watching)
+        toast.info("Live search stopped", {
+          description: "It belonged to the investigation you left.",
+        });
       set({
         sessionId: undefined,
         title: undefined,
@@ -423,6 +637,7 @@ export const useInvestigationStore = create<InvestigationState>()((
         activeRunId: undefined,
         busy: false,
         stopping: false,
+        loadingSession: false,
         reviews: {},
       });
     },
@@ -430,24 +645,33 @@ export const useInvestigationStore = create<InvestigationState>()((
     async resume(sessionId) {
       if (get().busy || get().sessionId === sessionId) return;
       get().reset();
+      const mine = ++loadToken;
       set({ loadingSession: true, sessionId });
       try {
         const { hermes } = getAdapters();
-        const [messages, sessions] = await Promise.all([
+        const [messages, session] = await Promise.all([
           hermes.getMessages(sessionId),
-          hermes.listSessions(100),
+          hermes.getSession(sessionId),
         ]);
+        // Another investigation was opened meanwhile: drop this response.
+        if (mine !== loadToken) return;
         const turns = turnsFromMessages(messages);
         const reviews = reviewsFromTurns(turns);
-        const session = sessions.find((s) => s.id === sessionId);
         set({
           turns,
           phase: phaseFromTurns(turns),
-          title: session?.title.replace(env.sessionPrefix, "") ?? sessionId,
+          title: session.title.startsWith(env.sessionPrefix)
+            ? session.title.slice(env.sessionPrefix.length)
+            : session.title,
           reviews,
         });
+        // Still loading, so nothing can be sent before this check is done.
+        await reattach(sessionId, mine);
+      } catch (e) {
+        if (mine !== loadToken) return;
+        throw e;
       } finally {
-        set({ loadingSession: false });
+        if (mine === loadToken) set({ loadingSession: false });
       }
     },
   };

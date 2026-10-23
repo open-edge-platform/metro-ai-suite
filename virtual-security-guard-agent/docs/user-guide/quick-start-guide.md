@@ -5,9 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 
 # Quick Start Guide
 
-The shortest path to a running console. It assumes VSS is running, Hermes is
-[set up with OVMS](./get-started/set-up-hermes.md), the
-[Argus skills are installed](./get-started/install-hermes-skills.md), and
+The shortest path to a running console. It assumes VSS and Hermes are
+[set up](./get-started/set-up-prerequisite-stack.md), the
+[Argus skills are installed](./get-started/set-up-prerequisite-stack.md#5-install-the-argus-skills), and
 Docker and GNU Make are available. For the full setup, see
 [Get Started](./get-started.md).
 
@@ -23,8 +23,7 @@ cp deploy/.env.example deploy/.env
 ## 2. Start
 
 ```bash
-make build
-make up
+make up    # pulls the image from deploy/.env, or builds it if none exists
 ```
 
 ## 3. Search

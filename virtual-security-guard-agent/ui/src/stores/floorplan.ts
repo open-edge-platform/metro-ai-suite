@@ -3,6 +3,8 @@
 import { create } from "zustand";
 import type { Unavailable } from "@/protocol/instructions";
 import { persist } from "zustand/middleware";
+import { persistStorage } from "@/lib/storage";
+import { uid } from "@/lib/utils";
 import { freePlanTags, planCamera } from "@/features/map/tags";
 import {
   floorplanSchema,
@@ -14,6 +16,7 @@ import {
 export const DEFAULT_FLOORPLAN_URL = "/floorplan.json";
 
 const EMPTY_PLAN: Floorplan = { cameras: {} };
+const FLOORPLAN_STORAGE_KEY = "vsg.floorplan.v1";
 
 interface FloorplanState {
   plan: Floorplan;
@@ -25,7 +28,13 @@ interface FloorplanState {
   defaultError?: string;
   /** A saved upload that no longer validates; shown once, then cleared. */
   discardedUpload?: string;
-  setPlan: (plan: Floorplan, fileName?: string) => void;
+  /** Marks the current upload in storage, to check that it was saved. */
+  uploadId?: string;
+  /**
+   * Use an uploaded plan. Returns false when it couldn't be saved in the
+   * browser (storage full): it is shown now but gone after a reload.
+   */
+  setPlan: (plan: Floorplan, fileName?: string) => boolean;
   reset: () => void;
 }
 
@@ -41,7 +50,14 @@ export const useFloorplanStore = create<FloorplanState>()(
       plan: EMPTY_PLAN,
       source: "default",
       defaultStatus: "loading",
-      setPlan: (plan, fileName) => set({ plan, source: "upload", fileName }),
+      setPlan: (plan, fileName) => {
+        const uploadId = uid("plan");
+        set({ plan, source: "upload", fileName, uploadId });
+        // persistStorage swallows a quota error, so read the write back.
+        return !!localStorage
+          .getItem(FLOORPLAN_STORAGE_KEY)
+          ?.includes(`"uploadId":"${uploadId}"`);
+      },
       reset: () =>
         set({
           plan: get().defaultPlan ?? EMPTY_PLAN,
@@ -50,9 +66,10 @@ export const useFloorplanStore = create<FloorplanState>()(
         }),
     }),
     {
-      name: "vsg.floorplan.v1",
-      partialize: ({ plan, source, fileName }) =>
-        source === "upload" ? { plan, source, fileName } : { source },
+      name: FLOORPLAN_STORAGE_KEY,
+      storage: persistStorage(),
+      partialize: ({ plan, source, fileName, uploadId }) =>
+        source === "upload" ? { plan, source, fileName, uploadId } : { source },
       merge: (persisted, current) => {
         const p = persisted as Partial<FloorplanState> | undefined;
         const parsed =

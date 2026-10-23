@@ -17,7 +17,7 @@ export function HitThumb({
   children?: React.ReactNode;
   alt: string;
 }) {
-  const thumb = useThumbnail(hit);
+  const { thumb, onImageError } = useThumbnail(hit);
   return (
     <div
       className={cn(
@@ -31,6 +31,7 @@ export function HitThumb({
           alt={alt}
           className="absolute inset-0 size-full object-cover"
           draggable={false}
+          onError={onImageError}
         />
       )}
       {thumb.status === "loading" && (

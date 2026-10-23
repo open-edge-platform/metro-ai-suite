@@ -31,9 +31,8 @@ model mistakes (trailing commas, smart quotes).
    stores the run's `vss_search_video` result on the agent turn
    (`groundingForRun`); a failed read sets `groundError` and the grid offers
    Retry (`reground`).
-4. After the run the camera list is refreshed. The live search is never
-   offered by the store: the route card's button starts it
-   (`startWatch`).
+4. After the run the camera list is refreshed. The store never starts a live
+   search; only the route card's button does (`startWatch`).
 
 ## Session sightings
 
@@ -52,9 +51,18 @@ matches them to PDF rows. The PDF adds a Movement section from
 
 ## Live search
 
-- Started only by the operator's offer-card button. The UI uses
-  the original photo/prompt: `POST /vss/manager/search` + `PATCH
-  /vss/manager/search/:id/watch`. Argus never calls `vss_watch_search`.
-- Polls `GET /vss/manager/search/:id` every 10 s; shows the 4 highest-score
-  live hits; confirmed ones join the route. Stops on operator Stop, the
-  time limit (`watchMinutes`) or no new matches (`watchIdleMinutes`).
+- Started only by the operator, from the route card button. The UI uses the
+  current subject (latest searched image, else latest search prompt):
+  `POST /vss/manager/search` + `PATCH /vss/manager/search/:id/watch`. Argus
+  never calls `vss_watch_search`.
+- Polls `GET /vss/manager/search/:id` every 10 s (`POLL_MS` in
+  `stores/watch.ts`). Hits fold into per-camera sightings (60 s gap,
+  `SIGHTING_GAP_MS`) in `stores/liveTimeline.ts`, shown as a timeline. The
+  timeline is saved per Hermes session in browser storage (last 20 sessions)
+  and stays read-only after the watch ends.
+- Confirming a live sighting adds it to the route; there is no reject. The
+  map changes only on confirm.
+- Stops on operator Stop, the time limit (`watchMinutes`) or no new matches
+  (`watchIdleMinutes`).
+- Other `vsg-*` fences (such as the retired `vsg-track`) are dropped by the
+  parser.

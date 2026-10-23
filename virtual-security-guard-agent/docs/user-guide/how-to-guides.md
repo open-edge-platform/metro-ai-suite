@@ -10,7 +10,6 @@ This section collects task guides for the Virtual Security Guard Agent console.
 - [Investigate a Person](./how-to-guides/investigate-a-person.md)
 - [Configure the Floorplan](./how-to-guides/configure-floorplan.md)
 - [Manage Live Cameras](./how-to-guides/manage-live-cameras.md)
-- [Install the Hermes Skills](./get-started/install-hermes-skills.md)
 
 <!--hide_directive
 :::{toctree}

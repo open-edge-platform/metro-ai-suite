@@ -7,8 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Version 2026.3.0
 
-Virtual Security Guard Agent is a new sample application: an operator console for
-Argus, a Hermes security agent that searches recorded and live camera footage
+Virtual Security Guard Agent is a new sample application: A Hermes based security agent that searches recorded and live camera footage
 through Intel® Video Search and Summarization (VSS).
 
 **New**:

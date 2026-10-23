@@ -105,25 +105,42 @@ export function ValidationGrid({ data, turnId, interactive }: Props) {
 
   /** A frame was cropped and stored in VSS: search the footage for it. */
   function onCrop(image: { previewUrl: string; imageUrl: string }) {
+    const search = () =>
+      void send("Search for the person in this image.", { image });
+    // A run is streaming: the search can't start now, so let the operator
+    // start it once Argus is done instead of dropping it.
+    if (useInvestigationStore.getState().busy) {
+      toast.warning("Cropped person saved, but Argus is busy", {
+        description: "Search with the crop when Argus finishes.",
+        duration: Infinity,
+        action: {
+          label: "Search now",
+          onClick: () =>
+            useInvestigationStore.getState().busy ? onCrop(image) : search(),
+        },
+      });
+      return;
+    }
     toast.success("Cropped person saved to VSS", {
       description: "Searching the footage for that person…",
     });
-    void send("Search for the person in this image.", { image });
+    search();
   }
 
   /** Nothing confirmed yet and some matches are still hidden: show them first. */
-  const revealFirst = confirmed === 0 && total > shown.length;
+  const revealFirst = !sent && confirmed === 0 && total > shown.length;
 
   function save() {
     if (revealFirst) {
       setVisible(total);
       return;
     }
-    if (confirmed === 0) {
+    if (confirmed === 0 && !sent) {
       // Nothing matches: nothing is sent; the operator retries from the composer.
       setNoMatch(true);
       return;
     }
+    // A sent review is replaced, so unticking every match withdraws it.
     setNoMatch(false);
     void submit(next);
   }
@@ -303,9 +320,11 @@ export function ValidationGrid({ data, turnId, interactive }: Props) {
                   ? sent
                     ? `Update review (${confirmed} confirmed)`
                     : `Save ${confirmed} confirmed`
-                  : revealFirst
-                    ? `None match, show ${total - shown.length} more`
-                    : "None match"}
+                  : sent
+                    ? "Update review (none match)"
+                    : revealFirst
+                      ? `None match, show ${total - shown.length} more`
+                      : "None match"}
             </Button>
           )}
         </footer>

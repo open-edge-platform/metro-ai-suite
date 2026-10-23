@@ -10,6 +10,19 @@ export interface HermesSession {
   messageCount?: number;
 }
 
+/** One page of `GET /api/sessions` (most recently active first). */
+export interface HermesSessionPage {
+  sessions: HermesSession[];
+  hasMore: boolean;
+}
+
+/** `GET /v1/runs/{id}`: queued, running, stopping, completed, failed, ... */
+export interface HermesRunStatus {
+  status: string;
+  output?: string;
+  error?: string;
+}
+
 export interface HermesToolCall {
   id?: string;
   name: string;
@@ -52,7 +65,11 @@ export type RunEvent =
 export interface HermesAdapter {
   health(): Promise<boolean>;
   createSession(title: string): Promise<HermesSession>;
-  listSessions(limit?: number): Promise<HermesSession[]>;
+  listSessions(page?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<HermesSessionPage>;
+  getSession(sessionId: string): Promise<HermesSession>;
   getMessages(sessionId: string): Promise<HermesMessage[]>;
   deleteSession(sessionId: string): Promise<void>;
   startRun(req: StartRunRequest): Promise<{ runId: string }>;
@@ -62,6 +79,7 @@ export interface HermesAdapter {
     onEvent: (e: RunEvent) => void,
     signal?: AbortSignal,
   ): Promise<void>;
+  getRun(runId: string): Promise<HermesRunStatus>;
   stopRun(runId: string): Promise<void>;
 }
 

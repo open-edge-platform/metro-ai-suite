@@ -17,6 +17,7 @@ import {
   cropCanvas,
   mediaSize,
   meetsMinPx,
+  waitForFrame,
   type CropMedia,
   type UnitBox,
 } from "@/lib/crop";
@@ -56,6 +57,8 @@ export function CropTool({ mediaRef, onCrop, onCancel, saving }: Props) {
   const [box, setBox] = useState<UnitBox | null>(null);
   const [error, setError] = useState<string>();
   const drag = useRef<Drag | null>(null);
+  // Set until the crop is handed over; `saving` lags a render behind.
+  const capturing = useRef(false);
 
   // Track where the picture is drawn inside the media element.
   useEffect(() => {
@@ -140,12 +143,16 @@ export function CropTool({ mediaRef, onCrop, onCancel, saving }: Props) {
   const ready = natural.width > 0 && natural.height > 0;
   const big =
     !!box && ready && meetsMinPx(box, natural.width, natural.height, MIN_PX);
-  const tooSmall = !!box && box.w > 0 && box.h > 0 && !big;
+  const drawn = !!box && box.w > 0 && box.h > 0;
+  const tooSmall = drawn && ready && !big;
+  const notLoaded = drawn && !ready;
 
   async function save() {
     const m = mediaRef.current;
-    if (!m || !box || !big || saving) return;
+    if (!m || !box || !big || saving || capturing.current) return;
+    capturing.current = true;
     try {
+      await waitForFrame(m);
       const cut = cropCanvas(captureFrame(m), box);
       onCrop(await canvasToJpegBlob(cut, 0.92));
     } catch (e) {
@@ -155,11 +162,17 @@ export function CropTool({ mediaRef, onCrop, onCancel, saving }: Props) {
           ? "This clip can't be cropped (cross-origin video)."
           : (e as Error).message,
       );
+    } finally {
+      capturing.current = false;
     }
   }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Enter on a focused control (Cancel, Redo, Frame >) is that control's.
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.("button, a, input, textarea, select, [contenteditable]"))
+        return;
       if (e.key === "Enter") {
         e.preventDefault();
         void save();
@@ -221,6 +234,10 @@ export function CropTool({ mediaRef, onCrop, onCancel, saving }: Props) {
         {error ? (
           <span className="flex items-center gap-1 text-amber-300">
             <TriangleAlert className="size-3" /> {error}
+          </span>
+        ) : notLoaded ? (
+          <span className="flex items-center gap-1 text-amber-300">
+            <TriangleAlert className="size-3" /> The frame isn't loaded yet
           </span>
         ) : tooSmall ? (
           <span className="flex items-center gap-1 text-amber-300">

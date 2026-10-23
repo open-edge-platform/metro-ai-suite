@@ -150,7 +150,12 @@ export function MessageList({
                   <AgentTurnView
                     turn={t}
                     busy={busy}
-                    onRetry={() => onRetry(t.id)}
+                    // Only the latest streamed reply can be retried.
+                    onRetry={
+                      t === last && !t.replayed
+                        ? () => onRetry(t.id)
+                        : undefined
+                    }
                   />
                 )}
               </li>

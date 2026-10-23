@@ -49,4 +49,76 @@ describe("streamRun", () => {
       "2",
     );
   });
+
+  it("stops waiting to reconnect as soon as the run is aborted", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(droppingBody([])))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ status: "running" })),
+      );
+    vi.stubGlobal("fetch", fetch);
+    const ac = new AbortController();
+    const done = createHttpHermes("/h").streamRun("r1", () => {}, ac.signal);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    const t0 = Date.now();
+    ac.abort();
+    await done;
+    expect(Date.now() - t0).toBeLessThan(200);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports an interrupted run instead of reconnecting", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(droppingBody([])))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ status: "interrupted", error: "Gateway restarted" }),
+        ),
+      );
+    vi.stubGlobal("fetch", fetch);
+    const events: RunEvent[] = [];
+    await createHttpHermes("/h").streamRun("r1", (e) => events.push(e));
+    expect(events).toEqual([{ type: "failed", error: "Gateway restarted" }]);
+  });
+});
+
+describe("sessions", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("pages the session list with offset and has_more", async () => {
+    const fetch = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: [{ id: "s1", title: "VSG · a" }],
+          has_more: true,
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const page = await createHttpHermes("/h").listSessions({
+      limit: 100,
+      offset: 200,
+    });
+    expect(fetch.mock.calls[0][0]).toBe("/h/api/sessions?limit=100&offset=200");
+    expect(page).toEqual({
+      sessions: [expect.objectContaining({ id: "s1", title: "VSG · a" })],
+      hasMore: true,
+    });
+  });
+
+  it("reads one session's title from GET /api/sessions/{id}", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ session: { id: "s 1", title: "VSG · lobby" } }),
+        ),
+      );
+    vi.stubGlobal("fetch", fetch);
+    const s = await createHttpHermes("/h").getSession("s 1");
+    expect(fetch.mock.calls[0][0]).toBe("/h/api/sessions/s%201");
+    expect(s.title).toBe("VSG · lobby");
+  });
 });

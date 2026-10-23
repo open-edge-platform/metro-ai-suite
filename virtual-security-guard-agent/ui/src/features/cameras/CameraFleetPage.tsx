@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Cctv, Loader2, Plus, RefreshCw, Search } from "lucide-react";
 import { toast } from "sonner";
 import type { StreamInput } from "@/adapters/vss/types";
@@ -17,6 +17,7 @@ import {
 import { CameraCard } from "./CameraCard";
 import { STATUS_META } from "./status";
 import { CameraFormDialog } from "./CameraFormDialog";
+import { useLastDefined } from "./useLastDefined";
 import { useFloorplanStore, zoneOf } from "@/stores/floorplan";
 
 /** Live cameras: the RTSP streams VSS is ingesting, with add/edit/pause/remove. */
@@ -27,6 +28,9 @@ export function CameraFleetPage() {
   const [editing, setEditing] = useState<Camera | "new">();
   const [deleting, setDeleting] = useState<Camera>();
   const [refreshing, setRefreshing] = useState(false);
+  /** Cameras with a pause/resume request in flight. */
+  const toggling = useRef(new Set<string>());
+  const removing = useLastDefined(deleting);
 
   useCameraPolling();
 
@@ -68,6 +72,9 @@ export function CameraFleetPage() {
   }
 
   async function togglePause(c: Camera) {
+    // A second click before VSS answers would send the same change twice.
+    if (toggling.current.has(c.streamId)) return;
+    toggling.current.add(c.streamId);
     const state = c.status === "paused" ? "running" : "paused";
     try {
       await update(c.streamId, { state });
@@ -78,6 +85,8 @@ export function CameraFleetPage() {
       toast.error("Couldn't change the camera", {
         description: (e as Error).message,
       });
+    } finally {
+      toggling.current.delete(c.streamId);
     }
   }
 
@@ -188,7 +197,7 @@ export function CameraFleetPage() {
       <ConfirmDialog
         open={!!deleting}
         onOpenChange={(o) => !o && setDeleting(undefined)}
-        title={`Remove ${deleting?.tag}?`}
+        title={`Remove ${removing?.tag}?`}
         description="VSS stops ingesting this RTSP stream. Footage and embeddings already indexed stay searchable."
         action="Remove camera"
         errorTitle="Couldn't remove the camera"

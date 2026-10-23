@@ -53,28 +53,36 @@ export function ClipPlayerDialog({
   const location = useCameraLocation(hit?.cameraTag, camera?.location);
   const [cropping, setCropping] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Synchronous twins of `saving`: a second Enter lands before the re-render,
+  // and Back / close during the upload must drop its result.
+  const inFlight = useRef(false);
+  const attempt = useRef(0);
+  const [failedUrl, setFailedUrl] = useState<string>();
+  const clipFailed = !!hit?.playbackUrl && failedUrl === hit.playbackUrl;
+  const playable = !!hit?.playbackUrl && !clipFailed;
   const at = hit ? hitTime(hit) : undefined;
   const name = hit ? hitCameraLabel(hit) : "";
-  const canCrop =
-    !!onCropSearch && !!hit && !!(hit.playbackUrl || hit.posterUrl);
-
-  /** Reset local crop state and close the dialog. */
-  const close = () => {
-    setCropping(false);
-    setSaving(false);
-    onOpenChange(false);
-  };
+  const canCrop = !!onCropSearch && !!hit && (playable || !!hit.posterUrl);
 
   /** Abort the crop and go back to the clip (the dialog stays open). */
   const backToClip = () => {
+    attempt.current++;
+    inFlight.current = false;
     setCropping(false);
     setSaving(false);
+  };
+
+  /** Reset local crop state and close the dialog. */
+  const close = () => {
+    backToClip();
+    onOpenChange(false);
   };
 
   /** Freeze the frame on screen and open the snipping overlay over it. */
   function startCrop() {
     video.current?.pause();
-    if (video.current) media.current = video.current;
+    // The still (poster) registers itself when it mounts.
+    media.current = video.current;
     setCropping(true);
   }
 
@@ -88,23 +96,30 @@ export function ClipPlayerDialog({
 
   /** Cut the crop out of the frame, save it to VSS and hand it to the caller. */
   async function onCrop(blob: Blob) {
-    if (!onCropSearch || saving) return;
+    if (!onCropSearch || inFlight.current) return;
+    inFlight.current = true;
+    const mine = ++attempt.current;
     setSaving(true);
     try {
       const file = new File([blob], "subject.jpg", { type: "image/jpeg" });
       const { blob: enc, name: fname } = await prepareSearchImage(file);
       const uploaded = await getAdapters().vss.uploadImage(enc, fname);
+      if (mine !== attempt.current) return;
       onCropSearch({
-        previewUrl: URL.createObjectURL(enc),
+        previewUrl: uploaded.previewUrl,
         imageUrl: uploaded.imageUrl,
       });
       close();
     } catch (e) {
+      if (mine !== attempt.current) return;
       toast.error("Couldn't save the crop to VSS", {
         description: (e as Error).message,
       });
     } finally {
-      setSaving(false);
+      if (mine === attempt.current) {
+        inFlight.current = false;
+        setSaving(false);
+      }
     }
   }
 
@@ -123,7 +138,7 @@ export function ClipPlayerDialog({
         {hit && (
           <>
             <div className="relative bg-black">
-              {hit.playbackUrl ? (
+              {playable && hit.playbackUrl ? (
                 <video
                   ref={video}
                   key={hit.playbackUrl}
@@ -136,6 +151,11 @@ export function ClipPlayerDialog({
                   className="block max-h-[75vh] min-h-[40vh] w-full object-contain"
                   onLoadedMetadata={() => {
                     if (video.current) video.current.currentTime = hit.seekS;
+                  }}
+                  onError={() => {
+                    setFailedUrl(hit.playbackUrl);
+                    // Crop from the still instead, if there is one.
+                    if (!hit.posterUrl) setCropping(false);
                   }}
                 />
               ) : cropping && hit.posterUrl ? (
@@ -156,13 +176,16 @@ export function ClipPlayerDialog({
                   className="w-full"
                 >
                   <span className="absolute bottom-2 left-2 bg-black/60 px-2 py-0.5 text-xs text-white">
-                    Clip playback is not available in mock mode
+                    {clipFailed
+                      ? "The clip failed to load"
+                      : "Clip playback is not available in mock mode"}
                   </span>
                 </HitThumb>
               )}
               {cropping && (
                 <CropTool
-                  key={hit.matchId}
+                  // Remount when the clip fails over to the still.
+                  key={`${hit.matchId}:${playable}`}
                   mediaRef={media}
                   saving={saving}
                   onCrop={(b) => void onCrop(b)}
@@ -179,7 +202,7 @@ export function ClipPlayerDialog({
               </DialogTitle>
               <DialogDescription className="font-prose">
                 {cropping
-                  ? "Drag a rectangle around the person, save the crop to VSS, and Argus searches the footage for that person."
+                  ? `${clipFailed ? "The clip failed to load, so this is the still frame. " : ""}Drag a rectangle around the person, save the crop to VSS, and Argus searches the footage for that person.`
                   : at
                     ? `${formatDateTime(at)}, ${formatClock(at)}. Segment ${formatOffset(hit.startS)} to ${formatOffset(hit.endS)} of ${hit.videoName ?? hit.videoId}. Relevance ${Math.round(hit.score * 100)}%.${location ? ` Location: ${location}.` : ""}`
                     : `Time unknown. Segment ${formatOffset(hit.startS)} to ${formatOffset(hit.endS)} of ${hit.videoName ?? hit.videoId}. Relevance ${Math.round(hit.score * 100)}%.`}
@@ -191,7 +214,7 @@ export function ClipPlayerDialog({
               </span>
               {cropping ? (
                 <div className="flex flex-wrap gap-2">
-                  {hit.playbackUrl && (
+                  {playable && (
                     <>
                       <Button
                         variant="outline"

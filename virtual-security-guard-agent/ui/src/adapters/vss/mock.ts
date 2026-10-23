@@ -134,5 +134,8 @@ export function createMockVss(): VssAdapter {
     async setWatch(queryId, watch) {
       if (!watch) watches.delete(queryId);
     },
+    unwatchOnUnload(queryId) {
+      watches.delete(queryId);
+    },
   };
 }

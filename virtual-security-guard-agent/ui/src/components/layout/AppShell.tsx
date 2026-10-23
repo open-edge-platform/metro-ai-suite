@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { matchPath, Outlet, useLocation } from "react-router";
 import { ChevronRight, Moon, Sun } from "lucide-react";
-import { useTheme } from "next-themes";
+import { useTheme } from "./theme";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -32,7 +32,7 @@ function usePageTitle() {
 
 /** ViPPET-style shell: icon-collapsible sidebar, 60px header, content area. */
 export function AppShell() {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { pathname } = useLocation();
   const title = usePageTitle();
   const investigation = useInvestigationStore((s) => s.title);
@@ -95,14 +95,12 @@ export function AppShell() {
               </div>
               <div className="flex items-center gap-2 px-4">
                 <Button
-                  onClick={() =>
-                    setTheme(resolvedTheme === "dark" ? "light" : "dark")
-                  }
+                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                   aria-label="Toggle theme"
                   variant="ghost"
                   size="icon"
                 >
-                  {resolvedTheme === "dark" ? (
+                  {theme === "dark" ? (
                     <Sun className="size-5" />
                   ) : (
                     <Moon className="size-5" />

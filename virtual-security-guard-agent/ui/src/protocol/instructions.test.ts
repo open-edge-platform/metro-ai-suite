@@ -40,4 +40,14 @@ describe("buildInstructions", () => {
       "cameras (no live camera yet): unavailable (HTTP 404)",
     );
   });
+
+  it("shows every block example on its own lines, never inline", () => {
+    const text = buildInstructions(base);
+    expect(text).toContain('```vsg-status\n{"v":1,"phase"');
+    expect(text).not.toMatch(/```vsg-[a-z-]+ \{/);
+  });
+
+  it("gives a single concrete phase, not a pipe-separated template", () => {
+    expect(buildInstructions(base)).not.toContain("search|validate");
+  });
 });

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getAdapters } from "@/adapters";
 import { SpatialMap } from "@/features/map/SpatialMap";
 import { planSize } from "@/features/map/geometry";
+import { stopNumbers } from "@/features/map/route";
 import { getThumbnail, toDataUrl } from "@/lib/thumbnails";
 import { svgToPng } from "@/lib/svgRaster";
 import { uid } from "@/lib/utils";
@@ -20,13 +21,31 @@ export interface GenerateArgs {
   sessionId?: string;
 }
 
+/** Thumbnails fetched for the PDF; later sightings are listed without one. */
+const THUMB_LIMIT = 24;
+
+/**
+ * An image jsPDF can embed: PNG or JPEG as a data URL. Other types (WebP,
+ * GIF, SVG) are redrawn through a canvas as PNG.
+ */
+async function pdfImage(src: string): Promise<string> {
+  const data = await toDataUrl(src);
+  if (/^data:image\/(png|jpe?g)[;,]/i.test(data)) return data;
+  const img = new Image();
+  img.src = data;
+  await img.decode();
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  canvas.getContext("2d")!.drawImage(img, 0, 0);
+  return canvas.toDataURL("image/png");
+}
+
 async function stopThumb(s: TraceStop): Promise<string | undefined> {
   try {
-    if (s.hit.posterUrl) return await toDataUrl(s.hit.posterUrl);
+    if (s.hit.posterUrl) return await pdfImage(s.hit.posterUrl);
     if (s.hit.playbackUrl)
-      return await toDataUrl(
-        await getThumbnail(s.hit.playbackUrl, s.hit.seekS),
-      );
+      return await pdfImage(await getThumbnail(s.hit.playbackUrl, s.hit.seekS));
   } catch {
     // a missing frame should not block the report
   }
@@ -61,22 +80,34 @@ export function useReportGenerator() {
       setBusy(true);
       try {
         let mapPng: string | undefined;
+        let mapError: string | undefined;
         if (args.stops.length) {
           const el = await new Promise<SVGSVGElement | null>((resolve) => {
             waiting.current = resolve;
             setJob(args.stops);
           });
-          if (el) mapPng = await svgToPng(el).catch(() => undefined);
+          try {
+            if (!el) throw new Error("the map did not render");
+            mapPng = await svgToPng(el);
+          } catch (e) {
+            mapError = (e as Error).message;
+          }
           setJob(undefined);
         }
         const thumbs: Record<number, string> = {};
-        for (const s of args.stops.slice(0, 24)) {
+        for (const s of args.stops.slice(0, THUMB_LIMIT)) {
           const t = await stopThumb(s);
           if (t) thumbs[s.order] = t;
         }
-        const subjectImage = args.subjectImage
-          ? await toDataUrl(args.subjectImage).catch(() => undefined)
-          : undefined;
+        let subjectImage: string | undefined;
+        let subjectImageError: string | undefined;
+        if (args.subjectImage) {
+          try {
+            subjectImage = await pdfImage(args.subjectImage);
+          } catch (e) {
+            subjectImageError = (e as Error).message || "image did not load";
+          }
+        }
         const size = planSize(plan);
         const at = new Date();
         // jsPDF is large; load it only when a report is actually generated.
@@ -84,10 +115,14 @@ export function useReportGenerator() {
         const doc = buildReportPdf({
           report: args.report,
           stops: args.stops,
+          numbers: stopNumbers(args.stops, plan),
           thumbs,
+          thumbLimit: THUMB_LIMIT,
           subjectImage,
+          subjectImageError,
           mapPng,
           mapAspect: size.height / size.width,
+          mapError,
           sessionId: getAdapters().mock ? undefined : args.sessionId,
           generatedAt: at,
         });

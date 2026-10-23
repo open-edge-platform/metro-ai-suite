@@ -49,8 +49,8 @@ Coordinates are SVG units, origin top-left, `y` pointing down.
 
 | Field | Required | Meaning |
 |---|---|---|
-| `cameras.<key>` | yes | One entry per camera. The key is the camera's name and its VSS tag, for example `P_Lev_4_Main_Entry_ip_54`. |
-| `cameras.<key>.x`, `.y` | yes | Camera position. |
+| `cameras.<key>` | yes | One entry per camera. The key is the camera's name and its VSS tag, for example `P_Lev_4_Main_Entry_ip_54`. Use only letters, digits, `_` and `-` (at most 128 characters). |
+| `cameras.<key>.x`, `.y` | yes | Camera position. Must not be negative, and must lie on the canvas when `canvas` is set. |
 | `cameras.<key>.zone` | no | Zone name shown on the map and in reports. |
 | `cameras.<key>.fov_angle` | no | Field-of-view width in degrees (1–360). |
 | `cameras.<key>.heading` | no | Viewing direction in degrees: `0` = right/east, `90` = down/south. |
@@ -58,7 +58,7 @@ Coordinates are SVG units, origin top-left, `y` pointing down.
 | `name` | no | Plan name. |
 | `canvas` | no | `{ "width": …, "height": … }`. |
 | `background` | no | `data:image/…` URI or a same-origin path. Remote URLs are rejected. |
-| `zones` | no | `[{ "name": …, "rect": {x,y,w,h} }]` or `points` polygons; `outdoor: true` draws a dashed outline. |
+| `zones` | no | `[{ "name": …, "rect": {x,y,w,h} }]` or `points` polygons; `outdoor: true` draws a dashed outline. Zone names must be unique. |
 | `walls` | no | List of polylines `[[x,y], [x,y], …]`. |
 
 Plans are limited to 5 MB.

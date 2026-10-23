@@ -13,8 +13,10 @@ export type Segment =
   | { kind: "invalid"; fence: string; raw: string; error: string }
   | { kind: "pending"; fence: string };
 
-const FENCE_RE = /```[ \t]*(vsg-[a-z-]+)[^\n]*\n([\s\S]*?)```/g;
-const OPEN_FENCE_RE = /```[ \t]*(vsg-[a-z-]*)[^\n]*(\n[\s\S]*)?$/;
+/** A vsg-* fence opener; the name may still be incomplete while streaming. */
+const OPEN_RE = /```[ \t]*(vsg-[a-z-]*)/g;
+/** A ``` that opens the next vsg-* block rather than closing this one. */
+const OPENER_AT = /^```[ \t]*vsg-/;
 
 /**
  * JSON.parse with the repairs small models most often need: smart quotes,
@@ -83,12 +85,38 @@ function pushText(out: Segment[], text: string) {
 }
 
 /**
+ * End (exclusive) of the JSON object that starts at the first non-blank
+ * character at or after `from`, or -1 if there is none before `limit`.
+ */
+function jsonEnd(s: string, from: number, limit: number): number {
+  const a = s.slice(from, limit).search(/\S/);
+  if (a < 0 || s[from + a] !== "{") return -1;
+  let depth = 0;
+  let str = false;
+  let esc = false;
+  for (let i = from + a; i < limit; i++) {
+    const c = s[i];
+    if (str) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') str = false;
+    } else if (c === '"') str = true;
+    else if (c === "{") depth++;
+    else if (c === "}" && --depth === 0) return i + 1;
+  }
+  return -1;
+}
+
+/**
  * Split agent content into prose and directive segments.
  * - Known vsg-* fences are validated; failures become "invalid" segments (rendered
  *   as a "couldn't render" chip with the raw block).
  * - Unknown vsg-* fences (e.g. reserved vsg-tick) are dropped.
- * - While streaming, an unterminated vsg-* fence becomes a "pending" segment so raw
- *   JSON never flashes on screen.
+ * - The body may start on the fence line (```vsg-status {...}```).
+ * - While streaming, an unterminated vsg-* fence at the end becomes a "pending"
+ *   segment so raw JSON never flashes on screen.
+ * - A block that is never closed ends at its JSON object (or at the next vsg-*
+ *   fence), so the prose after it still shows.
  */
 export function parseAgentText(
   text: string,
@@ -98,28 +126,56 @@ export function parseAgentText(
   const src = stripThinking(text ?? "", streaming);
   const out: Segment[] = [];
   let last = 0;
-  for (const m of src.matchAll(FENCE_RE)) {
-    const idx = m.index ?? 0;
-    pushText(out, src.slice(last, idx));
-    const seg = parseBlock(m[1], m[2]);
-    if (seg.kind !== "text") out.push(seg);
-    last = idx + m[0].length;
-  }
-  let rest = src.slice(last);
-  const open = OPEN_FENCE_RE.exec(rest);
-  if (open) {
-    pushText(out, rest.slice(0, open.index));
-    const fence = open[1] || "vsg-";
-    if (streaming) out.push({ kind: "pending", fence });
-    else if (isKnownFence(fence))
+  for (;;) {
+    OPEN_RE.lastIndex = last;
+    const m = OPEN_RE.exec(src);
+    if (!m) break;
+    pushText(out, src.slice(last, m.index));
+    const fence = m[1];
+    const head = m.index + m[0].length;
+    // The rest of the fence line: an info string, or the body itself.
+    const nl = src.indexOf("\n", head);
+    const lineEnd = nl < 0 ? src.length : nl;
+    const sameLine = src.indexOf("```", head);
+    if (sameLine >= 0 && sameLine < lineEnd) {
+      const seg = parseBlock(fence, src.slice(head, sameLine));
+      if (seg.kind !== "text") out.push(seg);
+      last = sameLine + 3;
+      continue;
+    }
+    const line = src.slice(head, lineEnd);
+    const lead = line.trim().startsWith("{") ? line : "";
+    const close = nl < 0 ? -1 : src.indexOf("```", nl);
+    if (close >= 0 && !OPENER_AT.test(src.slice(close))) {
+      const seg = parseBlock(fence, lead + src.slice(nl, close));
+      if (seg.kind !== "text") out.push(seg);
+      last = close + 3;
+      continue;
+    }
+    // Never closed. `close`, if any, opens the next vsg-* block.
+    const limit = close >= 0 ? close : src.length;
+    if (streaming && close < 0) {
+      out.push({ kind: "pending", fence: fence || "vsg-" });
+      return out;
+    }
+    const bodyStart = lead ? head : lineEnd;
+    const end = jsonEnd(src, bodyStart, limit);
+    if (end >= 0) {
+      const seg = parseBlock(fence, src.slice(bodyStart, end));
+      if (seg.kind !== "text") out.push(seg);
+      last = end;
+      continue;
+    }
+    if (isKnownFence(fence))
       out.push({
         kind: "invalid",
         fence,
-        raw: (open[2] ?? "").trim(),
+        raw: src.slice(bodyStart, limit).trim(),
         error: "Block was not closed",
       });
-    return out;
+    last = limit;
   }
+  let rest = src.slice(last);
   if (streaming) rest = rest.replace(/`{1,3}[a-z-]*$/, "");
   pushText(out, rest);
   return out;

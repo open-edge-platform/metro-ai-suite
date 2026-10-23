@@ -174,7 +174,9 @@ server {
     location = /vss/manager/frames {
         limit_except GET { deny all; }
         include /etc/nginx/conf.d/vss-proxy.inc;
-        add_header Cache-Control "private, max-age=3600" always;
+        # Replace VSS's no-store so thumbnails are cached; errors are not.
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "private, max-age=3600";
         include /etc/nginx/vsg/security-headers.conf;
     }
 

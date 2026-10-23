@@ -22,6 +22,10 @@ export interface ZoneShape {
 
 const PAD = 80;
 
+// Loops, not Math.min(...xs): spreading a huge plan overflows the call stack.
+const minOf = (xs: number[]) => xs.reduce((a, b) => Math.min(a, b), Infinity);
+const maxOf = (xs: number[]) => xs.reduce((a, b) => Math.max(a, b), -Infinity);
+
 /** Explicit canvas, or the camera bounding box plus padding. */
 export function planSize(plan: Floorplan): Size {
   if (plan.canvas) return plan.canvas;
@@ -34,14 +38,14 @@ export function planSize(plan: Floorplan): Size {
         : [],
   );
   const maxX = Math.max(
-    ...cams.map((c) => c.x),
-    ...zonePts.map((p) => p[0]),
     0,
+    maxOf(cams.map((c) => c.x)),
+    maxOf(zonePts.map((p) => p[0])),
   );
   const maxY = Math.max(
-    ...cams.map((c) => c.y),
-    ...zonePts.map((p) => p[1]),
     0,
+    maxOf(cams.map((c) => c.y)),
+    maxOf(zonePts.map((p) => p[1])),
   );
   return {
     width: Math.max(640, Math.ceil(maxX + PAD)),
@@ -91,8 +95,8 @@ export function zoneShapes(plan: Floorplan, size: Size): ZoneShape[] {
         const d =
           z.points.map((p, i) => `${i ? "L" : "M"}${p[0]} ${p[1]}`).join(" ") +
           " Z";
-        const minX = Math.min(...z.points.map((p) => p[0]));
-        const minY = Math.min(...z.points.map((p) => p[1]));
+        const minX = minOf(z.points.map((p) => p[0]));
+        const minY = minOf(z.points.map((p) => p[1]));
         return [
           {
             name: z.name,
@@ -121,10 +125,10 @@ export function zoneShapes(plan: Floorplan, size: Size): ZoneShape[] {
   }
   const pad = 56;
   return [...groups.entries()].map(([name, cams]) => {
-    const minX = Math.min(...cams.map((c) => c.x)) - pad;
-    const minY = Math.min(...cams.map((c) => c.y)) - pad;
-    const maxX = Math.max(...cams.map((c) => c.x)) + pad;
-    const maxY = Math.max(...cams.map((c) => c.y)) + pad;
+    const minX = minOf(cams.map((c) => c.x)) - pad;
+    const minY = minOf(cams.map((c) => c.y)) - pad;
+    const maxX = maxOf(cams.map((c) => c.x)) + pad;
+    const maxY = maxOf(cams.map((c) => c.y)) + pad;
     const r: Rect = {
       x: Math.max(8, minX),
       y: Math.max(8, minY),

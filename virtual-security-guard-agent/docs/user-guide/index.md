@@ -46,7 +46,6 @@ get-started.md
 quick-start-guide.md
 how-to-guides.md
 how-it-works.md
-api-reference.md
 known-issues.md
 Release Notes <release-notes.md>
 

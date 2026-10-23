@@ -14,8 +14,10 @@ IMAGE       := $(REGISTRY)intel/vsg-ui:$(TAG)
 # Where `make install-skills` puts SOUL.md and the skills (run on the Hermes host).
 HERMES_HOME ?= $(HOME)/.hermes
 HERMES_SKILLS_DIR ?= $(HERMES_HOME)/skills/security
+# `make up` takes REGISTRY and TAG from deploy/.env unless they are given on the command line.
+UP_ENV      := $(if $(filter command line,$(origin REGISTRY)),REGISTRY=$(REGISTRY)) $(if $(filter command line,$(origin TAG)),TAG=$(TAG))
 
-.PHONY: help install dev dev-mock lint format test e2e check build-ui build push up down logs install-skills clean
+.PHONY: help install dev dev-mock lint format test e2e check build-ui build push env up down logs install-skills clean
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -49,9 +51,22 @@ build: ## Build the container image ($(IMAGE))
 push: build ## Push the container image
 	docker push $(IMAGE)
 
-up: ## Start the UI with Docker Compose (needs deploy/.env)
+env: ## Create or update deploy/.env from deploy/.env.example (HERMES_BASE_URL=... HERMES_API_KEY=... VSS_BASE_URL=...)
+	@test -n "$(HERMES_BASE_URL)" -a -n "$(HERMES_API_KEY)" -a -n "$(VSS_BASE_URL)" || \
+		{ echo "Usage: make env HERMES_BASE_URL=http://<hermes-host-ip>:8642 HERMES_API_KEY=<key> VSS_BASE_URL=http://<vss-host>:12345"; exit 1; }
+	@src=deploy/.env.example; test ! -e deploy/.env || src=deploy/.env; \
+	umask 077 && sed -e 's|^HERMES_BASE_URL=.*|HERMES_BASE_URL=$(HERMES_BASE_URL)|' \
+		-e 's|^HERMES_API_KEY=.*|HERMES_API_KEY=$(HERMES_API_KEY)|' \
+		-e 's|^VSS_BASE_URL=.*|VSS_BASE_URL=$(VSS_BASE_URL)|' $$src > deploy/.env.tmp && mv deploy/.env.tmp deploy/.env
+	@echo "Wrote deploy/.env"
+
+up: ## Start the UI (needs deploy/.env): use the local image, else pull it, else build it
 	@test -f deploy/.env || { echo "Create deploy/.env from deploy/.env.example first."; exit 1; }
-	REGISTRY=$(REGISTRY) TAG=$(TAG) $(COMPOSE) up -d
+	@img="$$($(UP_ENV) $(COMPOSE) config --images vsg-ui)"; \
+	if docker image inspect "$$img" >/dev/null 2>&1; then echo "Using $$img"; \
+	elif $(UP_ENV) $(COMPOSE) pull --quiet vsg-ui 2>/dev/null; then echo "Pulled $$img"; \
+	else echo "$$img is not in a registry; building it"; $(UP_ENV) $(COMPOSE) build vsg-ui; fi
+	$(UP_ENV) $(COMPOSE) up -d
 
 down: ## Stop the UI
 	$(COMPOSE) down

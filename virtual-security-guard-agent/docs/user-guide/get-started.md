@@ -14,12 +14,8 @@ backend or database of its own.
 - A host that meets the [System Requirements](./get-started/system-requirements.md),
   with [Docker](https://docs.docker.com/engine/install/) (Compose plugin) and
   GNU Make (`sudo apt-get install -y make`).
-- A running **VSS** deployment with search, the VSS MCP server, and indexed
-  footage (recorded videos or live RTSP streams).
-- A **Hermes** agent server with the model served on OVMS, set up as
-  described in [Set Up Hermes and OVMS](./get-started/set-up-hermes.md): API
-  server enabled with an auth key, VSS MCP server registered, and Argus as the
-  only skill.
+- **VSS** in search mode and a **Hermes** agent server with Argus, set up as
+  described in [Set Up the Prerequisite Stack](./get-started/set-up-prerequisite-stack.md).
 
 ## Run the Application
 
@@ -36,9 +32,18 @@ All later commands run from this directory.
 
 ### 2. Create `deploy/.env`
 
+Pass the Hermes API server, its key from
+[Enable the API server](./get-started/set-up-prerequisite-stack.md#7-enable-the-api-server-and-start-the-gateway) and the VSS gateway.
+`make env` copies `deploy/.env.example` to `deploy/.env` with these values. If
+`deploy/.env` already exists, it updates these three values and keeps the rest:
+
 ```bash
-cp deploy/.env.example deploy/.env
+make env HERMES_BASE_URL=http://<hermes-host-ip>:8642 \
+         HERMES_API_KEY=<key> \
+         VSS_BASE_URL=http://<vss-host>:12345
 ```
+
+To change other settings, edit `deploy/.env`:
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -57,30 +62,17 @@ cp deploy/.env.example deploy/.env
 
 If your network uses a proxy, add the Hermes and VSS hosts to `no_proxy`.
 
-### 3. Install the Argus skills on the Hermes host
-
-On the Hermes host, install Argus and move every other Hermes skill aside:
+### 3. Start
 
 ```bash
-make install-skills INSTALL_ARGS=--exclusive
-hermes skills list   # only virtual-security-guard and vsg-incident-report
-```
-
-If you followed [Set Up Hermes and OVMS](./get-started/set-up-hermes.md), you
-already did this in its last step. See
-[Install the Hermes Skills](./get-started/install-hermes-skills.md).
-
-### 4. Build and start
-
-```bash
-make build
 make up
 ```
 
-`make up` starts the existing `intel/vsg-ui` image and does not rebuild it;
-run `make build` again after code changes. Follow logs with `make logs`.
+`make up` runs the image set by `REGISTRY` and `TAG` in `deploy/.env`. It uses
+the local image if present, else pulls it, else builds it from source. Follow
+logs with `make logs`.
 
-### 5. Check the connections
+### 4. Check the connections
 
 ```bash
 for u in /healthz /hermes/health /vss/manager/health; do
@@ -91,7 +83,7 @@ done
 All three must return `200`. The sidebar footer also shows **Hermes**
 and **VSS** as **Reachable**.
 
-### 6. Run a search
+### 5. Run a search
 
 Open `http://<HOST_IP>:12346/argus`, then:
 
@@ -106,7 +98,7 @@ Open `http://<HOST_IP>:12346/argus`, then:
 See [Investigate a Person](./how-to-guides/investigate-a-person.md) for the
 full walkthrough.
 
-### 7. Stop
+### 6. Stop
 
 ```bash
 make down
@@ -124,8 +116,7 @@ make down
 :hidden:
 
 ./get-started/system-requirements.md
-./get-started/set-up-hermes.md
-./get-started/install-hermes-skills.md
+./get-started/set-up-prerequisite-stack.md
 ./get-started/build-from-source.md
 ./get-started/run-unit-tests.md
 

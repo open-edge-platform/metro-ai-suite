@@ -13,24 +13,33 @@ import {
 import { movementLegs, type TraceStop } from "@/stores/case";
 import { PRESET_LABEL, type ReportContent } from "./content";
 import { cameraZone } from "@/stores/floorplan";
+import { pdfProse, toPdfText } from "./pdfText";
 
 /** "camera_1 (Lobby)": the hit's camera and, when on the plan, its zone. */
 function cameraWithZone(h: VssHit): string {
   const zone = cameraZone(h.cameraTag);
-  return `${hitCameraLabel(h)}${zone ? ` (${zone})` : ""}`;
+  return toPdfText(`${hitCameraLabel(h)}${zone ? ` (${zone})` : ""}`);
 }
 
 export interface ReportPdfInput {
   report: ReportContent;
   /** Ordered route (routeFromSightings). */
   stops: TraceStop[];
-  /** Thumbnail data URLs keyed by stop order. */
+  /** Map marker number by stop order (stopNumbers); off-plan stops have none. */
+  numbers?: Map<number, number>;
+  /** Thumbnail data URLs (PNG or JPEG) keyed by stop order. */
   thumbs?: Record<number, string>;
-  /** Subject reference image as a data URL. */
+  /** Only the first this-many stops had a thumbnail fetched. */
+  thumbLimit?: number;
+  /** Subject reference image as a PNG or JPEG data URL. */
   subjectImage?: string;
+  /** Why the subject image couldn't be included. */
+  subjectImageError?: string;
   /** Rasterised SpatialMap (PNG data URL). */
   mapPng?: string;
   mapAspect?: number;
+  /** Why the route map couldn't be drawn. */
+  mapError?: string;
   sessionId?: string;
   generatedAt?: Date;
 }
@@ -47,8 +56,15 @@ const PAGE_H = 297;
 const M = 16;
 const W = PAGE_W - 2 * M;
 
+/** Lowest y body text may reach before a page break. */
+const BOTTOM = PAGE_H - 18;
+const TOP = 18;
+
+/** jsPDF's built-in decoders; anything else must be converted first. */
 function imgFormat(dataUrl: string) {
-  return /^data:image\/png/i.test(dataUrl) ? "PNG" : "JPEG";
+  if (/^data:image\/png/i.test(dataUrl)) return "PNG";
+  if (/^data:image\/jpe?g/i.test(dataUrl)) return "JPEG";
+  throw new Error(`unsupported image type ${dataUrl.slice(5, 20)}`);
 }
 
 /**
@@ -64,11 +80,18 @@ export function buildReportPdf(input: ReportPdfInput): jsPDF {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   let y = 0;
 
+  /** Start a new page unless `h` mm still fit; true when it did. */
   const ensure = (h: number) => {
-    if (y + h > PAGE_H - 18) {
-      doc.addPage();
-      y = 18;
-    }
+    if (y + h <= BOTTOM) return false;
+    doc.addPage();
+    y = TOP;
+    return true;
+  };
+  /** Image size that keeps its aspect ratio inside maxW x maxH. */
+  const fit = (data: string, maxW: number, maxH: number) => {
+    const p = doc.getImageProperties(data);
+    const r = Math.min(maxW / p.width, maxH / p.height);
+    return { w: p.width * r, h: p.height * r };
   };
   const heading = (text: string) => {
     ensure(12);
@@ -88,7 +111,7 @@ export function buildReportPdf(input: ReportPdfInput): jsPDF {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(size);
     doc.setTextColor(...color);
-    const lines = doc.splitTextToSize(text.trim(), W) as string[];
+    const lines = doc.splitTextToSize(pdfProse(text).trim(), W) as string[];
     for (const line of lines) {
       ensure(5);
       doc.text(line, M, y);
@@ -100,11 +123,16 @@ export function buildReportPdf(input: ReportPdfInput): jsPDF {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(...INK);
-    for (const item of items.filter((i) => i.trim())) {
-      const lines = doc.splitTextToSize(item.trim(), W - 5) as string[];
+    doc.setFillColor(...INK);
+    for (const item of items.map((i) => pdfProse(i).trim()).filter(Boolean)) {
+      const lines = doc.splitTextToSize(
+        item.replace(/^- /, ""),
+        W - 5,
+      ) as string[];
       lines.forEach((line, i) => {
         ensure(5);
-        if (i === 0) doc.text("•", M + 1, y);
+        // A drawn dot: "•" is outside what the built-in font can encode.
+        if (i === 0) doc.circle(M + 1.8, y - 1.2, 0.6, "F");
         doc.text(line, M + 5, y);
         y += 4.5;
       });
@@ -134,7 +162,11 @@ export function buildReportPdf(input: ReportPdfInput): jsPDF {
   doc.setTextColor(...INK);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(17);
-  for (const line of doc.splitTextToSize(report.title, W) as string[]) {
+  for (const line of doc.splitTextToSize(
+    pdfProse(report.title),
+    W,
+  ) as string[]) {
+    ensure(7);
     doc.text(line, M, y);
     y += 7;
   }
@@ -146,106 +178,169 @@ export function buildReportPdf(input: ReportPdfInput): jsPDF {
     `${stops.length} verified sighting${stops.length === 1 ? "" : "s"}`,
     input.sessionId ? `Session ${input.sessionId}` : undefined,
   ].filter(Boolean);
-  doc.text(meta.join("    "), M, y);
+  doc.text(toPdfText(meta.join("    ")), M, y);
   y += 6;
 
   heading("Summary");
   paragraph(report.summary || "No summary provided.");
 
-  if (report.subject || input.subjectImage) {
+  if (report.subject || input.subjectImage || input.subjectImageError) {
     heading("Subject");
-    const imgW = input.subjectImage ? 34 : 0;
-    const startY = y;
+    let imgW = 0;
+    let imgBottom = y;
     if (input.subjectImage) {
-      ensure(imgW * 1.1);
       try {
+        const size = fit(input.subjectImage, 34, 40);
+        ensure(size.h + 2);
         doc.addImage(
           input.subjectImage,
           imgFormat(input.subjectImage),
           M,
           y - 2,
-          imgW,
-          imgW * 0.75,
+          size.w,
+          size.h,
         );
-      } catch {
-        // unsupported image; the description still stands
+        imgW = size.w;
+        imgBottom = y - 2 + size.h;
+      } catch (e) {
+        paragraph(
+          `The subject image could not be included (${(e as Error).message}).`,
+          9,
+          MUTED,
+        );
       }
-    }
+    } else if (input.subjectImageError)
+      paragraph(
+        `The subject image could not be included (${input.subjectImageError}).`,
+        9,
+        MUTED,
+      );
     if (report.subject) {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
       doc.setTextColor(...INK);
+      const tx = M + (imgW ? imgW + 4 : 0);
       const lines = doc.splitTextToSize(
-        report.subject,
-        W - imgW - 4,
+        pdfProse(report.subject),
+        M + W - tx,
       ) as string[];
-      let ty = y + 2;
+      y += 2;
       for (const line of lines) {
-        doc.text(line, M + imgW + (imgW ? 4 : 0), ty);
-        ty += 4.5;
+        // Past the image's page the image no longer pushes the next section down.
+        if (ensure(5)) imgBottom = y;
+        doc.text(line, tx, y);
+        y += 4.5;
       }
-      y = Math.max(ty, startY + imgW * 0.75) + 2;
-    } else y = startY + imgW * 0.75 + 2;
+    }
+    y = Math.max(y, imgBottom) + 2;
   }
 
-  if (input.mapPng) {
+  if (input.mapPng || input.mapError) {
     heading("Route");
-    const h = W * (input.mapAspect ?? 0.62);
-    ensure(h + 4);
-    doc.addImage(input.mapPng, "PNG", M, y, W, h);
-    y += h + 4;
+    let mapError = input.mapError;
+    if (input.mapPng) {
+      try {
+        // Fit by width and by a full page height, so a tall plan isn't clipped.
+        const aspect = input.mapAspect ?? 0.62;
+        const maxH = BOTTOM - TOP - 4;
+        const h = Math.min(W * aspect, maxH);
+        const w = h / aspect;
+        ensure(h + 4);
+        doc.addImage(input.mapPng, "PNG", M + (W - w) / 2, y, w, h);
+        y += h + 4;
+      } catch (e) {
+        mapError = (e as Error).message;
+      }
+    }
+    if (mapError)
+      paragraph(
+        `The route map could not be drawn (${mapError}); the sightings below are complete.`,
+        9,
+        MUTED,
+      );
   }
 
   heading("Verified sightings, in time order");
-  if (!stops.length)
-    paragraph("No sightings passed the relevance threshold.", 10, MUTED);
+  if (!stops.length) paragraph("No sightings were confirmed.", 10, MUTED);
   const noteFor = (s: TraceStop) =>
     report.timeline.find((t) => t.ref && hitMatchesRef(s.hit, t.ref))?.note;
+  const numberOf = (s: TraceStop) =>
+    input.numbers ? input.numbers.get(s.order) : s.order;
   const rowH = 16;
+  const tx = M + 9;
+  const cx = tx + 28;
+  const textW = M + W - cx;
   stops.forEach((s) => {
     ensure(rowH + 2);
-    const name = cameraWithZone(s.hit);
-    // order marker
-    doc.setFillColor(...CORAL);
+    const top = y;
+    const n = numberOf(s);
+    // Map marker number; a camera that isn't on the plan has none.
+    doc.setFillColor(...(n ? CORAL : MUTED));
     doc.circle(M + 3, y + 3, 3, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
-    doc.text(String(s.order), M + 3, y + 4.1, { align: "center" });
+    doc.text(n ? String(n) : "-", M + 3, y + 4.1, { align: "center" });
     const thumb = input.thumbs?.[s.order];
-    const tx = M + 9;
     if (thumb) {
       try {
-        doc.addImage(thumb, imgFormat(thumb), tx, y, 24, 13.5);
+        const size = fit(thumb, 24, 13.5);
+        doc.addImage(
+          thumb,
+          imgFormat(thumb),
+          tx + (24 - size.w) / 2,
+          y,
+          size.w,
+          size.h,
+        );
       } catch {
         // skip a bad frame
       }
     }
-    const cx = tx + 28;
     doc.setTextColor(...INK);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
-    doc.text(
-      `${s.at ? `${formatDay(s.at)}  ` : ""}${formatClock(s.at)}  ${name}`,
-      cx,
-      y + 3.5,
-    );
+    y += 3.5;
+    for (const line of doc.splitTextToSize(
+      `${s.at ? `${formatDay(s.at)}  ` : ""}${formatClock(s.at)}  ${cameraWithZone(s.hit)}`,
+      textW,
+    ) as string[]) {
+      doc.text(line, cx, y);
+      y += 4.2;
+    }
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(...MUTED);
-    doc.text(
-      `${s.hit.matchId}   segment ${formatOffset(s.hit.startS)} to ${formatOffset(s.hit.endS)}   relevance ${Math.round(s.hit.score * 100)}%`,
-      cx,
-      y + 7.5,
-    );
+    for (const line of doc.splitTextToSize(
+      toPdfText(
+        `${s.hit.matchId}   segment ${formatOffset(s.hit.startS)} to ${formatOffset(s.hit.endS)}   relevance ${Math.round(s.hit.score * 100)}%`,
+      ),
+      textW,
+    ) as string[]) {
+      doc.text(line, cx, y - 0.2);
+      y += 3.8;
+    }
     const note = noteFor(s);
+    let broke = false;
     if (note) {
       doc.setTextColor(...INK);
-      const line = (doc.splitTextToSize(note, M + W - cx) as string[])[0];
-      doc.text(line, cx, y + 11.5);
+      for (const line of doc.splitTextToSize(
+        pdfProse(note),
+        textW,
+      ) as string[]) {
+        if (ensure(4)) broke = true;
+        doc.text(line, cx, y);
+        y += 3.8;
+      }
     }
-    y += rowH;
+    y = broke ? y + 1 : Math.max(y + 1, top + rowH);
   });
+  if (input.thumbLimit !== undefined && stops.length > input.thumbLimit)
+    paragraph(
+      `Thumbnails are shown for the first ${input.thumbLimit} sightings only.`,
+      9,
+      MUTED,
+    );
   const extra = report.timeline.filter(
     (t) => !t.ref || !stops.some((s) => hitMatchesRef(s.hit, t.ref!)),
   );
@@ -261,7 +356,7 @@ export function buildReportPdf(input: ReportPdfInput): jsPDF {
     bullets(
       legs.map(
         (l) =>
-          `${l.from.order} to ${l.to.order}: ${
+          `${numberOf(l.from) ?? "-"} to ${numberOf(l.to) ?? "-"}: ${
             l.sameCamera
               ? `stayed on ${camOf(l.to)}`
               : `${camOf(l.from)} to ${camOf(l.to)}`

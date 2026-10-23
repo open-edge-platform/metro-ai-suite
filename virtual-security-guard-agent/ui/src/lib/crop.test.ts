@@ -1,12 +1,13 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   clampUnitBox,
   containRect,
   meetsMinPx,
   pxToUnit,
   unitToPx,
+  waitForFrame,
 } from "@/lib/crop";
 
 describe("clampUnitBox", () => {
@@ -82,5 +83,51 @@ describe("containRect", () => {
 
   it("falls back to the full box before the frame size is known", () => {
     expect(containRect(800, 600, 0, 0)).toEqual({ x: 0, y: 0, w: 800, h: 600 });
+  });
+});
+
+describe("waitForFrame", () => {
+  afterEach(() => vi.useRealTimers());
+
+  /** A <video> reporting the given seeking flag and readyState. */
+  function video(seeking: boolean, readyState: number) {
+    const v = document.createElement("video");
+    Object.defineProperty(v, "seeking", {
+      get: () => seeking,
+      configurable: true,
+    });
+    Object.defineProperty(v, "readyState", {
+      get: () => readyState,
+      configurable: true,
+    });
+    return v;
+  }
+
+  it("resolves at once for a paused clip showing its frame", async () => {
+    await expect(waitForFrame(video(false, 4))).resolves.toBeUndefined();
+  });
+
+  it("waits for a frame step to finish seeking", async () => {
+    const v = video(true, 4);
+    let done = false;
+    const p = waitForFrame(v).then(() => (done = true));
+    await Promise.resolve();
+    expect(done).toBe(false);
+    Object.defineProperty(v, "seeking", { get: () => false });
+    v.dispatchEvent(new Event("seeked"));
+    await p;
+    expect(done).toBe(true);
+  });
+
+  it("fails on a clip error or when no frame arrives in time", async () => {
+    const broken = video(false, 0);
+    const p = waitForFrame(broken);
+    broken.dispatchEvent(new Event("error"));
+    await expect(p).rejects.toThrow("The clip failed to load.");
+
+    vi.useFakeTimers();
+    const slow = waitForFrame(video(false, 1), 1000);
+    vi.advanceTimersByTime(1000);
+    await expect(slow).rejects.toThrow("The frame is not loaded yet.");
   });
 });

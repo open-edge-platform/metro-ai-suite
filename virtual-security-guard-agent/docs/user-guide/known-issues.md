@@ -43,7 +43,7 @@ Details:
 Checks:
 
 - Reinstall the skills on the Hermes host and start a new session. See
-  [Install the Hermes Skills](./get-started/install-hermes-skills.md).
+  [Install the Argus skills](./get-started/set-up-prerequisite-stack.md#5-install-the-argus-skills).
 - Check that **Settings → Directive protocol** matches the installed skill.
 
 ## Argus never searches, or writes the tool call as text
@@ -56,11 +56,14 @@ Symptoms:
 Details:
 
 - OVMS returns structured `tool_calls` only when the model's tool parser is
-  set. See [Set Up Hermes and OVMS](./get-started/set-up-hermes.md#2-check-that-the-model-can-call-tools).
+  set. If the graph does not set it, add `tool_parser` and `reasoning_parser`
+  to the LLM node in the model's `graph.pbtxt`, using the values on the model
+  card, then restart OVMS (`docker restart agent-harness-install-ovms`).
 
 Checks:
 
-- Run the test tool call from that section against the Inference Router.
+- Check which parsers OVMS chose:
+  `docker logs agent-harness-install-ovms 2>&1 | grep -E 'tool_parser|reasoning_parser'`.
 - Check that `hermes tools` keeps the `vss` MCP tools for the API server, and
   that `mcp_servers.vss` in `~/.hermes/config.yaml` points at the VSS MCP
   server.

@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
+import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -16,13 +17,52 @@ import { confidence } from "@/protocol/directives";
 import { formatClock } from "@/lib/time";
 import type { TraceStop } from "@/stores/case";
 import { PRESET_LABEL, type ReportContent } from "./content";
-import { cameraZone } from "@/stores/floorplan";
+import { cameraZone, useFloorplanStore } from "@/stores/floorplan";
+import { stopNumbers } from "@/features/map/route";
 
 const lines = (s: string) =>
   s
     .split("\n")
     .map((l) => l.replace(/^\s*[-*•]\s*/, "").trim())
     .filter(Boolean);
+const sameList = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((x, i) => x === b[i]);
+
+/**
+ * One-item-per-line textarea. The raw text stays local so spaces and blank
+ * lines can be typed; the cleaned list is sent up on every change and the
+ * text is tidied on blur. A new list from outside (another draft) replaces it.
+ */
+function LinesTextarea({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [text, setText] = useState(() => value.join("\n"));
+  const [seen, setSeen] = useState(value);
+  if (seen !== value) {
+    setSeen(value);
+    if (!sameList(lines(text), value)) setText(value.join("\n"));
+  }
+  return (
+    <Textarea
+      id={id}
+      rows={4}
+      className="font-prose"
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value);
+        const next = lines(e.target.value);
+        if (!sameList(next, value)) onChange(next);
+      }}
+      onBlur={() => setText(value.join("\n"))}
+    />
+  );
+}
 
 /** Editable view of a vsg-report before it becomes a PDF. */
 export function ReportEditor({
@@ -34,6 +74,8 @@ export function ReportEditor({
   onChange: (next: ReportContent) => void;
   stops: TraceStop[];
 }) {
+  const plan = useFloorplanStore((s) => s.plan);
+  const numbers = useMemo(() => stopNumbers(stops, plan), [stops, plan]);
   const set = <K extends keyof ReportContent>(k: K, v: ReportContent[K]) =>
     onChange({ ...value, [k]: v });
   const refersTo = (hit: VssHit) => (t: { ref?: string }) =>
@@ -125,7 +167,7 @@ export function ReportEditor({
               className="flex items-center gap-2"
             >
               <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-track text-[0.6875rem] font-bold text-white">
-                {s.order}
+                {numbers.get(s.order) ?? "–"}
               </span>
               <span className="w-40 shrink-0 truncate text-xs text-muted-foreground">
                 {formatClock(s.at)} {hitCameraLabel(s.hit)}
@@ -145,24 +187,20 @@ export function ReportEditor({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="grid gap-1.5">
           <Label htmlFor="report-obs">Observations, one per line</Label>
-          <Textarea
+          <LinesTextarea
             id="report-obs"
-            rows={4}
-            className="font-prose"
-            value={value.observations.join("\n")}
-            onChange={(e) => set("observations", lines(e.target.value))}
+            value={value.observations}
+            onChange={(v) => set("observations", v)}
           />
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="report-actions">
             Recommended actions, one per line
           </Label>
-          <Textarea
+          <LinesTextarea
             id="report-actions"
-            rows={4}
-            className="font-prose"
-            value={value.actions.join("\n")}
-            onChange={(e) => set("actions", lines(e.target.value))}
+            value={value.actions}
+            onChange={(v) => set("actions", v)}
           />
         </div>
       </div>

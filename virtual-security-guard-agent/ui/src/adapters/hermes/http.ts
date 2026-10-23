@@ -8,6 +8,7 @@ import {
   HermesError,
   type HermesAdapter,
   type HermesMessage,
+  type HermesRunStatus,
   type HermesSession,
   type RunEvent,
   type StartRunRequest,
@@ -112,6 +113,28 @@ function toMessage(m: Json, i: number): HermesMessage | undefined {
 
 const MAX_RECONNECTS = 3;
 
+/** A run's `error`: a string or an `{message}` object. */
+function errorText(e: unknown): string | undefined {
+  if (typeof e === "string") return e || undefined;
+  if (e && typeof e === "object" && typeof (e as Json).message === "string")
+    return (e as Json).message as string;
+  return e == null ? undefined : JSON.stringify(e);
+}
+
+/** Resolves after `ms`, or at once when `signal` aborts. */
+function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const done = () => {
+      clearTimeout(t);
+      signal?.removeEventListener("abort", done);
+      resolve();
+    };
+    const t = setTimeout(done, ms);
+    signal?.addEventListener("abort", done);
+  });
+}
+
 /**
  * Hermes API client. All calls go to the same-origin `/hermes` prefix; the
  * nginx BFF (or Vite dev proxy) adds the bearer token, so no secret ever
@@ -168,6 +191,26 @@ export function createHttpHermes(base: string = env.hermesBase): HermesAdapter {
     return terminal;
   }
 
+  async function runStatus(
+    runId: string,
+    signal?: AbortSignal,
+  ): Promise<HermesRunStatus> {
+    const body = expect(
+      z.looseObject({
+        status: z.string(),
+        output: optional(z.string()),
+        error: optional(z.unknown()),
+      }),
+      await request(base, `/v1/runs/${encodeURIComponent(runId)}`, { signal }),
+      "run status",
+    );
+    return {
+      status: body.status,
+      output: body.output ?? undefined,
+      error: errorText(body.error),
+    };
+  }
+
   return {
     async health() {
       try {
@@ -198,13 +241,25 @@ export function createHttpHermes(base: string = env.hermesBase): HermesAdapter {
       }
     },
 
-    async listSessions(limit = 50) {
+    async listSessions({ limit = 50, offset = 0 } = {}) {
       const body = expect(
-        listSchema,
-        await request(base, `/api/sessions?limit=${limit}`),
+        listSchema.extend({ has_more: optional(z.boolean()) }),
+        await request(base, `/api/sessions?limit=${limit}&offset=${offset}`),
         "session list",
       );
-      return body.data.map(toSession);
+      return {
+        sessions: body.data.map(toSession),
+        hasMore: !!body.has_more,
+      };
+    },
+
+    async getSession(sessionId) {
+      const body = expect(
+        z.looseObject({ session: z.unknown() }),
+        await request(base, `/api/sessions/${encodeURIComponent(sessionId)}`),
+        "session",
+      );
+      return toSession(body.session);
     },
 
     async getMessages(sessionId) {
@@ -253,31 +308,31 @@ export function createHttpHermes(base: string = env.hermesBase): HermesAdapter {
         }
         // Stream closed without a terminal event: check the run before retrying.
         // A failed status check just means "retry the stream".
-        const status = (await request(
-          base,
-          `/v1/runs/${encodeURIComponent(runId)}`,
-          { signal },
-        ).catch(() => undefined)) as Json | undefined;
-        const st = String(status?.status ?? "");
+        let status: HermesRunStatus | undefined;
+        try {
+          status = await runStatus(runId, signal);
+        } catch {
+          // fall through to the retry
+        }
+        const st = status?.status;
         if (st === "completed") {
-          onEvent({
-            type: "completed",
-            output:
-              typeof status?.output === "string" ? status.output : undefined,
-          });
+          onEvent({ type: "completed", output: status?.output });
           return;
         }
         if (st === "cancelled") return onEvent({ type: "cancelled" });
-        if (st === "failed") {
+        if (st === "failed" || st === "interrupted") {
           return onEvent({
             type: "failed",
-            error: String(status?.error ?? "The agent run failed."),
+            error: status?.error ?? "The agent run failed.",
           });
         }
-        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+        await abortableSleep(500 * (attempt + 1), signal);
       }
+      if (signal?.aborted) return;
       onEvent({ type: "failed", error: "Lost connection to the agent." });
     },
+
+    getRun: (runId) => runStatus(runId),
 
     async stopRun(runId) {
       await request(base, `/v1/runs/${encodeURIComponent(runId)}/stop`, {

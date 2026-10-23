@@ -26,3 +26,12 @@ proxy_hide_header X-Content-Type-Options;
 proxy_hide_header X-Frame-Options;
 proxy_hide_header Content-Security-Policy;
 proxy_hide_header X-Powered-By;
+# MinIO (datastore) response headers: HSTS with includeSubDomains would pin
+# the whole VSG host to HTTPS, and the rest only describe the backend.
+proxy_hide_header Strict-Transport-Security;
+proxy_hide_header X-Amz-Id-2;
+proxy_hide_header X-Amz-Request-Id;
+proxy_hide_header X-Amz-Bucket-Region;
+proxy_hide_header X-Ratelimit-Limit;
+proxy_hide_header X-Ratelimit-Remaining;
+proxy_hide_header X-Xss-Protection;

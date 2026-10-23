@@ -11,11 +11,11 @@ uses; size those from their own documentation.
 ## Validated Platforms
 
 - **Hardware**: VSS and the model server (OVMS) on Intel® Xeon® or Intel®
-  Core™ Ultra platforms, as supported by VSS. The VSG container can run on the
+  Core™ Ultra platforms, or Intel® Arc™ B70 dGPU. The VSG container can run on the
   VSS host or on any host that reaches both Hermes and VSS.
-- **Reasoning model**: `OpenVINO/Qwen3.8-27B-int4-ov` on OVMS. The weights are
-  about 15 GB. The GPU (for an integrated GPU, system memory) needs room for
-  them, the KV cache, and any VSS models on the same host.
+- **Reasoning model**: an OpenVINO™ model on OVMS that returns tool calls. The
+  GPU (for an integrated GPU, system memory) needs room for the weights, the
+  KV cache, and any VSS models on the same host.
 - **Operating system**: Ubuntu 24.04 LTS.
 
 ## VSG Container
@@ -26,6 +26,31 @@ uses; size those from their own documentation.
 | Memory | 256 MB (Compose limit) |
 | Disk | About 120 MB for the image; allow 1 GB to build it locally. |
 
+## Model Host (Hermes and OVMS)
+
+The reasoning model is the largest resource that Argus needs. These values are
+the minimum for the default model, `OpenVINO/Qwen3.6-35B-A3B-int4-ov`, and they
+are a starting point, not a performance guarantee.
+
+| Resource | Minimum |
+|---|---|
+| Processor | Intel® Core™ Ultra processor with an integrated GPU. Validated on Panther Lake (PTL 358H). The integrated GPU uses system RAM. |
+| Memory | 64 GB RAM. The weights, the KV cache, and any VSS models on the same host share it. |
+| Disk | 128 GB free, for the model weights and the Hugging Face cache. |
+
+- The model on an integrated GPU answers more slowly than a hosted model.
+  Expect each reply to take from several seconds to a few minutes. The first
+  request after a restart is the slowest, because the model loads and the
+  prompt is processed.
+- Smaller models, for example a 9B model, reply faster but more often ignore
+  the reply format or call tools wrongly. Use one to try Argus, not for
+  investigations that matter.
+- Larger dense models need more memory and are slow on a CPU or an
+  integrated GPU. Run one only on a host with enough memory and, ideally, a
+  GPU with enough dedicated memory.
+- Other hardware is untested. Check the reply speed on your host before you
+  rely on it.
+
 ## Software
 
 - Docker Engine with the Compose plugin:
@@ -34,11 +59,9 @@ uses; size those from their own documentation.
 - A VSS deployment with search enabled, the VSS MCP server, and indexed
   footage.
 - A Hermes agent server with the API server enabled and the VSS MCP server
-  registered. [Set Up Hermes and OVMS](./set-up-hermes.md) installs Hermes,
-  OVMS and the Inference Router with agent-harness-install.
-- A current Chromium-based browser or Firefox.
-- Node.js 22, only for UI development and tests (`make install`, `make dev`,
-  `make dev-mock`, `make check`). The image build does not need it.
+  registered.
+  [Set Up the Prerequisite Stack](./set-up-prerequisite-stack.md) sets up
+  VSS, then Hermes, OVMS and the Inference Router with agent-harness-install.
 
 ## Network Ports
 
@@ -46,10 +69,9 @@ uses; size those from their own documentation.
 |---|---|---|
 | `12346` | VSG console (`VSG_UI_PORT`) | The browser (the only port it needs). |
 | `8642` | Hermes API server | The VSG container. |
-| `12345` | VSS nginx gateway | The VSG container. |
-| `8000` | VSS MCP server | Hermes. |
+| `12345` | VSS nginx gateway, including the VSS MCP server at `/mcp` | The VSG container and Hermes. |
 | `8010` | Inference Router (`127.0.0.1` only) | Hermes, on the same host. |
-| `8000` or `HARNESS_OVMS_REST_PORT` | OVMS (`127.0.0.1` only) | The Inference Router. Change it if the VSS MCP server uses `8000` on the same host. |
+| `8450` (`HARNESS_OVMS_REST_PORT`) | OVMS (`127.0.0.1` only) | The Inference Router. |
 
 Before you continue to [Get Started](../get-started.md), check that
 `HERMES_BASE_URL/health` and `VSS_BASE_URL/manager/health` respond from the

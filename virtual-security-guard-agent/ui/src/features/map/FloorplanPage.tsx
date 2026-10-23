@@ -100,8 +100,13 @@ export function FloorplanPage() {
       toast.error("That floorplan isn't valid", { description: res.error });
       return;
     }
-    setPlan(res.plan, file.name);
+    const saved = setPlan(res.plan, file.name);
     setSelected(undefined);
+    if (!saved)
+      toast.error("The floorplan couldn't be saved in this browser", {
+        description:
+          "It is shown now but will be gone after a reload. Browser storage is full; use a smaller background image or clear local data in Settings.",
+      });
     const off = tags ? offPlanTags(res.plan, tags).length : 0;
     toast.success("Floorplan loaded", {
       description: off
@@ -303,6 +308,25 @@ export function FloorplanPage() {
   );
 }
 
+/**
+ * Copy a camera tag. The Clipboard API only exists on HTTPS or localhost, so
+ * over plain HTTP the tag is selected for the operator to copy instead.
+ */
+function copyTag(tag: string, el: HTMLElement) {
+  if (navigator.clipboard) {
+    void navigator.clipboard.writeText(tag).then(
+      () => toast.success(`Copied ${tag}`),
+      (e: Error) => toast.error("Couldn't copy", { description: e.message }),
+    );
+    return;
+  }
+  getSelection()?.selectAllChildren(el);
+  toast.info(`Selected ${tag}`, {
+    description:
+      "This page isn't served over HTTPS, so press Ctrl+C (or Cmd+C) to copy it.",
+  });
+}
+
 /** VSS cameras the plan has no key for, listed so they can be added to the file. */
 function OffPlanCameras({
   tags,
@@ -339,13 +363,7 @@ function OffPlanCameras({
                 size="icon-xs"
                 variant="ghost"
                 aria-label={`Copy ${t}`}
-                onClick={() =>
-                  void navigator.clipboard.writeText(t).then(
-                    () => toast.success(`Copied ${t}`),
-                    (e: Error) =>
-                      toast.error("Couldn't copy", { description: e.message }),
-                  )
-                }
+                onClick={(e) => copyTag(t, e.currentTarget.closest("li")!)}
               >
                 <Copy />
               </Button>

@@ -126,6 +126,38 @@ export function captureFrame(m: CropMedia): HTMLCanvasElement {
   return canvas;
 }
 
+/**
+ * Resolve once the media shows a decoded frame. A clip that is still seeking
+ * (after a frame step) or has no current data would draw black or stale
+ * pixels; a still that hasn't loaded would draw nothing.
+ */
+export function waitForFrame(m: CropMedia, timeoutMs = 5_000): Promise<void> {
+  if (m instanceof HTMLImageElement)
+    return m.complete && m.naturalWidth ? Promise.resolve() : m.decode();
+  const ready = () =>
+    !m.seeking && m.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
+  if (ready()) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const done = (settle: () => void) => {
+      clearTimeout(timer);
+      m.removeEventListener("seeked", onReady);
+      m.removeEventListener("loadeddata", onReady);
+      m.removeEventListener("error", onError);
+      settle();
+    };
+    const onReady = () => ready() && done(resolve);
+    const onError = () =>
+      done(() => reject(new Error("The clip failed to load.")));
+    const timer = setTimeout(
+      () => done(() => reject(new Error("The frame is not loaded yet."))),
+      timeoutMs,
+    );
+    m.addEventListener("seeked", onReady);
+    m.addEventListener("loadeddata", onReady);
+    m.addEventListener("error", onError);
+  });
+}
+
 /** Cut the unit box out of the source canvas into a new full-resolution canvas. */
 export function cropCanvas(
   src: HTMLCanvasElement,

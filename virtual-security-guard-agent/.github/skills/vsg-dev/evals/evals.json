@@ -8,12 +8,13 @@
       "expected_output": "Checks gateway health, reads the Hermes transcript without printing the API key, confirms whether a valid vsg-report block exists, tests parsing with parseAgentText, then fixes rendering or ordering in Turns.tsx/MessageList.tsx, verifies with lint/tsc/vitest/build and redeploys.",
       "files": [],
       "expectations": [
-        "Runs the three health probes (/healthz, /hermes/health, /vss/manager/health) on the UI port.",
+        "Resolves the app root correctly (metro-ai-suite/virtual-security-guard-agent or the repo root), not sample-applications/.",
+        "Runs or plans the three health probes (/healthz, /hermes/health, /vss/manager/health) on the UI port.",
         "Reads /api/sessions and /api/sessions/<id>/messages to inspect the raw assistant reply.",
         "Never echoes or commits HERMES_API_KEY.",
-        "Distinguishes a parsing problem from a rendering/state problem before editing.",
-        "Runs format, lint, tsc, vitest and build from ui/ before claiming success.",
-        "Redeploys with docker compose --env-file deploy/.env -f deploy/compose.yaml up -d --build."
+        "Distinguishes a parsing problem (parseAgentText) from a rendering/state problem before editing.",
+        "Verification includes tsc, eslint, vitest and Playwright e2e from ui/.",
+        "Does not git add, commit or stash."
       ]
     },
     {
@@ -24,9 +25,10 @@
       "files": [],
       "expectations": [
         "Edits ui/src/adapters/vss/http.ts and keeps ui/src/adapters/vss/mock.ts in sync.",
-        "Checks ui/nginx/templates/default.conf.template for an allowlist location before relying on the route.",
+        "Notices that /vss/manager/tags is already in the nginx allowlist instead of adding a duplicate location.",
         "Avoids selectors that return new arrays/objects each render.",
-        "Runs the verification commands from ui/."
+        "Labels the control as camera(s), not tags, in the UI.",
+        "Verification includes tsc, eslint, vitest and Playwright e2e from ui/."
       ]
     },
     {
@@ -36,11 +38,24 @@
       "expected_output": "Updates protocol/instructions.ts, hermes-skills/virtual-security-guard/SKILL.md and docs/user-guide/design.md together, and explains that the skills must be reinstalled on the Hermes host with make install-skills.",
       "files": [],
       "expectations": [
-        "Updates ui/src/protocol/instructions.ts.",
+        "Updates ui/src/protocol/instructions.ts (and its test).",
         "Updates hermes-skills/virtual-security-guard/SKILL.md.",
         "Updates docs/user-guide/design.md when the flow changes.",
-        "States that make install-skills must run on the Hermes host and a new Hermes session is needed.",
-        "Does not start a live watch without operator consent."
+        "Tells the user to run make install-skills (with INSTALL_ARGS=--exclusive) on the Hermes host and start a new Hermes session.",
+        "Does not reintroduce a live-search offer card or have Argus start a live watch."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt_file": "example-prompts/04-reintroduce-removed-feature.md",
+      "prompt": "Operators keep asking for a way to dismiss wrong live hits. Add a Reject button next to Confirm on the live timeline, and bring back the \"All cameras\" picker in the composer while you're at it.",
+      "expected_output": "Recognises both as features removed on purpose (no reject for live hits; composer pickers removed in favour of naming cameras in the prompt), pushes back before editing, explains why, and proposes the simplest alternative or asks the user to confirm reversing the decision.",
+      "files": [],
+      "expectations": [
+        "Identifies that reject for live hits was removed on purpose.",
+        "Identifies that the composer 'All cameras' picker was removed on purpose.",
+        "Does not implement either change without the user confirming the reversal.",
+        "Offers a simpler alternative or asks one focused question."
       ]
     }
   ]

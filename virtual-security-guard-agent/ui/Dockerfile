@@ -27,6 +27,7 @@ COPY nginx/templates/ /etc/nginx/templates/
 COPY nginx/vsg/ /etc/nginx/vsg/
 COPY --chmod=0755 nginx/entrypoint/18-vsg-env.envsh /docker-entrypoint.d/18-vsg-env.envsh
 COPY --from=build /app/dist /usr/share/nginx/html
+COPY third-party-programs.txt /licenses/third-party-programs.txt
 
 # Build-time only; the container runs as uid 101.
 USER root
@@ -42,5 +43,6 @@ RUN sed -i 's/^worker_processes  auto;/worker_processes  1;/' /etc/nginx/nginx.c
 USER 101
 EXPOSE 8080
 
+# -Y off: BusyBox wget ignores no_proxy, so a Docker client proxy would 403 this.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1
+  CMD wget -Y off -q -O /dev/null http://127.0.0.1:8080/healthz || exit 1

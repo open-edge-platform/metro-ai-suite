@@ -43,7 +43,7 @@ browser ──► vsg-ui (nginx :12346)
               ├─ /            static React bundle (ui/dist)
               ├─ /hermes/...  ──► Hermes API server (:8642)  + Bearer key from deploy/.env
               └─ /vss/...     ──► VSS nginx gateway (:12345) /manager, /datastore
-Hermes (Argus) ──► VSS MCP server (:8000/mcp) and the VSS /manager API
+Hermes (Argus) ──► VSS MCP server (:12345/mcp) and the VSS /manager API
 ```
 
 - **Hermes runs API**: `POST /v1/runs`, SSE `GET /v1/runs/:id/events`,
@@ -67,7 +67,7 @@ Hermes (Argus) ──► VSS MCP server (:8000/mcp) and the VSS /manager API
 | `ui/src/protocol/` | Directive schemas, parser, grounding, Argus run instructions. |
 | `ui/src/stores/` | Zustand stores: `investigation` (the case: turns, reviews, route), `watch`, `cameras`, `floorplan`, `reports`, `settings`; pure route helpers in `case.ts`. |
 | `ui/src/features/` | `agent` (chat, review, live search, report), `cameras`, `map`, `reports`, `settings`. |
-| `hermes-skills/` | Installed **on the Hermes host** by `install.sh` (`make install-skills`; `INSTALL_ARGS=--exclusive` moves every other skill aside): `SOUL.md` (Argus identity) and the skills `virtual-security-guard` (Argus) and `vsg-incident-report`. Hermes and OVMS come from agent-harness-install; see `docs/user-guide/get-started/set-up-hermes.md`. |
+| `hermes-skills/` | Installed **on the Hermes host** by `install.sh` (`make install-skills`; `INSTALL_ARGS=--exclusive` moves every other skill aside): `SOUL.md` (Argus identity) and the skills `virtual-security-guard` (Argus) and `vsg-incident-report`. Hermes and OVMS come from agent-harness-install; see `docs/user-guide/get-started/set-up-prerequisite-stack.md`. |
 | `docs/user-guide/` | Design and user documentation. |
 | `.github/skills/` | Coding-agent skills for working on this repo. |
 

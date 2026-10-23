@@ -129,6 +129,11 @@ export interface VssAdapter {
   /** Create a persisted search (rolling window) and mark it watched. Returns its query id. */
   startWatch(req: WatchStart): Promise<string>;
   setWatch(queryId: string, watch: boolean): Promise<void>;
+  /**
+   * Best-effort unwatch while the page unloads (a keepalive request that
+   * outlives the tab). Fire and forget: the result is never seen.
+   */
+  unwatchOnUnload(queryId: string): void;
 }
 
 export class VssError extends Error {

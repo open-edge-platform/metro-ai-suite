@@ -103,6 +103,22 @@ describe("default floorplan from /floorplan.json", () => {
   });
 });
 
+describe("saving an uploaded floorplan", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("says when the browser couldn't keep it", () => {
+    const store = useFloorplanStore.getState();
+    expect(store.setPlan(plan, "ok.json")).toBe(true);
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("full", "QuotaExceededError");
+    });
+    const big = { cameras: { camera_1: { x: 1, y: 1 } } };
+    expect(useFloorplanStore.getState().setPlan(big, "big.json")).toBe(false);
+    // Still shown in this tab.
+    expect(useFloorplanStore.getState().plan).toBe(big);
+  });
+});
+
 describe("floorplan schema", () => {
   it("rejects non-numbers and zones without exactly one shape", async () => {
     const { parseFloorplan } = await import("@/features/map/schema");
