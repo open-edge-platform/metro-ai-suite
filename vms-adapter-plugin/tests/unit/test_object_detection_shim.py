@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -13,6 +14,8 @@ from analytics_app_shim.object_detection import api_client as od_api_client_modu
 from analytics_app_shim.object_detection.api_client import ObjectDetectionApiClient
 from analytics_app_shim.object_detection.shim import ObjectDetectionAnalyticsAppShim
 from analytics_app_shim.object_detection.config import ObjectDetectionAnalyticsAppConfig
+from plugin.core.factory import VmsShimSet
+from plugin.core.models.domain import Camera
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -104,6 +107,14 @@ async def test_fetch_schema_handles_empty_pipeline_list():
     assert schema["properties"]["device"]["enum"] == ["CPU"]
 
 
+async def test_fetch_schema_includes_zone_field():
+    shim = _make_shim()
+    shim._api.list_pipelines = AsyncMock(return_value=[])
+    schema = await shim.fetch_schema()
+    assert schema["properties"]["zone"]["description"]
+    assert "normalized" in schema["properties"]["zone"]["description"].lower()
+
+
 def test_config_requires_at_least_one_pipeline():
     with pytest.raises(ValueError, match="at least one configured pipeline"):
         ObjectDetectionAnalyticsAppConfig(
@@ -121,6 +132,16 @@ def test_control_params_include_only_configured_devices():
     device = next(c for c in controls if c["name"] == "device")
     assert device["options"] == ["CPU", "GPU"]
     assert device["default"] == "CPU"
+
+
+def test_control_params_include_zone_with_normalized_default():
+    cfg = _make_config()
+    controls = cfg.control_params()
+    zone = next(c for c in controls if c["name"] == "zone")
+    assert zone["type"] == "text"
+    assert "normalized" in zone["description"].lower()
+    default_points = json.loads(zone["default"])
+    assert default_points == [[0.0, 0.2778], [0.2344, 0.2778], [0.2344, 0.5556], [0.0, 0.5556]]
 
 
 # ── zones config ──────────────────────────────────────────────────────────────
@@ -230,6 +251,150 @@ async def test_start_uses_default_root_when_not_in_map():
 def test_build_mqtt_topic_uses_configured_prefix():
     shim = _make_shim(metadata_topic_prefix="object_tracking")
     assert shim._build_mqtt_topic("nx:abc123") == "object_tracking/nx:abc123"
+
+
+# ── per-camera zone: resolution lookup + normalized->pixel translation ────────
+
+def _camera_with_resolution(resolution: str = "1280x720") -> Camera:
+    return Camera(
+        camera_id="nx:abc123",
+        name="cam",
+        vendor="nx_witness",
+        vendor_meta={"options": {"bitrateInfos": [{"encoderIndex": "primary", "resolution": resolution}]}},
+    )
+
+
+def _vms_shim_set(name: str, vms_shim) -> VmsShimSet:
+    return VmsShimSet(name=name, config=MagicMock(), vms_shim=vms_shim)
+
+
+def test_lookup_vms_shim_exact_and_prefix_match(mock_vms_shim):
+    shim = _make_shim()
+    shim._vms_shim_sets = [_vms_shim_set("nx-main", mock_vms_shim)]
+    assert shim._lookup_vms_shim("nx:abc123") is mock_vms_shim
+
+
+def test_lookup_vms_shim_none_when_no_colon():
+    shim = _make_shim()
+    assert shim._lookup_vms_shim("abc123") is None
+
+
+async def test_get_camera_resolution_parses_bitrate_info(mock_vms_shim):
+    shim = _make_shim()
+    shim._vms_shim_sets = [_vms_shim_set("nx-main", mock_vms_shim)]
+    mock_vms_shim.get_camera_metadata = AsyncMock(return_value=_camera_with_resolution("1920x1080"))
+
+    resolution = await shim._get_camera_resolution("nx:abc123")
+
+    assert resolution == (1920, 1080)
+
+
+async def test_get_camera_resolution_none_when_shim_missing():
+    shim = _make_shim()
+    assert await shim._get_camera_resolution("nx:abc123") is None
+
+
+async def test_get_camera_resolution_none_when_camera_metadata_missing(mock_vms_shim):
+    shim = _make_shim()
+    shim._vms_shim_sets = [_vms_shim_set("nx-main", mock_vms_shim)]
+    mock_vms_shim.get_camera_metadata = AsyncMock(return_value=None)
+
+    assert await shim._get_camera_resolution("nx:abc123") is None
+
+
+async def test_build_zone_payload_converts_normalized_points_to_pixel(mock_vms_shim):
+    shim = _make_shim()
+    shim._vms_shim_sets = [_vms_shim_set("nx-main", mock_vms_shim)]
+    mock_vms_shim.get_camera_metadata = AsyncMock(return_value=_camera_with_resolution("1280x720"))
+
+    zones_json = await shim._build_zone_payload(
+        "[[0.0, 0.2778], [0.2344, 0.2778], [0.2344, 0.5556], [0.0, 0.5556]]", "nx:abc123",
+    )
+
+    parsed = json.loads(zones_json)
+    assert parsed == [
+        {
+            "id": "vap_zone",
+            "type": "polygon",
+            "points": [
+                {"x": 0, "y": 200},
+                {"x": 300, "y": 200},
+                {"x": 300, "y": 400},
+                {"x": 0, "y": 400},
+            ],
+            "track-dwell-time": True,
+            "object-retention": 1.0,
+        },
+    ]
+
+
+async def test_build_zone_payload_none_on_malformed_json():
+    shim = _make_shim()
+    assert await shim._build_zone_payload("not json", "nx:abc123") is None
+
+
+async def test_build_zone_payload_none_on_too_few_points():
+    shim = _make_shim()
+    assert await shim._build_zone_payload("[[0.1, 0.1], [0.2, 0.2]]", "nx:abc123") is None
+
+
+async def test_build_zone_payload_none_when_resolution_unavailable():
+    shim = _make_shim()
+    # No vms_shim_sets registered -> resolution lookup fails.
+    result = await shim._build_zone_payload("[[0,0],[1,0],[1,1]]", "nx:abc123")
+    assert result is None
+
+
+async def test_build_zone_payload_none_on_malformed_point(mock_vms_shim):
+    shim = _make_shim()
+    shim._vms_shim_sets = [_vms_shim_set("nx-main", mock_vms_shim)]
+    mock_vms_shim.get_camera_metadata = AsyncMock(return_value=_camera_with_resolution())
+
+    result = await shim._build_zone_payload("[[0,0],[1,0,5],[1,1]]", "nx:abc123")
+
+    assert result is None
+
+
+async def test_start_sends_zone_payload_when_provided(mock_vms_shim):
+    shim = _make_shim()
+    shim._vms_shim_sets = [_vms_shim_set("nx-main", mock_vms_shim)]
+    mock_vms_shim.get_camera_metadata = AsyncMock(return_value=_camera_with_resolution())
+    shim._pipeline_root_map = {"dls_vision_pipeline": "user_defined_pipelines"}
+    shim._api.start_run = AsyncMock(return_value={"instance_id": "abc123"})
+
+    params = MagicMock()
+    params.model_dump.return_value = {
+        "pipeline_name": "dls_vision_pipeline",
+        "camera_id": "rtsp://cam/s",
+        "camera_id_ref": "nx:abc123",
+        "zone": "[[0.0, 0.2778], [0.2344, 0.2778], [0.2344, 0.5556], [0.0, 0.5556]]",
+        "parameters": {},
+    }
+    await shim.start(params)
+
+    sent_payload = shim._api.start_run.call_args.args[2]
+    zones_sent = json.loads(sent_payload["parameters"]["analytics-properties"]["zones"])
+    assert zones_sent[0]["id"] == "vap_zone"
+
+
+async def test_start_for_camera_passes_zone_control():
+    shim = _make_shim(pipeline={"cpu": "pipeline_cpu"})
+    shim._api.list_pipelines = AsyncMock(return_value=[
+        {"name": "user_defined_pipelines", "version": "pipeline_cpu"},
+    ])
+    await shim.fetch_schema()
+    shim._api.start_run = AsyncMock(return_value={"instance_id": "abc123"})
+
+    await shim.start_for_camera(
+        camera_id="nx:cam-1",
+        stream_url="rtsp://cam/s",
+        controls={"pipelineEnabled": True, "device": "CPU", "zone": "[[0,0],[1,0],[1,1]]"},
+    )
+
+    sent_payload = shim._api.start_run.call_args.args[2]
+    # No vms_shim registered -> resolution lookup fails -> zone silently dropped,
+    # but start() must not raise just because the zone couldn't be translated.
+    assert "analytics-properties" not in sent_payload["parameters"]
 
 
 async def test_start_raises_on_missing_pipeline_name():

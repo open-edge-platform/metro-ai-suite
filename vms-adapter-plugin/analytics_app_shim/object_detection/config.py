@@ -5,12 +5,16 @@
 
 from __future__ import annotations
 
+import json
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-
 _DEVICE_ORDER = ("CPU", "GPU", "NPU")
+
+# Default "zone" control value: the original LD app region1 zone's rectangle
+# corners, normalized (0-1), as [x, y] polygon points.
+_DEFAULT_ZONE_POLYGON = [[0.0, 0.2778], [0.2344, 0.2778], [0.2344, 0.5556], [0.0, 0.5556]]
 
 
 class ObjectDetectionAnalyticsAppConfig(BaseModel):
@@ -134,6 +138,18 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
                 "options": device_options,
                 "label": "Device",
                 "description": "Inference device mapped to a configured pipeline",
+            },
+            {
+                "name": "zone",
+                "type": "text",
+                "default": json.dumps(_DEFAULT_ZONE_POLYGON),
+                "label": "Loitering Zone",
+                "description": (
+                    "Normalized zone polygon as [[x,y],...] points, each 0-1 "
+                    "(fraction of frame width/height). Any number of points/shape "
+                    "is supported. Translated to this camera's actual pixel "
+                    "resolution automatically when the pipeline starts."
+                ),
             },
         ]
 

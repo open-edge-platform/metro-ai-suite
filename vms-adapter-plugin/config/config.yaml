@@ -59,7 +59,7 @@ analytics_apps:
     # When disabled, Nx would show a box for every detected person, not just loiterers inside
     # the zone. Only objects with a "zone_violations"/"dwell_times" entry are
     # pushed when enabled.
-    zone_filter_enabled: true
+    zone_filter_enabled: false
     # Static zone geometry drawn as a persistent marker box in Nx (the pipeline
     # no longer emits a fake ROI object to visualize). Keep bounding_box in
     # sync with the pixel polygon in the DLSPS zones/VIRAT_S_000101.json file
