@@ -61,7 +61,7 @@ if [ ! -d "${SOURCE}/dlstreamer-pipeline-server/videos" ] || [ -z "$(find "${SOU
 fi
 
 # Download vehicle-reid-0001 model if not present
-if [ ! -d "${SOURCE}/dlstreamer-pipeline-server/models/public/vehicle-reid-0001" ]; then
+if [ ! -d "${SOURCE}/dlstreamer-pipeline-server/models/vehicle_reid" ]; then
   echo "Downloading vehicle-reid-0001 model..."
   MODEL_DIR="${SOURCE}/dlstreamer-pipeline-server/models"
   
@@ -74,6 +74,7 @@ if [ ! -d "${SOURCE}/dlstreamer-pipeline-server/models/public/vehicle-reid-0001"
   mkdir -p "${MODEL_DIR}/vehicle_reid"
   if [ -d "${MODEL_DIR}/public/vehicle-reid-0001" ]; then
     cp -r "${MODEL_DIR}/public/vehicle-reid-0001"/* "${MODEL_DIR}/vehicle_reid/"
+    rm -rf "${MODEL_DIR}/public"
     echo "Vehicle ReID model downloaded successfully"
   else
     echo "Warning: Vehicle ReID model download may have failed"
