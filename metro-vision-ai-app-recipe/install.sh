@@ -13,7 +13,7 @@ fi
 SAMPLE_APP_ARG="$1"
 if [ -z "$SAMPLE_APP_ARG" ]; then
     echo "Error: First argument (SAMPLE_APP) is required."
-    echo "Usage: $0 <smart-parking|loitering-detection|loitering-detection-ui|smart-intersection> [ss] [HOST_IP]"
+    echo "Usage: $0 <smart-parking|loitering-detection|loitering-detection-ui|smart-intersection|smart-corridor> [ss] [HOST_IP]"
     exit 1
 fi
 
@@ -36,7 +36,7 @@ if [ "$2" = "ss" ]; then
 fi
 
 case "$SAMPLE_APP_ARG" in
-    "smart-parking"|"loitering-detection"|"smart-intersection")
+    "smart-parking"|"loitering-detection"|"smart-intersection"|"smart-corridor")
         # Update SAMPLE_APP in .env file
         if grep -q "^SAMPLE_APP=" "$ENV_FILE"; then
             sed -i "s/^SAMPLE_APP=.*/SAMPLE_APP=$SAMPLE_APP_ARG/" "$ENV_FILE"
@@ -45,7 +45,7 @@ case "$SAMPLE_APP_ARG" in
         fi
         ;;
     *)
-        echo "Error: Invalid SAMPLE_APP value '$SAMPLE_APP_ARG'. Must be one of: smart-parking, loitering-detection, loitering-detection-ui, smart-intersection."
+        echo "Error: Invalid SAMPLE_APP value '$SAMPLE_APP_ARG'. Must be one of: smart-parking, loitering-detection, loitering-detection-ui, smart-intersection, smart-corridor."
         exit 1
         ;;
 esac
@@ -85,6 +85,8 @@ fi
 # Copy appropriate docker-compose file
 if [ "$SAMPLE_APP" = "smart-intersection" ] || [ "$SCENESCAPE_ENABLED" = "true" ]; then
     cp compose-scenescape.yml docker-compose.yml
+elif [ "$SAMPLE_APP" = "smart-corridor" ]; then
+    cp compose-reid-scenescape.yml docker-compose.yml
 else
     cp compose-without-scenescape.yml docker-compose.yml
 fi
