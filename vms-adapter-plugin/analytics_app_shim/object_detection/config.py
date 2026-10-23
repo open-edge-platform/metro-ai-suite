@@ -12,10 +12,6 @@ from pydantic import BaseModel, Field, model_validator
 
 _DEVICE_ORDER = ("CPU", "GPU", "NPU")
 
-# Default "zone" control value: the original LD app region1 zone's rectangle
-# corners, normalized (0-1), as [x, y] polygon points.
-_DEFAULT_ZONE_POLYGON = [[0.0, 0.2778], [0.2344, 0.2778], [0.2344, 0.5556], [0.0, 0.5556]]
-
 
 class ObjectDetectionAnalyticsAppConfig(BaseModel):
     """Config for DL Streamer Pipeline Server–based object detection apps (e.g. Loitering Detection)."""
@@ -62,6 +58,9 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
     zones: dict[str, dict] = Field(default_factory=dict)
     # Deprecated, Nx-only: prefer vendor_options.zone_type_id on the Nx VMS instance.
     zone_type_id: str | None = None
+    # Default value for the per-camera "zone" control: normalized [x,y] polygon
+    # points. Empty by default; deployments set this to their own zone.
+    default_zone_polygon: list[list[float]] = Field(default_factory=list)
 
     # Subscribes to the app's dedicated status-event topic (e.g. the loitering-
     # detection recipe's mqtt-table-flattener sidecar) and pushes an Nx bookmark
@@ -153,7 +152,7 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
             {
                 "name": "zone",
                 "type": "text",
-                "default": json.dumps(_DEFAULT_ZONE_POLYGON),
+                "default": json.dumps(self.default_zone_polygon),
                 "label": "Loitering Zone",
                 "description": (
                     "Normalized zone polygon as [[x,y],...] points, each 0-1 "
