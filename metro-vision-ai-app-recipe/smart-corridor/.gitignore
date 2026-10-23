@@ -8,6 +8,7 @@ src/secrets/*.auth
 src/secrets/*.auth.*
 src/secrets/*.token
 src/secrets/supass
+src/dlstreamer-pipeline-server/models/vehicle_reid/
 src/dlstreamer-pipeline-server/videos/*.ts
 src/dlstreamer-pipeline-server/config.json
 src/webserver/smart-corridor-ri.tar.bz2
