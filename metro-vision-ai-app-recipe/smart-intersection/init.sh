@@ -30,7 +30,7 @@ if [ ! -d "${SOURCE}/dlstreamer-pipeline-server/videos" ] || [ -z "$(find "${SOU
   
   echo "Downloading videos in parallel..."
   for VIDEO in "${VIDEOS[@]}"; do
-    curl -k -L -s "${VIDEO_URL}/${VIDEO}" -o "${VIDEO_DIR}/${VIDEO}" &
+    curl -f -L -s "${VIDEO_URL}/${VIDEO}" -o "${VIDEO_DIR}/${VIDEO}" &
   done
   
   # # Dummy download to potentially improve bandwidth allocation

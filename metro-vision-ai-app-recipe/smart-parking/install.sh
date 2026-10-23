@@ -45,7 +45,14 @@ declare -A video_urls=(
 for video_name in "\${!video_urls[@]}"; do
     if [ ! -f src/dlstreamer-pipeline-server/videos/\${video_name} ]; then
         echo "Download \${video_name}..."
-        curl -L -o "src/dlstreamer-pipeline-server/videos/\${video_name}" "\${video_urls[\$video_name]}" 
+        curl -f -L -o "src/dlstreamer-pipeline-server/videos/\${video_name}" "\${video_urls[\$video_name]}"
+    fi
+done
+
+for video_name in "\${!video_urls[@]}"; do
+    if [ ! -f "src/dlstreamer-pipeline-server/videos/\${video_name}" ]; then
+        echo "Error: Failed to download \${video_name}"
+        exit 1
     fi
 done
 
