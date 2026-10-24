@@ -68,6 +68,9 @@ analytics_apps:
       region1:
         label: "Loitering Zone"
         bounding_box: [0.0, 0.2778, 0.2344, 0.5556]
+    # Default "zone" control value: the original LD app region1 zone's rectangle corners
+    # Normalized (0-1), as [x, y] polygon points.
+    default_zone_polygon: [[0.0, 0.2778], [0.2344, 0.2778], [0.2344, 0.5556], [0.0, 0.5556]]
 
     # Push an Nx bookmark for all messages on the app's status-event mqtt topic
     # "<this app's metadata topic>/<event_topic_suffix>".

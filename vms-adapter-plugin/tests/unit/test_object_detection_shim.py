@@ -135,13 +135,21 @@ def test_control_params_include_only_configured_devices():
 
 
 def test_control_params_include_zone_with_normalized_default():
-    cfg = _make_config()
+    default_zone = [[0.0, 0.2778], [0.2344, 0.2778], [0.2344, 0.5556], [0.0, 0.5556]]
+    cfg = _make_config(default_zone_polygon=default_zone)
     controls = cfg.control_params()
     zone = next(c for c in controls if c["name"] == "zone")
     assert zone["type"] == "text"
     assert "normalized" in zone["description"].lower()
     default_points = json.loads(zone["default"])
-    assert default_points == [[0.0, 0.2778], [0.2344, 0.2778], [0.2344, 0.5556], [0.0, 0.5556]]
+    assert default_points == default_zone
+
+
+def test_control_params_zone_default_empty_when_unconfigured():
+    cfg = _make_config()
+    controls = cfg.control_params()
+    zone = next(c for c in controls if c["name"] == "zone")
+    assert json.loads(zone["default"]) == []
 
 
 # ── zones config ──────────────────────────────────────────────────────────────
