@@ -1,7 +1,6 @@
 #!/bin/bash
 
 SOURCE="src"
-CHART="chart"
 if [ ! -f "${SOURCE}/secrets/browser.auth" ]; then
   bash ${SOURCE}/secrets/generate_secrets.sh
 fi
@@ -44,7 +43,9 @@ if [ ! -d "${SOURCE}/dlstreamer-pipeline-server/videos" ] || [ -z "$(find "${SOU
   
   echo "Downloading videos in parallel..."
   for VIDEO in "${VIDEOS[@]}"; do
-    curl -k -L -s "${VIDEO_URL}/${VIDEO}" -o "${VIDEO_DIR}/${VIDEO}" &
+    # -f makes HTTP errors (e.g. 504) fail instead of saving an error page
+    ( curl -fkL -sS --retry 3 --retry-delay 5 "${VIDEO_URL}/${VIDEO}" -o "${VIDEO_DIR}/${VIDEO}" \
+      || rm -f "${VIDEO_DIR}/${VIDEO}" ) &
   done
   
   # # Dummy download to potentially improve bandwidth allocation
@@ -53,8 +54,9 @@ if [ ! -d "${SOURCE}/dlstreamer-pipeline-server/videos" ] || [ -z "$(find "${SOU
   wait
   
   for VIDEO in "${VIDEOS[@]}"; do
-    if [ ! -f "${VIDEO_DIR}/${VIDEO}" ]; then
-        echo "Error: Failed to download ${VIDEO}"
+    if [ ! -s "${VIDEO_DIR}/${VIDEO}" ] || head -c 64 "${VIDEO_DIR}/${VIDEO}" | grep -qi '<!doctype\|<html'; then
+        echo "Error: Failed to download ${VIDEO} (missing, empty, or HTML error page)"
+        rm -f "${VIDEO_DIR}/${VIDEO}"
         exit 1
     fi
   done
