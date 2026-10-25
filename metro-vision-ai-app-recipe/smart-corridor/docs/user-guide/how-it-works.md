@@ -2,14 +2,14 @@
 
 This section provides a high-level view of how the application integrates with a typical system architecture.
 
-![High-Level System Diagram](./_assets/smart-intersection-architecture.drawio.svg)
+![High-Level System Diagram](./_assets/smart-corridor-architecture.drawio.svg)
 
 ## Diagram Description
 
 - **Inputs**:
-  - **Video Files** - Four traffic intersection cameras that capture videos simultaneously.
-  - **Scene Database** - Pre-configured intersection scene with satellite view of intersection, calibrated cameras, and regions of interest.
-  Video recordings are used to simulate a live feed from cameras deployed at a traffic intersection. The application can be configured to work with live cameras.
+  - **Video Files** - Traffic intersection cameras that capture videos simultaneously.
+  - **Scene Database** - Pre-configured corridor/intersection scenes with 3D map view of all intersections, calibrated cameras, and regions of interest.
+  Video recordings are used to simulate a live feed from cameras deployed at a traffic intersections. The application can be configured to work with live cameras.
 - **Processing**:
   - **Video Analytics** - Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) utilizes a pre-trained object detection model to generate object detection metadata and and a local NTP server for synchronized timestamps. This metadata is published to the MQTT broker.
   - **Sensor Fusion** - Scene Controller Microservice fuses the metadata from video analytics utilizing scene data obtained through the Scene Management API. It uses the fused tracks and the configured analytics (regions of interest) to generate events that are published to the MQTT broker.
@@ -28,5 +28,4 @@ This section provides a high-level view of how the application integrates with a
 
 - [Get Started](./get-started.md): Follow step-by-step instructions to set up the application.
 - [System Requirements](./get-started/system-requirements.md): Check the hardware and software requirements for deploying the application.
-- [How to Deploy with Helm](./get-started/deploy-with-helm.md): How to deploy the application using Helm on a Kubernetes cluster.
 - [Support and Troubleshooting](./troubleshooting.md): Find solutions to common issues and troubleshooting steps.

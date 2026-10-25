@@ -1,8 +1,8 @@
-# Smart Intersection
+# Smart Corridor
 
-The **Smart Intersection** is a sample application that unifies the analytics of a traffic intersection.
+The **Smart Corridor** is a sample application that unifies the analytics of a multiple traffic intersections.
 
-It demonstrates how edge AI technologies can address traffic management challenges using scene-based analytics. It combines analytics from multiple traffic cameras to provide a unified intersection view, enabling advanced use cases such as object tracking across multiple viewpoints, motion vector analysis (e.g., speed and heading), and understanding object interactions in three-dimensional space. This application highlights how existing camera infrastructure can be leveraged for real-time, multi-camera scene analytics, showcasing a shift from frame-based analysis to integrated, edge AI-driven solutions for smarter traffic management.
+It demonstrates how edge AI technologies can address traffic management challenges using scene-based analytics. It combines analytics from multiple traffic cameras in multiple intersections to provide a unified corridor view, enabling advanced use cases such as object tracking across multiple viewpoints, motion vector analysis (e.g., speed and heading), and understanding object interactions in three-dimensional space. This application highlights how existing camera infrastructure can be leveraged for real-time, multi-camera scene analytics, showcasing a shift from frame-based analysis to integrated, edge AI-driven solutions for smarter traffic management.
 
 The following are some example use cases:
 
@@ -28,14 +28,14 @@ To see the system requirements and other installations, see the following guides
 ## How It Works
 This section provides a high-level view of how the application integrates with a typical system architecture.
 
-![High-Level System Diagram](./docs/user-guide/_assets/smart-intersection-architecture.drawio.svg)
+![High-Level System Diagram](./docs/user-guide/_assets/smart-corridor-architecture.drawio.svg)
 
 ### Diagram Description
 
 - **Inputs**:
-  - **Video Files** - Four traffic intersection cameras that capture videos simultaneously.
-  - **Scene Database** - Pre-configured intersection scene with satellite view of intersection, calibrated cameras, and regions of interest.
-  Video recordings are used to simulate a live feed from cameras deployed at a traffic intersection. The application can be configured to work with live cameras.
+  - **Video Files** - Traffic intersection cameras that capture videos simultaneously.
+  - **Scene Database** - Pre-configured corridor/intersection scenes with 3D map view of all intersections, calibrated cameras, and regions of interest.
+  Video recordings are used to simulate a live feed from cameras deployed at a traffic intersections. The application can be configured to work with live cameras.
 - **Processing**:
   - **Video Analytics** - Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) utilizes a pre-trained object detection model to generate object detection metadata and and a local NTP server for synchronized timestamps. This metadata is published to the MQTT broker.
   - **Sensor Fusion** - Scene Controller Microservice fuses the metadata from video analytics utilizing scene data obtained through the Scene Management API. It uses the fused tracks and the configured analytics (regions of interest) to generate events that are published to the MQTT broker.
@@ -48,7 +48,6 @@ For more details, see [Overview](./docs/user-guide/index.md)
 
 ## Learn More
 
-- [How to Deploy with Helm](./docs/user-guide/get-started/deploy-with-helm.md): How to deploy the application using Helm on a Kubernetes cluster.
 - [Support and Troubleshooting](./docs/user-guide/troubleshooting.md): Find solutions to common issues and troubleshooting steps.
 
 ## License

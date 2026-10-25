@@ -6,17 +6,9 @@ docker run --rm -t \
     -e http_proxy -e https_proxy -e no_proxy \
     -e HOST_IP="$HOST_IP" \
     -v $(pwd)/init.sh:/init.sh \
-    -v $(pwd)/chart:/chart \
     -v $(pwd)/src:/src \
     docker.io/library/python:3.12 bash init.sh
 
-# if ENABLE_TC=true is set, configure TC network settings and create resolv.conf for DNS relay
-if [ "${ENABLE_TC}" = "true" ]; then
-    ./tc-setup.sh
-    docker compose -f ../compose-scenescape.yml -f ../tc-overlay-deps.yml config \
-        --no-interpolate --no-normalize --no-path-resolution --no-env-resolution \
-        > ../docker-compose.yml
-fi
 
 sudo chown -R $USER:$USER src/secrets
 
@@ -54,20 +46,20 @@ if [[ -f "$ENV_FILE" ]]; then
         echo "Using config_sn_parent.json"
         ln -sf config_sn_parent.json src/dlstreamer-pipeline-server/config.json
     else
-        # Child deployment: check REMOTE_CHILD_DEPLOY setting in env file if present
+        # Child deployment: check REMOTE_CHILD_DEPLOY setting in env file
         REMOTE_CHILD_DEPLOY=$(grep -E "^REMOTE_CHILD_DEPLOY=" "$ENV_FILE" | cut -d'=' -f2 | tr -d '"' || true)
-        
-        CHILD_TAR="smart-corridor-child-ri.tar.bz2"
-        CHILD_CONFIG="config_child.json"
 
-        if [[ -n "$REMOTE_CHILD_DEPLOY" ]]; then
-            CHILD_TAR="smart-corridor-child-${REMOTE_CHILD_DEPLOY}-ri.tar.bz2"
-            CHILD_CONFIG="config_child_${REMOTE_CHILD_DEPLOY}.json"
+        if [[ -z "$REMOTE_CHILD_DEPLOY" ]]; then
+            echo "Error: REMOTE_CHILD_DEPLOY must be specified in $ENV_FILE for child deployment (e.g., REMOTE_CHILD_DEPLOY=1)."
+            exit 1
         fi
 
-        echo "Child deployment detected — using ${CHILD_TAR}"
+        CHILD_TAR="smart-corridor-child-${REMOTE_CHILD_DEPLOY}-ri.tar.bz2"
+        CHILD_CONFIG="config_child_${REMOTE_CHILD_DEPLOY}.json"
+
+        echo "Child deployment detected (REMOTE_CHILD_DEPLOY=${REMOTE_CHILD_DEPLOY}) — using ${CHILD_TAR}"
         ln -sf "${CHILD_TAR}" src/webserver/smart-corridor-ri.tar.bz2
-        echo "Child deployment detected — using ${CHILD_CONFIG}"
+        echo "Child deployment detected (REMOTE_CHILD_DEPLOY=${REMOTE_CHILD_DEPLOY}) — using ${CHILD_CONFIG}"
         ln -sf "${CHILD_CONFIG}" src/dlstreamer-pipeline-server/config.json
     fi
 else
