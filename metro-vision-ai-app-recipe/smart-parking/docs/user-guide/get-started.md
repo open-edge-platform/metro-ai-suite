@@ -140,6 +140,9 @@ By following this guide, you will learn how to:
 ### **NodeRED UI**
 
 - **URL**: `https://localhost/nodered/`
+- **Log in with credentials**:
+  - **Username**: Check `./smart-parking/src/secrets/nodered/nodered-admin-username`
+  - **Password**: Check `./smart-parking/src/secrets/nodered/nodered-admin-password`
 
 ### **DL Streamer Pipeline Server**
 

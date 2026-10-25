@@ -17,7 +17,7 @@ node_modules
 **/src/node-red/.config.users.json
 **/src/node-red/.config.users.json.backup
 **/src/node-red/.flows.json.backup
-**/src/node-red/settings.js
+**/src/node-red/.sessions.json
 **/src/node-red/package.json
 **/src/dlstreamer-pipeline-server/models/public/
 **/src/dlstreamer-pipeline-server/models/datasets/

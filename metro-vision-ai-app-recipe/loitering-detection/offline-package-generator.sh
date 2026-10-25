@@ -50,6 +50,7 @@ sed -i "s/\${DLSTREAMER_PIPELINE_SERVER_IMAGE}/$(grep "DLSTREAMER_PIPELINE_SERVE
 # since this script keeps its own local docker-compose.yml copy.
 awk '
     /^  node-red:/ { skip=1; next }
+    /^secrets:/ { skip=1; next }
     skip && /^  [^ ]/ { skip=0 }
     skip && /^[^ ]/ { skip=0 }
     !skip { print }

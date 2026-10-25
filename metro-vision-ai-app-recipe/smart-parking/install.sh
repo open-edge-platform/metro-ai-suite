@@ -10,7 +10,6 @@ declare -A CONFIG_LINKS=(
   [src/grafana/datasources.yml]="datasources_without_scenescape.yml|datasources_scenescape.yml"
   [src/node-red/flows.json]="flows_without_scenescape.json|flows_scenescape.json"
   [src/node-red/install_package.sh]="install_package_without_scenescape.sh|install_package_scenescape.sh"
-  [src/node-red/settings.js]="|settings_scenescape.js"
   [src/node-red/flows_cred.json]="|flows_cred_scenescape.json"
 )
 
@@ -88,6 +87,12 @@ fi
 if [ "$MODE" = "ss" ]; then
   bash "${SCRIPT_DIR}/init-scenescape.sh"
 fi
+
+# Self-guarded: generates Node-RED admin credentials or backfills if missing
+docker run --rm -t --user "$(id -u):$(id -g)" \
+  -e http_proxy -e https_proxy -e no_proxy \
+  -v "$SCRIPT_DIR/src/secrets:/src/secrets" \
+  docker.io/library/python:3.12 bash /src/secrets/generate_nodered_secret.sh
 
 docker run --rm --user=root \
   -e http_proxy -e https_proxy -e no_proxy \

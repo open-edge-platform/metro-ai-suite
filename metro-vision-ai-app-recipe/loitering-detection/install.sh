@@ -72,6 +72,7 @@ EOF
 if [ -f ../docker-compose.yml ]; then
   awk '
     /^  node-red:/ { skip=1; next }
+    /^secrets:/ { skip=1; next }
     skip && /^  [^ ]/ { skip=0 }
     skip && /^[^ ]/ { skip=0 }
     !skip { print }
