@@ -4,7 +4,6 @@ This page provides comprehensive support and troubleshooting information for the
 
 - **Common Issues**: General troubleshooting steps for resolving issues like container failures, port conflicts, and missing dependencies.
 - **Troubleshooting Docker Deployments**: Steps to address problems specific to Docker deployments.
-- **Troubleshooting Helm Deployments**: Guidance for resolving issues in Helm-based deployments.
 
 If you encounter any problems with the application not addressed here, check the
 [GitHub Issues](https://github.com/open-edge-platform/metro-ai-suite/issues) board. Feel free
@@ -215,7 +214,6 @@ to file new tickets there (after learning about the guidelines for
 
 - Now the Application UI should show objects detected on scene.
 
-  > **Note:** For Helm deployments, use the equivalent commands to inspect logs and restart the scene controller.
 
 - Inspect the logs:
 
@@ -251,87 +249,6 @@ to file new tickets there (after learning about the guidelines for
   ```bash
   mosquitto_sub -h <HOST_IP> -p 1883 \
     --cafile ./smart-corridor/src/secrets/certs/scenescape-ca.pem \
-    -t '#' -v
-  ```
-
-  > **Note:** The broker uses TLS (TLSv1.3) but allows anonymous connections — no username/password is required. You must use an MQTT client (not a web browser) since MQTT is a TCP protocol, not HTTP.
-
-## Troubleshooting Helm Deployments
-
-### 1. Helm Chart Not Found
-
-- Check if the Helm repository was added:
-
-  ```bash
-  helm repo list
-  ```
-
-### 2. Pods Not Running
-
-- Review pod logs:
-
-  ```bash
-  kubectl logs {{pod-name}} -n {{namespace}}
-  ```
-
-### 3. Service Unreachable
-
-- Confirm the service configuration:
-
-  ```bash
-  kubectl get svc -n {{namespace}}
-  ```
-
-### 4. DL Streamer Pipeline Server Pod Stuck in Pending State
-
-- **Issue**: When `gpu.enabled` is set to `true` or `npu.enabled` is set to `true` in `values.yaml`, the DL Streamer Pipeline Server pod remains in `Pending` state and does not get scheduled.
-- **Cause**: The deployment requests `gpu.intel.com/i915` (or the configured `gpu.type`) or `npu.intel.com/accel` as a resource limit. If the node does not have the corresponding hardware or the Intel Device Plugin is not installed, Kubernetes cannot satisfy the resource request and the pod will not be scheduled.
-- **Diagnosis**: Check the pod events for the scheduling failure:
-
-  ```bash
-  kubectl describe pod -n smart-corridor -l app=smart-corridor-dlstreamer-pipeline-server | grep -A 5 "Events:"
-  ```
-
-  You will see an event message like:
-
-  ```text
-  Warning  FailedScheduling  default-scheduler  0/1 nodes are available: 1 Insufficient gpu.intel.com/i915.
-  ```
-
-  or:
-
-  ```text
-  Warning  FailedScheduling  default-scheduler  0/1 nodes are available: 1 Insufficient npu.intel.com/accel.
-  ```
-
-  > **Note:** If your node uses Intel Xe discrete GPUs (Arc), you will see `gpu.intel.com/xe` instead of `gpu.intel.com/i915`.
-
-- **Verification**: Confirm whether the GPU and/or NPU resources are available on your nodes:
-
-  ```bash
-  kubectl get nodes -o json | jq '.items[] | {name: .metadata.name, gpu: .status.allocatable["gpu.intel.com/i915"], npu: .status.allocatable["npu.intel.com/accel"]}'
-  ```
-
-  If the output shows `"gpu": null` or `"npu": null`, the corresponding Intel Device Plugin is not installed or the node does not have the required hardware.
-
-- **Solution**: Ensure the [Intel Device Plugins for Kubernetes](https://github.com/intel/intel-device-plugins-for-kubernetes) (NFD + GPU plugin + NPU plugin) are installed on your cluster and that the target node has the required hardware. See the [Prerequisites](./get-started/deploy-with-helm.md#prerequisites) section for installation steps.
-
-  > **Note:** If your node uses Intel Xe discrete GPUs (Arc), set `gpu.type` to `gpu.intel.com/xe` in `values.yaml`.
-
-### 5. Accessing the MQTT Broker Externally
-
-- **Issue**: You want to connect an external MQTT client to the broker for debugging or monitoring topics in a Helm deployment.
-- **Solution**: Use `kubectl port-forward` to expose the broker service locally:
-
-  ```bash
-  kubectl port-forward svc/smart-corridor-broker -n smart-corridor 1883:1883
-  ```
-
-- Then connect using an MQTT client with TLS:
-
-  ```bash
-  mosquitto_sub -h localhost -p 1883 \
-    --cafile <path-to-scenescape-ca.pem> \
     -t '#' -v
   ```
 
