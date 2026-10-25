@@ -113,6 +113,8 @@ class RoiConfig(BaseModel):
 
 
 class PrefilterConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
     enabled: bool = False
     model_path: str = ""
     target_classes: list[str] = Field(default_factory=lambda: ["person"])

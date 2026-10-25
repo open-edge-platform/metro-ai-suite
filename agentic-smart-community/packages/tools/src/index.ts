@@ -56,3 +56,6 @@ export type {
 } from "./use-case-register.js";
 export { ruleEval } from "./rule-eval.js";
 export type { RuleEvalParams, RuleEvalDeps, RuleEvalResult } from "./rule-eval.js";
+
+export { mergePatch } from "./config-patch.js";
+export { recoverUseCaseUpdates } from "./use-case-update.js";

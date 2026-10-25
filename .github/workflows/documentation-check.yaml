@@ -23,7 +23,6 @@ jobs:
       live-video-captioning_changed: ${{ steps.filter.outputs.live-video-captioning }}
       live-video-alert-agent_changed: ${{ steps.filter.outputs.live-video-alert-agent }}
       live-video-search_changed: ${{ steps.filter.outputs.live-video-search }}
-      metro-sdk-manager_changed: ${{ steps.filter.outputs.metro-sdk-manager }}
       metro-vision-ai-app-recipe_changed: ${{ steps.filter.outputs.metro-vision-ai-app-recipe }}
       loitering-detection_changed: ${{ steps.filter.outputs.loitering-detection }}
       smart-intersection_changed: ${{ steps.filter.outputs.smart-intersection }}
@@ -53,8 +52,6 @@ jobs:
               - 'live-video-analysis/live-video-alert-agent/docs/user-guide/**'
             live-video-search:
               - 'live-video-analysis/live-video-search/docs/user-guide/**'
-            metro-sdk-manager:
-              - 'metro-sdk-manager/docs/user-guide/**'
             metro-vision-ai-app-recipe:
               - 'metro-vision-ai-app-recipe/docs/user-guide/**'
             loitering-detection:
@@ -113,15 +110,6 @@ jobs:
     uses: ./.github/workflows/docs-reusable-workflow.yaml
     with:
       docs_directory: live-video-analysis/live-video-search
-
-  build-metro-sdk-manager:
-    permissions:
-      contents: read # needed for actions/checkout
-    needs: filter
-    if: ${{ needs.filter.outputs.metro-sdk-manager_changed == 'true' }}
-    uses: ./.github/workflows/docs-reusable-workflow.yaml
-    with:
-      docs_directory: metro-sdk-manager
 
   build-metro-vision-ai-app-recipe:
     permissions:

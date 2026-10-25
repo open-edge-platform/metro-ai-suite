@@ -468,6 +468,12 @@ class SourceManager:
             "data_dir": bundle.data_dir,
             "status": pipe.status,
             "running": pipe.is_running,
+            "pipeline_config": {
+                key: getattr(pipe.source, key).model_dump()
+                for key in ("motion", "segment", "static", "prefilter", "roi", "recording", "health")
+                if getattr(pipe.source, key, None) is not None
+            },
+            "prefilter_status": pipe.prefilter_status,
             "recording_enabled": bundle.recorder is not None,
             "health": pipe.health_info,
             "keepalive_enabled": bool(bundle.keepalive and bundle.keepalive.enabled),

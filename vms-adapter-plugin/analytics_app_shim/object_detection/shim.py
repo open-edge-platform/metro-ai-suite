@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import json
 import ssl
 from typing import TYPE_CHECKING, Any
 
@@ -38,6 +39,7 @@ from .config import ObjectDetectionAnalyticsAppConfig
 from .api_client import ObjectDetectionApiClient
 
 if TYPE_CHECKING:
+    from plugin.core.factory import VmsShimSet
     from plugin.core.pipeline.orchestrator import Orchestrator
 
 logger = structlog.get_logger(__name__)
@@ -69,6 +71,9 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
         self._pipeline_root_map: dict[str, str] = {}
         # Tracks active runs: run_id (= instance_id hex) → run metadata
         self._runs: dict[str, dict[str, Any]] = {}
+        # Needed to look up the originating VMS shim for camera-resolution lookups
+        # when translating a user-entered normalized zone to pixel coordinates.
+        self._vms_shim_sets: list[VmsShimSet] = []
 
     @property
     def app_id(self) -> str:  # type: ignore[override]
@@ -80,6 +85,7 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
 
     async def on_startup(self, orchestrator: Orchestrator) -> None:
         """Start object detection MQTT subscriber background task."""
+        self._vms_shim_sets = orchestrator.vms_shim_sets
         from analytics_app_shim.object_detection.mqtt_subscriber import MqttSubscriber
         subscriber = MqttSubscriber()
         task = asyncio.create_task(
@@ -87,10 +93,15 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
                 mqtt_host=self._config.mqtt_host,
                 mqtt_port=self._config.mqtt_port,
                 vms_shim_sets=orchestrator.vms_shim_sets,
-                analytics_app_id=self.app_id,
                 label_type_map=self._config.label_type_map,
                 timestamp_offset_ms=self._config.metadata_timestamp_offset_ms,
                 tls_context=_make_tls_context(self._config),
+                zone_filter_enabled=self._config.zone_filter_enabled,
+                zones=self._config.zones,
+                zone_type_id=self._config.zone_type_id,
+                metadata_topic_prefix=self._config.metadata_topic_prefix,
+                event_bookmark_enabled=self._config.event_bookmark_enabled,
+                event_topic_suffix=self._config.event_topic_suffix,
             ),
             name=f"mqtt-subscriber-{self.app_id}",
         )
@@ -150,6 +161,14 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
                     "enum": device_options,
                     "default": device_options[0] if device_options else "CPU",
                 },
+                "zone": {
+                    "type": "string",
+                    "title": "Loitering Zone",
+                    "description": (
+                        "Normalized zone polygon as [[x,y],...] points, each 0-1 "
+                        "(fraction of frame width/height)"
+                    ),
+                },
             },
         }
 
@@ -158,6 +177,7 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
             camera_id=(str, ...),
             camera_id_ref=(str, ""),   # original camera_id before RTSP resolution (e.g. "nx:abc123")
             device=(str, ""),
+            zone=(str, ""),
         )
 
         return schema
@@ -167,17 +187,94 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
     def _build_mqtt_topic(self, camera_id_ref: str) -> str:
         """Build the MQTT publish topic from the original camera_id.
 
-        Format: ``{vendor_prefix}/{app_id}/{device_id}``
-        Example: ``nx/dls_vision/e3e9a385-7fe0-3ba5-5482-a86cde7faf48``
+        Format: ``{metadata_topic_prefix}/{vendor_prefix}:{device_id}``
+        Example: ``object_tracking/nx:e3e9a385-7fe0-3ba5-5482-a86cde7faf48``
 
-        The subscriber listens on ``+/{app_id}/+`` and uses prefix-match on
-        the first segment to find the right VMS shim (e.g. ``nx`` → ``nx-main``).
+        Uses the LD app's OWN existing topic convention (``metadata_topic_prefix``,
+        matching its ``SOURCE_TOPIC_PREFIX``) rather than a VMS-invented scheme, so
+        the recipe's mqtt-table-flattener needs no reconfiguration. The subscriber
+        listens on ``{metadata_topic_prefix}/+`` and splits the trailing
+        ``vendor:device_id`` segment to find the right VMS shim.
         """
-        if ":" in camera_id_ref:
-            vendor_prefix, device_id = camera_id_ref.split(":", 1)
-        else:
-            vendor_prefix, device_id = "vap", camera_id_ref or "unknown"
-        return f"{vendor_prefix}/{self._config.app_id}/{device_id}"
+        ref = camera_id_ref or "vap:unknown"
+        return f"{self._config.metadata_topic_prefix}/{ref}"
+
+    def _lookup_vms_shim(self, camera_id_ref: str) -> Any | None:
+        """Exact match first, then prefix match, mirroring MqttSubscriber._lookup_shim."""
+        if ":" not in camera_id_ref:
+            return None
+        vendor_prefix, _ = camera_id_ref.split(":", 1)
+        shim_map = {ss.name: ss.vms_shim for ss in self._vms_shim_sets}
+        return shim_map.get(vendor_prefix) or next(
+            (v for k, v in shim_map.items() if k.startswith(vendor_prefix)), None
+        )
+
+    async def _get_camera_resolution(self, camera_id_ref: str) -> tuple[int, int] | None:
+        """Best-effort camera pixel resolution via the VMS's own camera metadata.
+
+        Nx exposes it as ``vendor_meta.options.bitrateInfos[].resolution`` (e.g.
+        "1280x720"). Returns None if the VMS/camera doesn't expose it.
+        """
+        shim = self._lookup_vms_shim(camera_id_ref)
+        if shim is None:
+            return None
+        try:
+            camera = await shim.get_camera_metadata(camera_id_ref)
+        except Exception as exc:  # noqa: BLE001 — best-effort, never fatal
+            logger.warning("od_camera_resolution_lookup_failed", camera_id_ref=camera_id_ref, error=str(exc))
+            return None
+        if camera is None:
+            return None
+        bitrate_infos = (camera.vendor_meta.get("options") or {}).get("bitrateInfos") or []
+        for info in bitrate_infos:
+            resolution = info.get("resolution", "")
+            if "x" not in resolution:
+                continue
+            width_str, _, height_str = resolution.partition("x")
+            try:
+                return int(width_str), int(height_str)
+            except ValueError:
+                continue
+        return None
+
+    async def _build_zone_payload(self, zone_raw: str, camera_id_ref: str) -> str | None:
+        """Convert a user-entered normalized zone polygon to the pixel JSON DLSPS expects.
+
+        ``zone_raw`` is a JSON string of [[x,y],...] points, each normalized 0-1.
+        Returns None (logging why) if the input is malformed or the camera's
+        resolution can't be determined - never sends a guessed/wrong zone.
+        """
+        try:
+            points = json.loads(zone_raw)
+        except (json.JSONDecodeError, ValueError):
+            logger.warning("od_zone_parse_failed", zone_raw=zone_raw)
+            return None
+        if not isinstance(points, list) or len(points) < 3:
+            logger.warning("od_zone_invalid_polygon", zone_raw=zone_raw)
+            return None
+
+        resolution = await self._get_camera_resolution(camera_id_ref)
+        if resolution is None:
+            logger.warning("od_zone_resolution_unavailable", camera_id_ref=camera_id_ref)
+            return None
+        frame_w, frame_h = resolution
+
+        pixel_points = []
+        for point in points:
+            if not (isinstance(point, (list, tuple)) and len(point) == 2):  # noqa: PLR2004
+                logger.warning("od_zone_invalid_point", point=point)
+                return None
+            x, y = point
+            pixel_points.append({"x": round(float(x) * frame_w), "y": round(float(y) * frame_h)})
+
+        zone = {
+            "id": "vap_zone",
+            "type": "polygon",
+            "points": pixel_points,
+            "track-dwell-time": True,
+            "object-retention": 1.0,
+        }
+        return json.dumps([zone])
 
     async def is_reachable(self) -> bool:
         return await self._api.is_reachable()
@@ -215,14 +312,25 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
             pipeline_name = self._config.pipeline_for_device(device)
             extra_params = {"detection-properties": {"device": device}}
 
+        zone_raw = str(data.get("zone", "") or "").strip()
+        if zone_raw:
+            zones_json = await self._build_zone_payload(zone_raw, camera_id_ref)
+            if zones_json:
+                extra_params = dict(extra_params)
+                extra_params["analytics-properties"] = {
+                    **extra_params.get("analytics-properties", {}),
+                    "zones": zones_json,
+                }
+
         if not pipeline_name:
             raise ValueError("pipeline_name is required")
 
         pipeline_root = self._pipeline_root_map.get(pipeline_name, "user_defined_pipelines")
 
         # Build MQTT topic from the original camera_id (e.g. "nx:abc123")
-        # Topic format: "{vendor_prefix}/{app_id}/{device_id}" → matches subscriber filter "+/{app_id}+"
-        # e.g. "nx/dls_vision/e3e9a385-7fe0-3ba5-5482-a86cde7faf48"
+        # Topic format: "{metadata_topic_prefix}/{vendor_prefix}:{device_id}" → matches
+        # subscriber filter "{metadata_topic_prefix}/+"
+        # e.g. "object_tracking/nx:e3e9a385-7fe0-3ba5-5482-a86cde7faf48"
         mqtt_topic = self._build_mqtt_topic(camera_id_ref)
 
         payload: dict[str, Any] = {
@@ -310,6 +418,7 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
             "camera_id": stream_url,
             "camera_id_ref": camera_id,
             "device": str(controls.get("device", "")),
+            "zone": str(controls.get("zone", "")),
         })
         try:
             result = await self.start(params)

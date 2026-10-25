@@ -101,6 +101,9 @@ async function main() {
     // case's declared columns to the shared video_summary_tasks table. ALTER is
     // idempotent, so use cases that declare the same column (event/desc/...) only
     // add it once, and a restart re-applies safely.
+    const { recoverUseCaseUpdates } = await import("@smart-community-video/tools");
+    await recoverUseCaseUpdates({ useCaseDict: config.useCaseDict, summaryServiceUrl: config.summaryService.url,
+      db: (db as any).db, configPath: config.configPath, baseDir: config.dataDir });
     const schemaManager = new SchemaManager((db as any).db);
     const added: string[] = [];
     const warnings: string[] = [];

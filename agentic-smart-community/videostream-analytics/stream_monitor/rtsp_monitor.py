@@ -167,6 +167,9 @@ class StreamPipeline(BaseMonitor):
     def _init_prefilter(self):
         """Initialize or rebuild prefilter from current config."""
         self._prefilter = None
+        self._prefilter_error = None
+        if self._prefilter_cfg.enabled and not self._prefilter_cfg.model_path:
+            self._prefilter_error = "prefilter model_path is empty"
         if self._prefilter_cfg.enabled and self._prefilter_cfg.model_path:
             try:
                 yolo = YoloPrefilter(
@@ -183,7 +186,18 @@ class StreamPipeline(BaseMonitor):
                 )
                 logger.info("[%s] Prefilter enabled: classes=%s", self.source_id, self._prefilter_cfg.target_classes)
             except Exception as e:
+                self._prefilter_error = str(e)
                 logger.warning("[%s] Prefilter init failed, running without: %s", self.source_id, e)
+
+    @property
+    def prefilter_status(self) -> dict:
+        """Report the detector state separately from requested configuration."""
+        return {
+            "status": "disabled" if not self._prefilter_cfg.enabled else (
+                "ready" if self._prefilter is not None else "failed"
+            ),
+            "error": self._prefilter_error,
+        }
 
     def update_pipeline_config(
         self,

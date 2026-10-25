@@ -33,6 +33,8 @@ export interface SummarizeConfig {
  * one entry per use case, referenced by monitors via `use_case` field.
  */
 export interface UseCaseConfig {
+  detection_events?: string[];
+  monitor_defaults?: Record<string, unknown>;
   description?: string;
   /** Task name registered in multilevel-video-understanding service. */
   video_summary_task: string;

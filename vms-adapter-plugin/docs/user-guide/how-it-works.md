@@ -87,7 +87,7 @@ ObjectDetectionAnalyticsAppShim
     ▼
 DL Streamer Pipeline Server (dls_vision)
     │  processes RTSP stream
-    └─► inference results → MQTT broker  topic: /{vms_name}/dls_vision/{camera_id}
+    └─► inference results → MQTT broker  topic: {metadata_topic_prefix}/{vms_name}:{camera_id}
     ▼
 MqttSubscriber (VAP background task)
     │  translate_dls_metadata() — DLS JSON → Nx analytics object format
@@ -162,11 +162,18 @@ changes when LVC parameters change.
 
 ### MQTT Subscriber (`dls_vision`)
 
-`MqttSubscriber` runs as an asyncio background task. It subscribes to `+/dls_vision/+` on the
-MQTT broker and receives DL Streamer GStreamer Video Analytics (GVA) JSON metadata per frame.
-The `translate_dls_metadata()` function converts normalized bounding boxes and labels to Nx
-analytics object format, then `NxWitnessVmsShim.push_analytics_objects()` posts them to Nx
-Witness.
+`MqttSubscriber` runs as an asyncio background task and subscribes to two topics per camera on the
+MQTT broker:
+
+- **Metadata topic** — `{metadata_topic_prefix}/{vms_name}:{camera_id}` (default prefix
+  `object_tracking`, matching the Loitering Detection app's own `SOURCE_TOPIC_PREFIX`). Carries
+  per-frame DL Streamer GVA JSON metadata (detections, and zone/dwell-time info when present).
+  Each message is translated by `translate_dls_metadata()` into Nx analytics object format and
+  pushed to Nx Witness via `NxWitnessVmsShim.push_analytics_objects()`.
+- **Event topic** — `{metadata_topic_prefix}/{vms_name}:{camera_id}/{event_topic_suffix}`
+  (default suffix `loiterstatus`; subscribed only when `event_bookmark_enabled` is `true`).
+  Carries rows for person IDs whose dwell time exceeds the loitering threshold, published by the
+  Loitering Detection app. Each row is pushed to Nx as a bookmark.
 
 ### React Analytics Provider Dashboard (`ui/`)
 
