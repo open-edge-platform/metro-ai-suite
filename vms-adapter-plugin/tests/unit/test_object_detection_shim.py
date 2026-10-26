@@ -502,7 +502,7 @@ async def test_start_sends_scaled_roi_to_pipelines_that_declare_it(mock_vms_shim
 
 
 async def test_start_sends_no_roi_without_zone(mock_vms_shim):
-    shim = _make_shim()
+    shim = _make_shim()  # no default_zone_polygon configured
     shim._pipeline_parameters = {"vap_object_tracking_gpu": {"roi-properties"}}
     shim._api.start_run = AsyncMock(return_value={"instance_id": "abc123"})
     params = MagicMock()
@@ -511,8 +511,38 @@ async def test_start_sends_no_roi_without_zone(mock_vms_shim):
         "camera_id_ref": "nx:abc123", "zone": "", "parameters": {},
     }
     await shim.start(params)
-    # Pipeline keeps its own default roi when no zone is given.
+    # Pipeline keeps its own default roi when no zone is given or configured.
     assert "roi-properties" not in shim._api.start_run.call_args.args[2]["parameters"]
+
+
+async def test_start_without_zone_uses_configured_default_zone(mock_vms_shim):
+    shim = _make_shim(default_zone_polygon=[[0.0, 0.277778], [0.234375, 0.277778],
+                                            [0.234375, 0.555556], [0.0, 0.555556]])
+    shim._vms_shim_sets = [_vms_shim_set("nx-main", mock_vms_shim)]
+    mock_vms_shim.get_camera_metadata = AsyncMock(return_value=_camera_with_resolution("1920x1080"))
+    shim._pipeline_parameters = {"vap_object_tracking_gpu": {"roi-properties"}}
+    shim._api.start_run = AsyncMock(return_value={"instance_id": "abc123"})
+    params = MagicMock()
+    params.model_dump.return_value = {
+        "pipeline_name": "vap_object_tracking_gpu", "camera_id": "rtsp://cam/s",
+        "camera_id_ref": "nx:abc123", "parameters": {},  # caller sent no zone
+    }
+    await shim.start(params)
+    sent = shim._api.start_run.call_args.args[2]["parameters"]
+    assert sent["roi-properties"] == {"roi": "0,300,450,600"}
+    assert json.loads(sent["analytics-properties"]["zones"])[0]["points"][2] == {"x": 450, "y": 600}
+
+
+async def test_schema_zone_default_comes_from_config():
+    polygon = [[0.1, 0.2], [0.3, 0.2], [0.3, 0.4]]
+    shim = _make_shim(default_zone_polygon=polygon)
+    shim._api.list_pipelines = AsyncMock(return_value=[])
+    schema = await shim.fetch_schema()
+    assert json.loads(schema["properties"]["zone"]["default"]) == polygon
+
+    bare = _make_shim()
+    bare._api.list_pipelines = AsyncMock(return_value=[])
+    assert (await bare.fetch_schema())["properties"]["zone"]["default"] == ""
 
 
 def test_zone_roi_is_bounding_rectangle_of_polygon():
@@ -709,3 +739,74 @@ def test_api_client_verify_uses_ca_bundle_path(monkeypatch):
     client._ensure_client()
 
     assert captured["verify"] == "/tmp/od-ca.pem"
+
+
+# ── run listing tags each active run with its camera, device and zone ───────
+
+async def test_list_runs_tags_active_runs_from_their_detail(mock_vms_shim):
+    shim = _make_shim()
+    shim._vms_shim_sets = [_vms_shim_set("milestone", mock_vms_shim)]
+    mock_vms_shim.get_camera_metadata = AsyncMock(return_value=Camera(
+        camera_id="milestone:dev/stream", name="c", vendor="milestone", width=1920, height=1080,
+    ))
+    shim._api.list_runs = AsyncMock(return_value=[
+        {"id": "r1", "state": "RUNNING"},
+        {"id": "r2", "state": "ABORTED"},
+        {"id": "r3", "state": "QUEUED"},
+    ])
+    zones = json.dumps([{"id": "vap_zone", "type": "polygon", "points": [
+        {"x": 0, "y": 300}, {"x": 450, "y": 300}, {"x": 450, "y": 600}, {"x": 0, "y": 600}]}])
+    details = {
+        # where the Pipeline Server keeps the original request
+        "r1": {"params": {"request": {
+            "destination": {"metadata": {"topic": "object_tracking/milestone:dev~stream"}},
+            "parameters": {"detection-properties": {"device": "GPU"},
+                           "analytics-properties": {"zones": zones}},
+        }}},
+        # foreign topic: not one of VAP's camera runs
+        "r3": {"request": {"destination": {"metadata": {"topic": "other/thing"}}}},
+    }
+    shim._api.get_run = AsyncMock(side_effect=lambda run_id: details.get(run_id))
+
+    by_id = {r["id"]: r for r in await shim.list_runs()}
+
+    assert by_id["r1"]["camera_id"] == "milestone:dev/stream"
+    assert by_id["r1"]["device"] == "GPU"
+    assert json.loads(by_id["r1"]["zone"]) == [[0, 0.2778], [0.2344, 0.2778], [0.2344, 0.5556], [0, 0.5556]]
+    assert "camera_id" not in by_id["r2"]          # inactive runs are not looked up
+    assert "camera_id" not in by_id["r3"]
+    assert [c.args[0] for c in shim._api.get_run.await_args_list] == ["r1", "r3"]
+
+    # Cached, including the negative result for r3
+    shim._api.get_run.reset_mock()
+    await shim.list_runs()
+    shim._api.get_run.assert_not_called()
+
+    # Runs that are no longer active are forgotten
+    shim._api.list_runs = AsyncMock(return_value=[{"id": "r1", "state": "COMPLETED"}])
+    await shim.list_runs()
+    assert shim._run_info == {}
+
+
+async def test_started_run_is_listed_with_its_zone_without_lookup(mock_vms_shim):
+    shim = _make_shim()
+    shim._vms_shim_sets = [_vms_shim_set("nx-main", mock_vms_shim)]
+    mock_vms_shim.get_camera_metadata = AsyncMock(return_value=_camera_with_resolution("1280x720"))
+    shim._api.start_run = AsyncMock(return_value={"instance_id": "r9"})
+    params = MagicMock()
+    params.model_dump.return_value = {
+        "pipeline_name": "p", "camera_id": "rtsp://cam/s", "camera_id_ref": "nx:abc123",
+        "device": "", "zone": "[[0.1, 0.1], [0.5, 0.1], [0.5, 0.5]]", "parameters": {},
+    }
+    await shim.start(params)
+    shim._api.list_runs = AsyncMock(return_value=[{"id": "r9", "state": "RUNNING"}])
+    shim._api.get_run = AsyncMock()
+
+    run = (await shim.list_runs())[0]
+    assert run["camera_id"] == "nx:abc123"
+    assert json.loads(run["zone"]) == [[0.1, 0.1], [0.5, 0.1], [0.5, 0.5]]
+    shim._api.get_run.assert_not_called()
+
+    shim._api.stop_run = AsyncMock(return_value=True)
+    await shim.stop_run("r9")
+    assert "r9" not in shim._run_info

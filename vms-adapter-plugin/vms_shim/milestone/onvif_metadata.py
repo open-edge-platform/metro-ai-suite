@@ -124,6 +124,35 @@ def _num(value: float) -> str:
     return f"{value:.6f}".rstrip("0").rstrip(".") or "0"
 
 
+# Label font size, in ONVIF units of frame height.
+_LABEL_SIZE = 0.05
+# Rough rendered width of one label character, in ONVIF x units per unit of
+# size (a bold sans glyph is ~0.6 of its height, on a 16:9 frame).
+_LABEL_CHAR_WIDTH = 0.6 * 9 / 16
+# Keeps labels a little clear of the frame edges.
+_LABEL_MARGIN = 0.01
+
+
+def _label_position(box: dict[str, float], text: str) -> tuple[float, float]:
+    """Where to anchor a box's label so Smart Client shows it whole.
+
+    Smart Client centres ``Description`` text on its ``x`` (Milestone's sample
+    puts a box's label at the box's horizontal centre), so the label is centred
+    over the box and then shifted, by its estimated width, to stay inside the
+    frame. It sits just above the box, or just below when the box touches the
+    top edge.
+    """
+    half_width = len(text) * _LABEL_SIZE * _LABEL_CHAR_WIDTH / 2 + _LABEL_MARGIN
+    centre = (box["left"] + box["right"]) / 2
+    if half_width >= 1:
+        x = 0.0
+    else:
+        x = min(max(centre, -1 + half_width), 1 - half_width)
+    above = box["top"] + 0.04
+    y = above if above <= 1 - _LABEL_SIZE else max(-1.0, box["bottom"] - _LABEL_MARGIN)
+    return x, y
+
+
 def _object_xml(obj: dict[str, Any], indent: str = "    ") -> str:
     """Render a single ``tt:Object`` element.
 
@@ -168,13 +197,12 @@ def _object_xml(obj: dict[str, Any], indent: str = "    ") -> str:
 
     description = obj.get("description")
     if description:
-        # Anchor the caption just above the box, clamped inside the frame.
-        text_y = min(1.0, box["top"] + 0.04)
+        text_x, text_y = _label_position(box, str(description))
         lines += [
             f"{pad}        <tt:Extension>",
             f"{pad}            <Description "
-            f"{_attr('x', _num(box['left']))} {_attr('y', _num(text_y))} "
-            f"{_attr('size', '0.05')} {_attr('bold', 'true')} "
+            f"{_attr('x', _num(text_x))} {_attr('y', _num(text_y))} "
+            f"{_attr('size', _num(_LABEL_SIZE))} {_attr('bold', 'true')} "
             f"{_attr('italic', 'false')} {_attr('fontFamily', 'Helvetica')} "
             f"{_attr('color', obj.get('line_color', DEFAULT_LINE_COLOR))}>"
             f"{escape(str(description))}</Description>",

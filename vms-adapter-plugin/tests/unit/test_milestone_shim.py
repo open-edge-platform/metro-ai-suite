@@ -929,3 +929,33 @@ async def test_zones_are_always_posted(milestone_config, monkeypatch, frame_kind
     assert bool(bodies) is posted
     if posted:
         assert "Loitering Zone" in bodies[0]
+
+
+# ── Label placement ──────────────────────────────────────────────────────────
+
+
+def test_label_is_centred_on_its_box():
+    from vms_shim.milestone.onvif_metadata import _label_position
+
+    x, y = _label_position({"left": 0.2, "right": 0.6, "top": 0.3, "bottom": -0.1}, "pedestrian 90%")
+    assert x == pytest.approx(0.4)
+    assert y == pytest.approx(0.34)  # just above the box
+
+
+def test_label_of_box_on_frame_edge_stays_inside_the_frame():
+    from vms_shim.milestone.onvif_metadata import _LABEL_CHAR_WIDTH, _LABEL_SIZE, _label_position
+
+    text = "Loitering Zone"
+    half = len(text) * _LABEL_SIZE * _LABEL_CHAR_WIDTH / 2
+    # The loitering zone touches the left edge (ONVIF x = -1).
+    x, _ = _label_position({"left": -1.0, "right": -0.53, "top": 0.44, "bottom": -0.11}, text)
+    assert x - half >= -1
+    x, _ = _label_position({"left": 0.9, "right": 1.0, "top": 0.0, "bottom": -0.2}, text)
+    assert x + half <= 1
+
+
+def test_label_moves_below_a_box_touching_the_top_edge():
+    from vms_shim.milestone.onvif_metadata import _label_position
+
+    _, y = _label_position({"left": -0.2, "right": 0.2, "top": 1.0, "bottom": 0.6}, "zone")
+    assert y < 0.6
