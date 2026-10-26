@@ -6,19 +6,24 @@
 
 ## Configure and deploy GPU pipelines
 
-In `metro-vision-ai-app-recipe/smart-corridor/src/dlstreamer-pipeline-server/config.json` the following GPU pipelines are available. Set `"auto_start": true` for each of them.
+In `metro-vision-ai-app-recipe/smart-corridor/src/dlstreamer-pipeline-server/`, the config files `config_child_1.json, config_child_2.json, config_parent.json, config_sn_parent.json` have the following GPU pipelines. Set `"auto_start": true` for respective pipelines.
 
-- intersection-cam1-gpu
-- intersection-cam2-gpu
-- intersection-cam3-gpu
-- intersection-cam4-gpu
+- intersection4-cam1-gpu
+- intersection4-cam2-gpu
+- intersection4-cam3-gpu
+- intersection4-cam4-gpu
 
-Also, set `"auto_start": false` for the other pipelines in the same configuration file.
+- intersection5-cam1-gpu
+- intersection5-cam2-gpu
+- intersection5-cam3-gpu
+- intersection5-cam4-gpu
 
-- intersection-cam1
-- intersection-cam2
-- intersection-cam3
-- intersection-cam4
+- intersection9-cam1-gpu
+- intersection9-cam2-gpu
+- intersection9-cam3-gpu
+- intersection9-cam4-gpu
+
+Also, set `"auto_start": false` for the all other pipelines in the same configuration file.
 
 Start the application with:
 `docker compose up -d`
