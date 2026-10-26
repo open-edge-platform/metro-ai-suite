@@ -1199,6 +1199,15 @@ class NxWitnessVmsShim(IVmsShim):
 
 # -- Helpers -------------------------------------------------------------
 
+def _nx_resolution(d: dict) -> tuple[int | None, int | None]:
+    """Stream resolution from ``options.bitrateInfos[].resolution`` (e.g. "1280x720")."""
+    for info in (d.get("options") or {}).get("bitrateInfos") or []:
+        width, sep, height = str(info.get("resolution", "")).partition("x")
+        if sep and width.isdigit() and height.isdigit():
+            return int(width), int(height)
+    return None, None
+
+
 def _to_camera(d: dict, stream_url: str | None = None) -> Camera:
     nx_status = d.get("status", "")
     cam_status = "online" if nx_status in ("Online", "Recording") else "offline"
@@ -1206,6 +1215,7 @@ def _to_camera(d: dict, stream_url: str | None = None) -> Camera:
     # Normalise to bare UUID so camera_id is always nx:<uuid> without braces.
     raw_id = d.get("id", "")
     device_id = raw_id.strip("{}")
+    width, height = _nx_resolution(d)
     return Camera(
         camera_id=f"nx:{device_id}",
         name=d.get("name", ""),
@@ -1213,6 +1223,8 @@ def _to_camera(d: dict, stream_url: str | None = None) -> Camera:
         status=cam_status,
         stream_url=stream_url or d.get("url"),
         enabled=False,
+        width=width,
+        height=height,
         vendor_meta=d,
     )
 

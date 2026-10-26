@@ -7,6 +7,7 @@ Covers camera discovery and the auto-registration of Analytics Apps (Loitering
 Detection, Live Video Captioning) as individual AI Bridge IVA apps.
 """
 
+import json
 from datetime import datetime
 from types import SimpleNamespace
 
@@ -134,11 +135,21 @@ def test_unlisted_app_falls_back_to_derived_guid():
 # ── Topic mapping (driven by the analytics app's config `type`) ──────────────
 
 
-def test_object_detection_maps_to_onvif_frame_metadata_topic():
+def test_object_detection_declares_metadata_and_event_topics():
     topics = build_topics("dls_vision", "object_detection", DASHBOARD_URL)
-    assert "eventTopics" not in topics
     assert topics["metadataTopics"][0]["name"] == "dls_vision-metadata"
     assert topics["metadataTopics"][0]["metadataFormat"] == "ONVIF_ANALYTICS_FRAME"
+    assert [t["name"] for t in topics["eventTopics"]] == ["dls_vision-events"]
+    assert topics["eventTopics"][0]["eventFormat"] == "ANALYTICS_EVENT"
+
+
+def test_object_detection_event_topic_literal_is_valid_graphql():
+    from vms_shim.milestone.manifest import apps_literal
+
+    entry = build_app_entry("m", "dls_vision", "object_detection", "LD", {"dashboard_url": DASHBOARD_URL})
+    literal = apps_literal([entry])
+    assert "eventTopics:" in literal and "metadataTopics:" in literal
+    assert "eventFormat: ANALYTICS_EVENT" in literal
 
 
 def test_live_captioning_maps_to_analytics_event_topic():
@@ -306,6 +317,48 @@ async def test_discover_cameras_marks_streams_without_rtsp_offline(milestone_con
     assert len(cams) == 1
     assert cams[0].status == "offline"
     assert cams[0].stream_url is None
+
+
+@pytest.mark.asyncio
+async def test_discover_cameras_reports_stream_resolution(milestone_config):
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert "videoResolution" in json.loads(request.content)["query"]
+        return httpx.Response(200, json={"data": {"cameras": [{
+            "name": "cam", "videoStreams": [
+                {"id": COMPOSITE_ID, "name": "s1", "streamAvailability": {"rtsp": RTSP_URL},
+                 "videoResolution": {"width": 1920, "height": 1080}},
+                {"id": "other/stream", "name": "s2", "streamAvailability": {"rtsp": RTSP_URL},
+                 "videoResolution": None},  # no video yet
+            ],
+        }]}})
+
+    shim = await _connected_shim(milestone_config, handler)
+    cams = await shim.discover_cameras()
+
+    assert [(c.width, c.height) for c in cams] == [(1920, 1080), (None, None)]
+
+
+@pytest.mark.asyncio
+async def test_discover_cameras_falls_back_when_ai_bridge_lacks_resolution(milestone_config):
+    queries_seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        query = json.loads(request.content)["query"]
+        queries_seen.append(query)
+        if "videoResolution" in query:  # older AI Bridge schema
+            return httpx.Response(200, json={"errors": [{"message": "Cannot query field"}]})
+        return httpx.Response(200, json={"data": {"cameras": [{
+            "name": "cam", "videoStreams": [
+                {"id": COMPOSITE_ID, "name": "s1", "streamAvailability": {"rtsp": RTSP_URL}},
+            ],
+        }]}})
+
+    shim = await _connected_shim(milestone_config, handler)
+    cams = await shim.discover_cameras()
+
+    assert len(queries_seen) == 2
+    assert len(cams) == 1 and cams[0].stream_url == RTSP_URL
+    assert (cams[0].width, cams[0].height) == (None, None)
 
 
 @pytest.mark.asyncio
@@ -707,3 +760,172 @@ async def test_publish_event_failure_does_not_start_throttle_window(milestone_co
     assert await shim.publish_event("milestone:a/1", _caption_event()) is False
     assert await shim.publish_event("milestone:a/1", _caption_event()) is True
     assert len(calls) == 2
+
+
+def _loitering_event(track_id=7, with_box=True):
+    from datetime import timezone
+
+    from plugin.core.models.domain import AnalyticsEvent, DetectionObject
+
+    box = DetectionObject(
+        track_id=track_id, label="pedestrian", category="person", confidence=0.8,
+        x_min=0.2, y_min=0.3, x_max=0.4, y_max=0.9,
+    )
+    return AnalyticsEvent(
+        kind="loitering", text=f"pedestrian {track_id} loitering 6.2s in zone region1",
+        timestamp=datetime.now(tz=timezone.utc), app_id="dls_vision",
+        label="pedestrian", track_id=track_id, zone="region1", dwell_s=6.2,
+        objects=[box] if with_box else [],
+    )
+
+
+def test_loitering_to_event_has_fixed_name_and_outlined_trigger_object():
+    from vms_shim.milestone.analytics_event import LOITERING_EVENT_NAME, loitering_to_event
+
+    doc = loitering_to_event(_loitering_event(), f"milestone:{COMPOSITE_ID}")
+    assert LOITERING_EVENT_NAME == "Loitering detected"
+    text = json.dumps(doc)
+    assert LOITERING_EVENT_NAME in text
+    assert "pedestrian 7 loitering 6.2s in zone region1" in text  # description
+    assert "Human" in text and "hasOutline" in text and '"trigger": true' in text
+    assert "region1" in text
+
+    bare = json.dumps(loitering_to_event(_loitering_event(with_box=False), f"milestone:{COMPOSITE_ID}"))
+    assert "hasOutline" not in bare and "pedestrian 7" in bare
+
+
+async def test_publish_loitering_event_posts_to_the_apps_event_topic(milestone_config, monkeypatch):
+    shim = MilestoneVmsShim(milestone_config)
+    calls = []
+
+    async def fake_sink(topic, *, metadata=True):
+        calls.append((topic, metadata))
+        return "http://sink/events"
+
+    posted = []
+
+    async def fake_post(sink, body, content_type):
+        posted.append((sink, json.loads(body), content_type))
+        return True
+
+    monkeypatch.setattr(shim, "get_topic_sink_url", fake_sink)
+    monkeypatch.setattr(shim, "_post_to_topic", fake_post)
+
+    assert await shim.publish_event(f"milestone:{COMPOSITE_ID}", _loitering_event()) is True
+    assert calls == [("dls_vision-events", False)]
+    sink, doc, content_type = posted[0]
+    assert (sink, content_type) == ("http://sink/events", "text/json")
+    assert "Loitering detected" in json.dumps(doc)
+
+
+async def test_publish_event_throttle_is_per_track_for_loitering(milestone_config, monkeypatch):
+    shim = MilestoneVmsShim(milestone_config)
+    shim._options["event_min_interval_s"] = 60
+    pushed = []
+
+    async def fake_push(camera_id, doc, app_id):
+        pushed.append(json.dumps(doc))
+        return True
+
+    monkeypatch.setattr(shim, "push_analytics_event", fake_push)
+    cam = "milestone:a/1"
+    assert await shim.publish_event(cam, _loitering_event(track_id=1)) is True
+    assert await shim.publish_event(cam, _loitering_event(track_id=1)) is True  # dropped
+    assert await shim.publish_event(cam, _loitering_event(track_id=2)) is True  # other track
+    assert await shim.publish_event(cam, _caption_event()) is True              # captions separate
+    assert len(pushed) == 3
+
+
+# ── Static zones and per-class colors ────────────────────────────────────────
+
+
+def _zone_frame(with_object=True, label="pedestrian", category="person"):
+    from plugin.core.models.domain import DetectionFrame, DetectionObject, DetectionZone
+
+    zone = DetectionZone(zone_id="region1", label="Loitering Zone",
+                         x_min=0.0, y_min=0.2778, x_max=0.2344, y_max=0.5556)
+    objects = [DetectionObject(track_id=7, label=label, category=category, confidence=0.9,
+                               x_min=0.5, y_min=0.5, x_max=0.6, y_max=0.9)] if with_object else []
+    return DetectionFrame(timestamp_ms=1_000, objects=objects, zones=[zone])
+
+
+def test_class_colors_are_stable_distinct_and_rotate():
+    from vms_shim.milestone.onvif_metadata import CLASS_PALETTE, ClassColors
+
+    colors = ClassColors()
+    human, vehicle, zone = colors.colors("Human"), colors.colors("Vehicle"), colors.colors("zone")
+    assert human == ("#ff00a3e0", "#3000a3e0")       # Human stays blue
+    assert len({human, vehicle, zone}) == 3
+    assert colors.colors("HUMAN") == human            # case-insensitive, sticky
+    assert ClassColors().colors("Human") == human     # same across instances/restarts
+
+    many = {colors.colors(f"class{i}")[0] for i in range(len(CLASS_PALETTE) - 3)}
+    assert len(many | {human[0], vehicle[0], zone[0]}) == len(CLASS_PALETTE)  # no reuse until full
+    assert colors.colors("one-too-many")[0].startswith("#ff")                # then reused
+
+
+def test_zone_is_rendered_unclassified_with_its_label_and_zone_color():
+    from vms_shim.milestone.onvif_metadata import ClassColors, frame_to_onvif
+
+    xml = frame_to_onvif(_zone_frame(), COMPOSITE_ID)
+    zone_line, zone_fill = ClassColors().colors("zone")
+    zone_xml = xml[xml.index("Loitering Zone") - 900:xml.index("Loitering Zone")]
+    assert xml.count("<tt:Object ") == 2
+    assert f'color="{zone_line}"' in zone_xml and f'color="{zone_fill}"' in zone_xml
+    assert ">Loitering Zone</Description>" in xml
+    # The zone carries no class, so Metadata Search does not count it as an object
+    assert "<tt:Type>" not in zone_xml
+    assert 'left="-1"' in xml  # x_min 0.0 -> ONVIF -1
+
+
+def test_objects_are_colored_by_class():
+    from vms_shim.milestone.onvif_metadata import ClassColors, frame_to_detections
+
+    colors = ClassColors()
+    person = frame_to_detections(_zone_frame(), colors=colors)[0]
+    car = frame_to_detections(_zone_frame(label="car", category="vehicle"), colors=colors)[0]
+    assert person["label"] == "Human" and car["label"] == "Vehicle"
+    assert person["line_color"] == colors.colors("Human")[0]
+    assert car["line_color"] == colors.colors("Vehicle")[0] != person["line_color"]
+
+
+def test_zone_object_id_is_stable_and_clear_of_track_ids():
+    from vms_shim.milestone.onvif_metadata import frame_to_detections
+
+    a = frame_to_detections(_zone_frame())[-1]["object_id"]
+    b = frame_to_detections(_zone_frame(with_object=False))[-1]["object_id"]
+    assert a == b and a >= 2_000_000_000
+
+
+@pytest.mark.parametrize(("frame_kind", "posted"), [
+    ("objects_and_zone", True),
+    ("zone_only", True),       # zone stays visible on empty scenes, as on Nx
+    ("empty", False),
+])
+async def test_zones_are_always_posted(milestone_config, monkeypatch, frame_kind, posted):
+    from plugin.base.interfaces import DetectionPublishContext
+    from plugin.core.models.domain import DetectionFrame
+
+    frame = {
+        "objects_and_zone": _zone_frame(),
+        "zone_only": _zone_frame(with_object=False),
+        "empty": DetectionFrame(timestamp_ms=1_000),
+    }[frame_kind]
+    shim = MilestoneVmsShim(milestone_config)
+    bodies = []
+
+    async def fake_sink(topic, *, metadata=True):
+        return "http://sink/topic"
+
+    async def fake_post(sink, body, content_type):
+        bodies.append(body)
+        return True
+
+    monkeypatch.setattr(shim, "get_topic_sink_url", fake_sink)
+    monkeypatch.setattr(shim, "_post_to_topic", fake_post)
+    assert await shim.publish_detections(
+        f"milestone:{COMPOSITE_ID}", frame, DetectionPublishContext(app_id="ld"),
+    ) is True
+    assert bool(bodies) is posted
+    if posted:
+        assert "Loitering Zone" in bodies[0]

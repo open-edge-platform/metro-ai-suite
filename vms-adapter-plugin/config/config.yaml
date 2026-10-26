@@ -43,10 +43,10 @@ vms_instances:
       # Metadata format for object_detection apps. Event-based apps
       # (live_captioning) always use ANALYTICS_EVENT.
       metadata_format: ONVIF_ANALYTICS_FRAME
-      # Optional: minimum seconds between analytics events (e.g. LVC captions)
-      # per camera, so chatty apps don't flood the XProtect event list.
-      # 0 or omitted disables throttling.
-      # event_min_interval_s: 10
+      # Minimum seconds between analytics events, per camera and per tracked
+      # object for loitering (per camera for LVC captions), so chatty apps don't
+      # flood the XProtect event list and alarms. 0 or omitted disables throttling.
+      event_min_interval_s: 10
 
 analytics_apps:
   # - type: live_captioning
@@ -97,21 +97,29 @@ analytics_apps:
     # the zone. Only objects with a "zone_violations"/"dwell_times" entry are
     # pushed when enabled.
     zone_filter_enabled: false
-    # Static zone geometry drawn as a persistent marker box in Nx (the pipeline
-    # no longer emits a fake ROI object to visualize). Keep bounding_box in
-    # sync with the pixel polygon in the DLSPS zones/VIRAT_S_000101.json file
-    # (roi 0,200,300,400 in a 1280x720 frame -> normalized below).
+    # Static zone geometry, drawn on every frame as a persistent labelled box in
+    # Nx and in Milestone Smart Client (colored per class automatically).
+    # Keep bounding_box equal to default_zone_polygon below, which is the zone
+    # the pipeline measures loitering in (normalized [x_min, y_min, x_max, y_max]).
+    # It matches the pipeline's gvaattachroi roi=0,200,300,400, which is defined
+    # for a 1280x720 frame: 0/1280, 200/720, 300/1280, 400/720. At run start VAP
+    # scales the zone to each camera's resolution and sends it to gvaanalytics,
+    # and its bounding rectangle as the ROI to pipelines that expose
+    # roi-properties (1280x720 -> 0,200,300,400; 1920x1080 -> 0,300,450,600).
     zones:
       region1:
         label: "Loitering Zone"
-        bounding_box: [0.0, 0.2778, 0.2344, 0.5556]
-    # Default "zone" control value: the original LD app region1 zone's rectangle corners
-    # Normalized (0-1), as [x, y] polygon points.
-    default_zone_polygon: [[0.0, 0.2778], [0.2344, 0.2778], [0.2344, 0.5556], [0.0, 0.5556]]
+        bounding_box: [0.0, 0.277778, 0.234375, 0.555556]
+    # Default "zone" control value: the zone sent to the pipeline at run start,
+    # as normalized (0-1) [x, y] polygon points. Same rectangle as region1 above.
+    default_zone_polygon: [[0.0, 0.277778], [0.234375, 0.277778], [0.234375, 0.555556], [0.0, 0.555556]]
 
-    # Push an Nx bookmark for all messages on the app's status-event mqtt topic
-    # "<this app's metadata topic>/<event_topic_suffix>".
-    event_bookmark_enabled: true
+    # Publish every message on the app's status-event mqtt topic
+    # "<this app's metadata topic>/<event_topic_suffix>" as an analytics event:
+    # an Nx bookmark, or a Milestone ANALYTICS_EVENT on "<app_id>-events"
+    # (named "Loitering detected", with the loiterer's box when known).
+    # (event_bookmark_enabled is still accepted as a deprecated alias.)
+    events_enabled: true
     event_topic_suffix: "${DLS_EVENT_TOPIC_SUFFIX:-loiterstatus}"
 
 api:

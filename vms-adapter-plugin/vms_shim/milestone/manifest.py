@@ -55,29 +55,37 @@ DEFAULT_EVENT_FORMAT = "ANALYTICS_EVENT"
 # would orphan every previously registered app in XProtect.
 APP_ID_NAMESPACE = uuid.UUID("1b2f9a30-9d5e-5a7c-9c1f-2d4a6b8e0c31")
 
-# Analytics app ``type`` (from ``config.yaml``) → the AI Bridge topic it declares.
+# Analytics app ``type`` (from ``config.yaml``) → the AI Bridge topics it declares.
 #
 # * ``object_detection`` (e.g. Loitering Detection) emits object bounding boxes,
-#   which XProtect ingests as a **metadata** topic in ONVIF frame format. This is
-#   what drives bounding-box overlays and Metadata Search.
+#   which XProtect ingests as a **metadata** topic in ONVIF frame format (box
+#   overlays and Metadata Search), and loitering occurrences as **analytics
+#   events** (alarms and rules).
 # * ``live_captioning`` emits free-text captions, which have no bounding boxes and
 #   so are delivered as discrete **analytics events**.
-TYPE_TOPIC_MAP: dict[str, dict[str, str]] = {
-    "object_detection": {
-        "topic_list": "metadataTopics",
-        "format_field": "metadataFormat",
-        "format": DEFAULT_METADATA_FORMAT,
-        "suffix": "metadata",
-        "description": "Object detections as ONVIF frame metadata",
-    },
-    "live_captioning": {
-        "topic_list": "eventTopics",
-        "format_field": "eventFormat",
-        "format": DEFAULT_EVENT_FORMAT,
-        "suffix": "events",
-        "description": "Scene captions as analytics events",
-    },
+_METADATA_TOPIC = {
+    "topic_list": "metadataTopics",
+    "format_field": "metadataFormat",
+    "format": DEFAULT_METADATA_FORMAT,
+    "suffix": "metadata",
 }
+_EVENT_TOPIC = {
+    "topic_list": "eventTopics",
+    "format_field": "eventFormat",
+    "format": DEFAULT_EVENT_FORMAT,
+    "suffix": "events",
+}
+TYPE_TOPIC_MAP: dict[str, list[dict[str, str]]] = {
+    "object_detection": [
+        {**_METADATA_TOPIC, "description": "Object detections as ONVIF frame metadata"},
+        {**_EVENT_TOPIC, "description": "Loitering occurrences as analytics events"},
+    ],
+    "live_captioning": [
+        {**_EVENT_TOPIC, "description": "Scene captions as analytics events"},
+    ],
+}
+METADATA_SUFFIX = _METADATA_TOPIC["suffix"]
+EVENT_SUFFIX = _EVENT_TOPIC["suffix"]
 
 DEFAULT_MANUFACTURER = "Intel Corporation"
 DEFAULT_APP_VERSION = "1.0"
@@ -146,28 +154,26 @@ def build_topics(
     dashboard_url: str,
     metadata_format: str = DEFAULT_METADATA_FORMAT,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Build the AI Bridge topic list for one analytics app, keyed off its type.
+    """Build the AI Bridge topic lists for one analytics app, keyed off its type.
 
-    ``object_detection`` yields a metadata topic (ONVIF frame format);
-    ``live_captioning`` yields an event topic. An unrecognised type yields ``{}``
-    so a newly added analytics app cannot break registration for the others —
-    the caller logs it.
+    ``object_detection`` yields a metadata topic (ONVIF frame format) and an
+    event topic; ``live_captioning`` yields an event topic. An unrecognised type
+    yields ``{}`` so a newly added analytics app cannot break registration for
+    the others — the caller logs it.
 
     Video topics are never produced: each one consumes an XProtect device
     license per stream.
     """
-    spec = TYPE_TOPIC_MAP.get(app_type)
-    if spec is None:
-        return {}
-
-    fmt = metadata_format if spec["format_field"] == "metadataFormat" else spec["format"]
-    entry: dict[str, Any] = {
-        "url": _dashboard_url(dashboard_url, analytics_app_id, spec["suffix"]),
-        "name": topic_name(analytics_app_id, spec["suffix"]),
-        "description": spec["description"],
-        spec["format_field"]: fmt,
-    }
-    return {spec["topic_list"]: [entry]}
+    topics: dict[str, list[dict[str, Any]]] = {}
+    for spec in TYPE_TOPIC_MAP.get(app_type, []):
+        fmt = metadata_format if spec["format_field"] == "metadataFormat" else spec["format"]
+        topics.setdefault(spec["topic_list"], []).append({
+            "url": _dashboard_url(dashboard_url, analytics_app_id, spec["suffix"]),
+            "name": topic_name(analytics_app_id, spec["suffix"]),
+            "description": spec["description"],
+            spec["format_field"]: fmt,
+        })
+    return topics
 
 
 def build_app_entry(

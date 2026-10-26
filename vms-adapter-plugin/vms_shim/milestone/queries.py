@@ -24,6 +24,11 @@ QUERY_IDP_ISSUERS = "query { about { videoManagementSystems { idp } } }"
 # and ``streamAvailability.rtsp`` is the ready-to-use live RTSP URL
 # (``rtsp://<aib-host>:8554/{deviceId}/{streamId}``).
 QUERY_CAMERAS = (
+    "query { cameras { name videoStreams { id name streamAvailability { rtsp } "
+    "videoResolution { width height } } } }"
+)
+# Fallback for AI Bridge versions without ``videoResolution``.
+QUERY_CAMERAS_BASIC = (
     "query { cameras { name videoStreams { id name streamAvailability { rtsp } } } }"
 )
 

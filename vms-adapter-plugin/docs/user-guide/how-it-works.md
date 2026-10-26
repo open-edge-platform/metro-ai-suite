@@ -173,9 +173,12 @@ MQTT broker:
   converts it to Nx analytics object format (`frame_to_nx()`) and pushes it via
   `NxWitnessVmsShim.publish_detections()`.
 - **Event topic** — `{metadata_topic_prefix}/{vms_name}:{camera_id}/{event_topic_suffix}`
-  (default suffix `loiterstatus`; subscribed only when `event_bookmark_enabled` is `true`).
-  Carries rows for person IDs whose dwell time exceeds the loitering threshold, published by the
-  Loitering Detection app. Each row is pushed to Nx as a bookmark.
+  (default suffix `loiterstatus`; subscribed only when `events_enabled` is `true`, or the
+  deprecated `event_bookmark_enabled`). Carries rows for person IDs whose dwell time exceeds the
+  loitering threshold, published by the Loitering Detection app. Each row becomes a vendor-neutral
+  `AnalyticsEvent` (with the loiterer's latest box from the metadata topic, when known) published
+  via `publish_event()`: Nx stores it as a bookmark; Milestone sends an `ANALYTICS_EVENT` named
+  "Loitering detected" to the app's `{app_id}-events` topic.
 
 ### React Analytics Provider Dashboard (`ui/`)
 

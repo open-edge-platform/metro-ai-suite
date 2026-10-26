@@ -33,6 +33,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from plugin.core.models.domain import AnalyticsEvent
+from vms_shim.milestone.onvif_metadata import category_to_class
+
+# Fixed so XProtect alarms and rules can select loitering events by name.
+LOITERING_EVENT_NAME = "Loitering detected"
+
 VENDOR_NAME = "Intel Corporation"
 
 # Colour used for object outlines in Smart Client, RGBA 0-255.
@@ -201,6 +207,55 @@ def caption_to_event(
         event_class=app_display_name,
         subclass="caption",
         snapshot_jpeg_b64=snapshot_jpeg_b64,
+    )
+
+
+def loitering_to_event(
+    event: AnalyticsEvent,
+    camera_id: str,
+    class_map: dict[str, str] | None = None,
+    event_class: str = "Loitering Detection",
+) -> dict[str, Any]:
+    """Translate a neutral loitering occurrence into an analytics event.
+
+    The event ``name`` is fixed ("Loitering detected") so XProtect alarms and
+    rules can select it reliably; the track, zone and dwell time go in the
+    description. The loiterer is included as the triggering object, with an
+    outline when its box is known.
+
+    Args:
+        event: Neutral ``AnalyticsEvent`` with ``kind="loitering"``.
+        camera_id: Any camera identifier form.
+        class_map: Category → object class overrides (``vendor_options.class_map``).
+        event_class: Reported as the event ``class`` for rule filtering.
+    """
+    label = event.label or "Object"
+    objects = []
+    for obj in event.objects or []:
+        objects.append(build_object(
+            name=f"{label} {event.track_id}",
+            object_class=category_to_class(obj.category, obj.label, class_map),
+            confidence=obj.confidence,
+            bbox={"x_min": obj.x_min, "y_min": obj.y_min, "x_max": obj.x_max, "y_max": obj.y_max},
+            trigger=True,
+        ))
+    if not objects:
+        objects.append(build_object(
+            name=f"{label} {event.track_id}",
+            object_class=category_to_class(None, label, class_map),
+            trigger=True,
+        ))
+
+    return build_event(
+        camera_id=camera_id,
+        name=LOITERING_EVENT_NAME,
+        description=event.text,
+        event_class=event_class,
+        subclass="loitering",
+        count=len(objects),
+        tag=event.zone or "",
+        objects=objects,
+        snapshot_jpeg_b64=event.snapshot_jpeg_b64,
     )
 
 

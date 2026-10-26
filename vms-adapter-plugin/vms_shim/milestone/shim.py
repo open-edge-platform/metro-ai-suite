@@ -74,9 +74,11 @@ import structlog
 from plugin.base.interfaces import DetectionPublishContext, IVmsShim
 from plugin.core.config import VmsInstanceConfig
 from plugin.core.models.domain import AnalyticsEvent, Camera, CommandResult, DetectionFrame
-from vms_shim.milestone.analytics_event import caption_to_event
+from vms_shim.milestone.analytics_event import caption_to_event, loitering_to_event
 from vms_shim.milestone import queries
 from vms_shim.milestone.manifest import (
+    EVENT_SUFFIX,
+    METADATA_SUFFIX,
     TYPE_TOPIC_MAP,
     apps_literal,
     build_apps,
@@ -84,7 +86,7 @@ from vms_shim.milestone.manifest import (
     topic_name,
     validated_metadata_format,
 )
-from vms_shim.milestone.onvif_metadata import frame_to_onvif
+from vms_shim.milestone.onvif_metadata import ClassColors, frame_to_onvif
 
 if TYPE_CHECKING:
     from plugin.core.pipeline.orchestrator import Orchestrator
@@ -115,7 +117,9 @@ class MilestoneVmsShim(IVmsShim):
         # currently configured Analytics Apps.
         self._orchestrator: Orchestrator | None = None
         # camera_id -> monotonic time of the last caption event sent (throttle).
-        self._last_event_at: dict[str, float] = {}
+        self._last_event_at: dict[tuple[str, str, Any], float] = {}
+        # Per-class box colors, kept for the shim's lifetime so classes keep their color.
+        self._class_colors = ClassColors()
 
     # -- Configuration helpers -----------------------------------------
     @property
@@ -221,6 +225,9 @@ class MilestoneVmsShim(IVmsShim):
     async def discover_cameras(self) -> list[Camera]:
         data = await self._graphql(queries.QUERY_CAMERAS)
         if data is None:
+            # Older AI Bridge versions reject videoResolution; retry without it.
+            data = await self._graphql(queries.QUERY_CAMERAS_BASIC)
+        if data is None:
             return []
 
         cameras: list[Camera] = []
@@ -237,6 +244,7 @@ class MilestoneVmsShim(IVmsShim):
                     self._stream_urls[camera_id] = rtsp
                 device_id, _, native_stream_id = stream_id.partition("/")
                 stream_name = stream.get("name") or ""
+                resolution = stream.get("videoResolution") or {}
                 cameras.append(Camera(
                     camera_id=camera_id,
                     name=f"{cam_name} - {stream_name}".strip(" -") or stream_id,
@@ -246,6 +254,9 @@ class MilestoneVmsShim(IVmsShim):
                     status="online" if rtsp else "offline",
                     stream_url=rtsp,
                     enabled=False,
+                    # Null while AI Bridge has no video from the camera.
+                    width=resolution.get("width"),
+                    height=resolution.get("height"),
                     vendor_meta={
                         "device_id": device_id,
                         "stream_id": native_stream_id,
@@ -500,12 +511,16 @@ class MilestoneVmsShim(IVmsShim):
                 ONVIF classes come from the object's neutral category, with
                 optional ``vendor_options.class_map`` overrides.
 
+        Static zones on the frame are always drawn, as Nx does: a frame with
+        zones but no detections is still posted, so the zone stays visible on
+        empty scenes. Boxes are colored per class automatically.
+
         Returns True when XProtect accepted the payload.
         """
-        if not frame.objects:
+        if not frame.objects and not frame.zones:
             return True
 
-        topic = topic_name(context.app_id, TYPE_TOPIC_MAP["object_detection"]["suffix"])
+        topic = topic_name(context.app_id, METADATA_SUFFIX)
         sink = await self.get_topic_sink_url(topic, metadata=True)
         if not sink:
             return False
@@ -516,6 +531,7 @@ class MilestoneVmsShim(IVmsShim):
                 source_stream_id=camera_id.removeprefix(CAMERA_ID_PREFIX),
                 metadata_format=validated_metadata_format(self._options),
                 label_class_map=self._options.get("class_map"),
+                colors=self._class_colors,
             )
         except (ValueError, TypeError, KeyError) as e:
             logger.error(
@@ -532,11 +548,10 @@ class MilestoneVmsShim(IVmsShim):
         """Push a translated ``ANALYTICS_EVENT`` document to XProtect.
 
         Build ``event`` with :mod:`vms_shim.milestone.analytics_event` — e.g.
-        ``caption_to_event()`` for LVC or ``detections_to_event()`` for object
-        detection.
+        ``caption_to_event()`` for LVC or ``loitering_to_event()`` for object
+        detection. Every app posts to its own ``{app_id}-events`` topic.
         """
-        spec = TYPE_TOPIC_MAP.get("live_captioning", {})
-        topic = topic_name(analytics_app_id, spec.get("suffix", "events"))
+        topic = topic_name(analytics_app_id, EVENT_SUFFIX)
         sink = await self.get_topic_sink_url(topic, metadata=False)
         if not sink:
             return False
@@ -548,22 +563,26 @@ class MilestoneVmsShim(IVmsShim):
         """Translate a neutral event to an ``ANALYTICS_EVENT`` and push it.
 
         ``vendor_options.event_min_interval_s`` (default 0 = off) drops events
-        arriving sooner than that after the previous one for the same camera,
-        so chatty apps do not flood the XProtect event list. A dropped event
-        counts as success.
+        arriving sooner than that after the previous one with the same camera,
+        kind and track (captions: per camera), so chatty apps do not flood the
+        XProtect event list. A dropped event counts as success.
         """
         min_interval = float(self._options.get("event_min_interval_s") or 0)
+        key = (camera_id, event.kind, event.track_id)
         now = time.monotonic()
-        last = self._last_event_at.get(camera_id)
+        last = self._last_event_at.get(key)
         if min_interval > 0 and last is not None and now - last < min_interval:
             return True
 
-        doc = caption_to_event(
-            event.text, camera_id, snapshot_jpeg_b64=event.snapshot_jpeg_b64,
-        )
+        if event.kind == "loitering":
+            doc = loitering_to_event(event, camera_id, self._options.get("class_map"))
+        else:
+            doc = caption_to_event(
+                event.text, camera_id, snapshot_jpeg_b64=event.snapshot_jpeg_b64,
+            )
         ok = await self.push_analytics_event(camera_id, doc, event.app_id)
         if ok:
-            self._last_event_at[camera_id] = now
+            self._last_event_at[key] = now
         return ok
 
     # -- Write-back operations -----------------------------------------

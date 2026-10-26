@@ -58,7 +58,8 @@ def parse_dls_frame(
 
     The timestamp comes from ``rtp.sender_ntp_unix_timestamp_ns`` when present
     so metadata aligns with the video frame, else local wall-clock time.
-    Objects missing any bounding-box edge are skipped.
+    Objects missing any bounding-box edge, or with no label (attached ROIs
+    from ``gvaattachroi``, not detections), are skipped.
     """
     categories = {k.lower(): v for k, v in (label_map or {}).items()}
     rtp = payload.get("rtp") or {}
@@ -88,7 +89,11 @@ def parse_dls_frame(
         # "loitering" is decided upstream, not re-derived here.
         dwell_s = max(d.get("dwell_time_sec", 0.0) for d in dwell_times) if dwell_times else None
 
-        label = detection.get("label") or obj.get("roi_type") or "unknown"
+        label = detection.get("label") or obj.get("roi_type")
+        if not label:
+            # A region with no label is an attached ROI (gvaattachroi), not a
+            # detection; the configured zone overlay already shows that region.
+            continue
         objects.append(
             DetectionObject(
                 track_id=int(track_id) if track_id is not None else None,

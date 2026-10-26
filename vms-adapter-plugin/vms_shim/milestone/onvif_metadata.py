@@ -51,6 +51,7 @@ Reference: ``milestonesys/MIP-AIBridge-samples`` →
 from __future__ import annotations
 
 import time
+import zlib
 from datetime import datetime, timezone
 from typing import Any, Iterable
 from xml.sax.saxutils import escape, quoteattr
@@ -63,6 +64,17 @@ ONVIF_NS = "http://www.onvif.org/ver10/schema"
 DEFAULT_FILL_COLOR = "#3000a3e0"
 DEFAULT_LINE_COLOR = "#ff00a3e0"
 DEFAULT_LINE_THICKNESS_PX = 2
+# Box colors are assigned per class from this palette (RGB). The index layout
+# gives the common classes distinct colors: Human blue, Vehicle red, zone amber.
+CLASS_PALETTE = (
+    "8e24aa", "00a3e0", "43a047", "ffa000", "d81b60", "00bcd4",
+    "c0ca33", "f4511e", "5c6bc0", "fdd835", "e53935", "00897b",
+)
+# Color key for static zones, which carry no ONVIF class.
+ZONE_COLOR_KEY = "zone"
+_FILL_ALPHA = "30"
+# Zone ObjectIds sit above any realistic tracker id so they never collide.
+_ZONE_OBJECT_ID_BASE = 2_000_000_000
 
 
 def rfc3339_nano(timestamp_ms: int | None = None) -> str:
@@ -253,10 +265,45 @@ def category_to_class(
     return (class_map or {}).get(key) or DEFAULT_CLASS_MAP.get(key) or label
 
 
+class ClassColors:
+    """Assigns each class a color from :data:`CLASS_PALETTE`, automatically.
+
+    A class starts at a slot derived from its name, so a given class gets the
+    same color across restarts; if that slot is already taken by another class,
+    the next free slot is used. Distinct classes get distinct colors until the
+    palette is exhausted, after which colors are reused.
+    """
+
+    def __init__(self) -> None:
+        self._slots: dict[str, int] = {}
+
+    def colors(self, key: str) -> tuple[str, str]:
+        """Return ``(line, fill)`` ``#AARRGGBB`` colors for a class."""
+        key = (key or "").strip().lower()
+        slot = self._slots.get(key)
+        if slot is None:
+            start = zlib.crc32(key.encode("utf-8")) % len(CLASS_PALETTE)
+            taken = set(self._slots.values())
+            slot = next(
+                (s % len(CLASS_PALETTE) for s in range(start, start + len(CLASS_PALETTE))
+                 if s % len(CLASS_PALETTE) not in taken),
+                start,
+            )
+            self._slots[key] = slot
+        rgb = CLASS_PALETTE[slot]
+        return f"#ff{rgb}", f"#{_FILL_ALPHA}{rgb}"
+
+
+def _zone_object_id(zone_id: str) -> int:
+    """Stable integer ObjectId for a zone, so Smart Client keeps one box per zone."""
+    return _ZONE_OBJECT_ID_BASE + zlib.crc32(zone_id.encode("utf-8")) % 100_000_000
+
+
 def frame_to_detections(
     frame: DetectionFrame,
     label_class_map: dict[str, str] | None = None,
     show_labels: bool = True,
+    colors: ClassColors | None = None,
 ) -> list[dict[str, Any]]:
     """Convert a neutral frame into renderable ONVIF-space detection dicts.
 
@@ -265,10 +312,15 @@ def frame_to_detections(
         label_class_map: Optional neutral category → ONVIF class overrides
             (``vendor_options.class_map``), on top of :data:`DEFAULT_CLASS_MAP`.
         show_labels: Render the label/confidence as on-screen text.
+        colors: Per-class color assignment; keep one per shim so classes keep
+            their colors. A fresh one is used when omitted.
 
-    Static zones on the frame are not rendered yet.
+    Each object is colored by its ONVIF class. The frame's static zones are
+    rendered too, as unclassified boxes with their label (so Metadata Search
+    does not count them as objects), colored as the ``zone`` class.
     """
     class_map = {k.lower(): v for k, v in (label_class_map or {}).items()}
+    colors = colors or ClassColors()
 
     detections: list[dict[str, Any]] = []
     for index, obj in enumerate(frame.objects, start=1):
@@ -277,14 +329,29 @@ def frame_to_detections(
             description = (
                 f"{obj.label} {obj.confidence:.0%}" if obj.confidence else obj.label
             )
+        onvif_class = category_to_class(obj.category, obj.label, class_map)
+        line, fill = colors.colors(onvif_class)
         detections.append({
             # ONVIF ObjectId must be an integer; fall back to the frame ordinal
             # when the pipeline does not track.
             "object_id": obj.track_id or obj.region_id or index,
-            "label": category_to_class(obj.category, obj.label, class_map),
+            "label": onvif_class,
             "confidence": obj.confidence,
             "description": description,
             "bbox": to_onvif_bbox(obj.x_min, obj.y_min, obj.x_max, obj.y_max),
+            "line_color": line,
+            "fill_color": fill,
+        })
+
+    for zone in frame.zones:
+        line, fill = colors.colors(ZONE_COLOR_KEY)
+        detections.append({
+            "object_id": _zone_object_id(zone.zone_id),
+            "label": None,
+            "description": zone.label if show_labels else "",
+            "bbox": to_onvif_bbox(zone.x_min, zone.y_min, zone.x_max, zone.y_max),
+            "line_color": line,
+            "fill_color": fill,
         })
     return detections
 
@@ -294,6 +361,7 @@ def frame_to_onvif(
     source_stream_id: str,
     metadata_format: str = "ONVIF_ANALYTICS_FRAME",
     label_class_map: dict[str, str] | None = None,
+    colors: ClassColors | None = None,
 ) -> str:
     """Neutral frame → ONVIF XML for the configured format.
 
@@ -303,11 +371,12 @@ def frame_to_onvif(
         metadata_format: ``ONVIF_ANALYTICS_FRAME`` or ``ONVIF_ANALYTICS``;
             must match what was registered for the topic.
         label_class_map: Detection label → ONVIF class name.
+        colors: Per-class color assignment (see :class:`ClassColors`).
 
     Raises:
         ValueError: if ``metadata_format`` is not an ONVIF format.
     """
-    detections = frame_to_detections(frame, label_class_map)
+    detections = frame_to_detections(frame, label_class_map, colors=colors)
 
     if metadata_format == "ONVIF_ANALYTICS_FRAME":
         return build_frame_xml(detections, source_stream_id, frame.timestamp_ms)

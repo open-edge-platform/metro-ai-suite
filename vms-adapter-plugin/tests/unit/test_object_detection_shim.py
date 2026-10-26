@@ -190,10 +190,16 @@ def test_zone_filter_enabled_defaults_false():
     assert cfg.zone_filter_enabled is False
 
 
-def test_event_bookmark_config_defaults():
+def test_event_config_defaults():
     cfg = _make_config()
+    assert cfg.events_enabled is False
     assert cfg.event_bookmark_enabled is False
     assert cfg.event_topic_suffix == "loiterstatus"
+
+
+def test_deprecated_event_bookmark_enabled_enables_events():
+    assert _make_config(event_bookmark_enabled=True).events_enabled is True
+    assert _make_config(events_enabled=True).events_enabled is True
 
 
 # ── is_reachable ──────────────────────────────────────────────────────────────
@@ -316,12 +322,22 @@ async def test_subscriber_decodes_milestone_topic_and_publishes_neutral_frame():
 # ── per-camera zone: resolution lookup + normalized->pixel translation ────────
 
 def _camera_with_resolution(resolution: str = "1280x720") -> Camera:
-    return Camera(
-        camera_id="nx:abc123",
-        name="cam",
-        vendor="nx_witness",
-        vendor_meta={"options": {"bitrateInfos": [{"encoderIndex": "primary", "resolution": resolution}]}},
-    )
+    from vms_shim.nxwitness.shim import _to_camera
+
+    # Built by the real Nx mapping, so these tests also cover bitrateInfos parsing.
+    return _to_camera({
+        "id": "{abc123}", "name": "cam", "status": "Online",
+        "options": {"bitrateInfos": [{"encoderIndex": "primary", "resolution": resolution}]},
+    })
+
+
+def test_nx_camera_resolution_from_bitrate_info():
+    from vms_shim.nxwitness.shim import _to_camera
+
+    cam = _camera_with_resolution("1920x1080")
+    assert (cam.camera_id, cam.width, cam.height) == ("nx:abc123", 1920, 1080)
+    missing = _to_camera({"id": "x", "options": {"bitrateInfos": [{"resolution": "bad"}]}})
+    assert (missing.width, missing.height) == (None, None)
 
 
 def _vms_shim_set(name: str, vms_shim) -> VmsShimSet:
@@ -339,7 +355,7 @@ def test_lookup_vms_shim_none_when_no_colon():
     assert shim._lookup_vms_shim("abc123") is None
 
 
-async def test_get_camera_resolution_parses_bitrate_info(mock_vms_shim):
+async def test_get_camera_resolution_reads_neutral_fields(mock_vms_shim):
     shim = _make_shim()
     shim._vms_shim_sets = [_vms_shim_set("nx-main", mock_vms_shim)]
     mock_vms_shim.get_camera_metadata = AsyncMock(return_value=_camera_with_resolution("1920x1080"))
@@ -347,6 +363,20 @@ async def test_get_camera_resolution_parses_bitrate_info(mock_vms_shim):
     resolution = await shim._get_camera_resolution("nx:abc123")
 
     assert resolution == (1920, 1080)
+
+
+async def test_get_camera_resolution_works_for_milestone(mock_vms_shim):
+    shim = _make_shim()
+    shim._vms_shim_sets = [_vms_shim_set("milestone", mock_vms_shim)]
+    mock_vms_shim.get_camera_metadata = AsyncMock(return_value=Camera(
+        camera_id="milestone:dev/stream", name="cam", vendor="milestone", width=1920, height=1080,
+    ))
+    assert await shim._get_camera_resolution("milestone:dev/stream") == (1920, 1080)
+
+    mock_vms_shim.get_camera_metadata.return_value = Camera(
+        camera_id="milestone:dev/stream", name="cam", vendor="milestone",
+    )
+    assert await shim._get_camera_resolution("milestone:dev/stream") is None
 
 
 async def test_get_camera_resolution_none_when_shim_missing():
@@ -435,6 +465,59 @@ async def test_start_sends_zone_payload_when_provided(mock_vms_shim):
     sent_payload = shim._api.start_run.call_args.args[2]
     zones_sent = json.loads(sent_payload["parameters"]["analytics-properties"]["zones"])
     assert zones_sent[0]["id"] == "vap_zone"
+    # Pipeline does not declare roi-properties, so no ROI is sent.
+    assert "roi-properties" not in sent_payload["parameters"]
+
+
+_ROI_ZONE = "[[0.0, 0.277778], [0.234375, 0.277778], [0.234375, 0.555556], [0.0, 0.555556]]"
+
+
+@pytest.mark.parametrize(("resolution", "roi"), [
+    ("1280x720", "0,200,300,400"),    # identical to the pipeline's gvaattachroi default
+    ("1920x1080", "0,300,450,600"),   # scaled for the AXIS stream
+])
+async def test_start_sends_scaled_roi_to_pipelines_that_declare_it(mock_vms_shim, resolution, roi):
+    shim = _make_shim()
+    shim._vms_shim_sets = [_vms_shim_set("nx-main", mock_vms_shim)]
+    mock_vms_shim.get_camera_metadata = AsyncMock(return_value=_camera_with_resolution(resolution))
+    shim._api.list_pipelines = AsyncMock(return_value=[
+        {"name": "user_defined_pipelines", "version": "vap_object_tracking_gpu",
+         "parameters": {"properties": {"analytics-properties": {}, "roi-properties": {}}}},
+        {"name": "user_defined_pipelines", "version": "object_tracking_gpu",
+         "parameters": {"properties": {"analytics-properties": {}}}},
+    ])
+    await shim.fetch_schema()
+    shim._api.start_run = AsyncMock(return_value={"instance_id": "abc123"})
+
+    for pipeline, expect_roi in (("vap_object_tracking_gpu", True), ("object_tracking_gpu", False)):
+        params = MagicMock()
+        params.model_dump.return_value = {
+            "pipeline_name": pipeline, "camera_id": "rtsp://cam/s",
+            "camera_id_ref": "nx:abc123", "zone": _ROI_ZONE, "parameters": {},
+        }
+        await shim.start(params)
+        sent = shim._api.start_run.call_args.args[2]["parameters"]
+        assert "zones" in sent["analytics-properties"]
+        assert sent.get("roi-properties") == ({"roi": roi} if expect_roi else None)
+
+
+async def test_start_sends_no_roi_without_zone(mock_vms_shim):
+    shim = _make_shim()
+    shim._pipeline_parameters = {"vap_object_tracking_gpu": {"roi-properties"}}
+    shim._api.start_run = AsyncMock(return_value={"instance_id": "abc123"})
+    params = MagicMock()
+    params.model_dump.return_value = {
+        "pipeline_name": "vap_object_tracking_gpu", "camera_id": "rtsp://cam/s",
+        "camera_id_ref": "nx:abc123", "zone": "", "parameters": {},
+    }
+    await shim.start(params)
+    # Pipeline keeps its own default roi when no zone is given.
+    assert "roi-properties" not in shim._api.start_run.call_args.args[2]["parameters"]
+
+
+def test_zone_roi_is_bounding_rectangle_of_polygon():
+    points = [{"x": 10, "y": 50}, {"x": 90, "y": 20}, {"x": 60, "y": 120}]
+    assert ObjectDetectionAnalyticsAppShim._zone_roi(points) == "10,20,90,120"
 
 
 async def test_start_for_camera_passes_zone_control():

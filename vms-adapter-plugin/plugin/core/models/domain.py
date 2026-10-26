@@ -46,6 +46,9 @@ class Camera(BaseModel):
     enabled: bool = False
     location: dict | None = None
     last_seen_at: datetime = Field(default_factory=datetime.utcnow)
+    # Pixel resolution of the camera's live stream, when the VMS reports it.
+    width: int | None = None
+    height: int | None = None
     vendor_meta: dict = Field(default_factory=dict)
 
 
@@ -156,14 +159,26 @@ class DetectionFrame(BaseModel):
 
 
 class AnalyticsEvent(BaseModel):
-    """Vendor-neutral discrete event raised by an analytics app (e.g. an LVC caption)."""
+    """Vendor-neutral discrete event raised by an analytics app.
 
-    kind: Literal["caption"] = "caption"
+    ``kind`` selects how a VMS renders it: an LVC ``caption``, or a
+    ``loitering`` occurrence from object detection. ``text`` is a ready-made
+    one-line summary (Nx stores it as the bookmark name).
+    """
+
+    kind: Literal["caption", "loitering"] = "caption"
     text: str
     timestamp: datetime
     app_id: str
     run_id: str | None = None
     snapshot_jpeg_b64: str = ""
+    # Occurrence details (loitering); unused for captions.
+    label: str | None = None
+    track_id: int | str | None = None
+    zone: str | None = None
+    dwell_s: float | None = None
+    # Objects involved, with their boxes when known.
+    objects: list[DetectionObject] = Field(default_factory=list)
 
 
 # ── API request/response models ─────────────────────────────────────────

@@ -178,16 +178,23 @@ def test_translate_label_falls_back_to_roi_type():
     assert objects[0]["attributes"][0]["value"] == "defect_type_B"
 
 
-def test_translate_label_falls_back_to_unknown():
-    obj = {
+def test_translate_skips_unlabeled_regions():
+    """A region with neither label nor roi_type is an attached ROI, not a detection."""
+    roi = {
         "detection": {
-            "bounding_box": {"x_min": 0.0, "y_min": 0.0, "x_max": 0.5, "y_max": 0.5},
-            "confidence": 0.8,
+            "bounding_box": {"x_min": 0.0, "y_min": 0.2778, "x_max": 0.2344, "y_max": 0.5556},
         },
-        "region_id": 9,
+        "id": 1, "region_id": 0, "x": 0, "y": 300, "w": 450, "h": 300,
     }
-    objects, _ = translate_dls_metadata({"objects": [obj]})
-    assert objects[0]["attributes"][0]["value"] == "unknown"
+    person = {
+        "detection": {
+            "bounding_box": {"x_min": 0.1, "y_min": 0.3, "x_max": 0.2, "y_max": 0.5},
+            "confidence": 0.9, "label": "pedestrian",
+        },
+        "id": 5,
+    }
+    objects, _ = translate_dls_metadata({"objects": [roi, person]})
+    assert [o["attributes"][0]["value"] for o in objects] == ["pedestrian"]
 
 
 def test_translate_multiple_objects():

@@ -63,13 +63,20 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
     default_zone_polygon: list[list[float]] = Field(default_factory=list)
 
     # Subscribes to the app's dedicated status-event topic (e.g. the loitering-
-    # detection recipe's mqtt-table-flattener sidecar) and pushes an Nx bookmark
-    # for every row received - no dedup/threshold logic here, the app already
-    # decided the event occurred.
+    # detection recipe's mqtt-table-flattener sidecar) and publishes every row
+    # received as an analytics event (Nx: bookmark; Milestone: ANALYTICS_EVENT).
+    # No dedup/threshold logic here - the app already decided the event occurred.
+    events_enabled: bool = False
+    # Deprecated alias of events_enabled; either one enables events.
     event_bookmark_enabled: bool = False
     # Must match the publisher's destination topic suffix (e.g. mqtt-table-flattener's
     # DEST_TOPIC_SUFFIX env var).
     event_topic_suffix: str = "loiterstatus"
+
+    @model_validator(mode="after")
+    def _merge_deprecated_event_flag(self):
+        self.events_enabled = self.events_enabled or self.event_bookmark_enabled
+        return self
 
     @model_validator(mode="after")
     def _merge_deprecated_label_type_map(self):
