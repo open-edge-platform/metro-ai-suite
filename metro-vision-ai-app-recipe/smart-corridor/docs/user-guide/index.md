@@ -1,4 +1,4 @@
-# Smart Intersection
+# Smart Corridor
 
 <!--hide_directive
 <div class="component_card_widget">
@@ -14,15 +14,13 @@
 </div>
 hide_directive-->
 
-The Smart Intersection sample application uses edge AI to improve the traffic flow.
-It combines feeds from multiple cameras to track vehicles from different angles, analyze their
+The Smart Corridor sample application uses edge AI to improve the traffic flow.
+It combines feeds from multiple intersection cameras to track vehicles from different angles, analyze their
 speed and direction, and understand interactions in real space. The system can be implemented
 with existing cameras and deliver real-time, coordinated insights for smarter traffic monitoring.
 
-**Example Use Cases**
+**Example Use Case**
 
-- **Pedestrian Safety**: enhance safety for people crossing the street. The system tracks
-  pedestrians at crosswalks and generates alerts when people walk outside safe crossing areas.
 - **Traffic Flow Monitoring**: count vehicles and measure dwell time in each lane, detecting
   when vehicles stay in their lanes for too long. This identifies stalled cars, accidents,
   and traffic jams.
@@ -51,11 +49,8 @@ with existing cameras and deliver real-time, coordinated insights for smarter tr
 :hidden:
 
 get-started
-how-it-works
 how-to-use-gpu-for-inference
 how-to-use-npu-for-inference
-how-to-setup-rtsp
-export-and-optimize-geti-model
 troubleshooting
 release-notes
 

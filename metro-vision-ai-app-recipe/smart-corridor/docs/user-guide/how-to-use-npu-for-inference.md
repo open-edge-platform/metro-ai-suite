@@ -6,19 +6,24 @@
 
 ## Configure and deploy NPU pipelines
 
-In `metro-vision-ai-app-recipe/smart-corridor/src/dlstreamer-pipeline-server/config.json` the following NPU pipelines are available. Set `"auto_start": true` for each of them.
+In `metro-vision-ai-app-recipe/smart-corridor/src/dlstreamer-pipeline-server/`, the config files `config_child_1.json, config_child_2.json, config_parent.json, config_sn_parent.json` have the following GPU pipelines. Set `"auto_start": true` for respective pipelines.
 
-- intersection-cam1-npu
-- intersection-cam2-npu
-- intersection-cam3-npu
-- intersection-cam4-npu
+- intersection4-cam1-npu
+- intersection4-cam2-npu
+- intersection4-cam3-npu
+- intersection4-cam4-npu
 
-Also, set `"auto_start": false` for the other pipelines in the same configuration file.
+- intersection5-cam1-npu
+- intersection5-cam2-npu
+- intersection5-cam3-npu
+- intersection5-cam4-npu
 
-- intersection-cam1
-- intersection-cam2
-- intersection-cam3
-- intersection-cam4
+- intersection9-cam1-npu
+- intersection9-cam2-npu
+- intersection9-cam3-npu
+- intersection9-cam4-npu
+
+Also, set `"auto_start": false` for the all other pipelines in the same configuration file.
 
 Start the application with:
 `docker compose up -d`
