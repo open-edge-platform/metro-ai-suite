@@ -49,11 +49,12 @@ sed -i "s/\${DLSTREAMER_PIPELINE_SERVER_IMAGE}/$(grep "DLSTREAMER_PIPELINE_SERVE
 # This app no longer uses Node-RED (zone/dwell logic now runs in gvaanalytics); strip it here too
 # since this script keeps its own local docker-compose.yml copy.
 awk '
-    /^  node-red:/ { skip=1; next }
-    /^secrets:/ { skip=1; next }
-    skip && /^  [^ ]/ { skip=0 }
-    skip && /^[^ ]/ { skip=0 }
-    !skip { print }
+    /^  node-red:/ { skip_svc=1; next }
+    skip_svc && /^  [a-zA-Z0-9_-]+:/ { skip_svc=0 }
+    skip_svc && /^[^ ]/ { skip_svc=0 }
+    /^secrets:/ { skip_sec=1; next }
+    skip_sec && /^[^ ]/ { skip_sec=0 }
+    !skip_svc && !skip_sec { print }
   ' docker-compose.yml > docker-compose.yml.tmp && mv docker-compose.yml.tmp docker-compose.yml
 sed -i '/^      - node-red$/d' docker-compose.yml
 sed -i '/^  node-red-node-modules:$/d' docker-compose.yml
