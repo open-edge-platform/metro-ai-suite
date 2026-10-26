@@ -224,18 +224,18 @@
     "list": [
       {
         "current": {
-          "text": "https://10.106.147.1/mediamtx/",
-          "value": "https://10.106.147.1/mediamtx/"
+          "text": "https://0.0.0.0/mediamtx/",
+          "value": "https://0.0.0.0/mediamtx/"
         },
         "name": "WEBRTC_URL",
         "options": [
           {
             "selected": true,
-            "text": "https://10.106.147.1/mediamtx/",
-            "value": "https://10.106.147.1/mediamtx/"
+            "text": "https://0.0.0.0/mediamtx/",
+            "value": "https://0.0.0.0/mediamtx/"
           }
         ],
-        "query": "https://10.106.147.1/mediamtx/",
+        "query": "https://0.0.0.0/mediamtx/",
         "type": "textbox"
       }
     ]
