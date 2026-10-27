@@ -233,7 +233,7 @@ function Investigation() {
       </Row>
       <Row
         label={<Label htmlFor="limit">Matches per search</Label>}
-        hint="How many candidates Argus asks VSS for, and how many the review grid shows."
+        hint="How many candidates Argus asks VSS for. The review grid shows up to 20 of them that reach the minimum score."
       >
         <NumberField
           id="limit"

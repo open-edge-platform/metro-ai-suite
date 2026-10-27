@@ -181,7 +181,7 @@ Zustand stores in `ui/src/stores/`:
 | `cameras` | VSS live streams and their status. |
 | `floorplan` | Active plan (persisted). |
 | `reports` | PDFs generated in this tab (memory only, lost on reload). |
-| `settings` | Minimum score (0.6), search limit (24), watch duration (30 min), idle stop (10 min). |
+| `settings` | Minimum score (0.6), search limit (20), watch duration (30 min), idle stop (10 min). |
 
 Pure route helpers (`confirmedSightings`, `movementLegs`, `timelineLines`)
 live in `stores/case.ts`.

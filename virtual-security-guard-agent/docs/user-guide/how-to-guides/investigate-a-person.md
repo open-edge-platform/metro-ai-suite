@@ -176,7 +176,7 @@ parameters. They are stored in the browser.
 | Setting | Default | Effect |
 |---|---|---|
 | Minimum score (of the top match) | `0.60` | Fraction of the best match's score a match needs to be shown for review and join the route. Lower shows more sightings but adds noise. |
-| Matches per search | `24` | Candidates Argus asks VSS for. The grid shows up to 20. |
+| Matches per search | `20` | Candidates Argus asks VSS for. The grid shows up to 20 of them that reach the minimum score. |
 | Live watch time limit | `30` min | Live search stops by itself after this. |
 | Stop when quiet for | `10` min | Live search stops after this long without a new sighting. |
 | Show the case file | on | Side panel on wide screens. |

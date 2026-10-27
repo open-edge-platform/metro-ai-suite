@@ -28,7 +28,7 @@ export const SETTINGS_DEFAULTS = {
   sidebarOpen: true,
   caseFileOpen: true,
   minTraceScore: 0.6,
-  searchLimit: 24,
+  searchLimit: 20,
   watchMinutes: 30,
   watchIdleMinutes: 10,
 };
