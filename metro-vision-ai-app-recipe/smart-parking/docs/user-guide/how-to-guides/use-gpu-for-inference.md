@@ -58,7 +58,7 @@ DL Streamer document for selecting the GPU render device of your choice for VA c
 > This sample application already provides a default `compose-without-scenescape.yml`
 > file that includes the necessary GPU access to the containers.
 
-The pipeline `yolov11s_gpu` in [pipeline-server-config](https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/config.json)
+The pipeline `yolov11s_gpu` in [pipeline-server-config](https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/smart-parking/src/dlstreamer-pipeline-server/config_without_scenescape.json)
 contains GPU specific elements and uses GPU backend for inferencing. We can start the pipeline
 as follows:
 
