@@ -13,7 +13,7 @@ The **Live cameras** page lists the live RTSP streams registered in VSS
 ## Add a camera
 
 1. Click **Add camera**, or select a camera on the **Floorplan** and click
-   **Add live camera here**.
+   **Add live camera here**. The **Add live camera** dialog opens.
 2. Fill in:
    - **RTSP URL**, for example `rtsp://10.0.0.12:8554/lobby` (must be
      reachable from the VSS host);
@@ -25,7 +25,11 @@ The **Live cameras** page lists the live RTSP streams registered in VSS
      stream keeps the same tag, so old and new footage are drawn at the same
      place;
    - **Index every N frames** and **Object detection** to tune indexing.
-3. Save. VSS starts ingesting the stream and the camera shows on the plan.
+3. Click **Add camera**. VSS starts ingesting the stream and the camera shows
+   on the plan. Allow a minute or two before footage from the new camera
+   appears in search results.
+
+![Add live camera dialog](../_assets/add-camera.jpg "Add live camera")
 
 Searches are scoped to cameras by VSS tag, so each live camera has exactly one
 tag, unique to its floorplan camera. **Edit** changes only the indexing
@@ -41,8 +45,8 @@ camera shows on the plan when the camera list next refreshes.
 ## Edit, pause or remove
 
 - Use the pause/resume button on a camera card to pause ingestion.
-- Open the card's actions menu to **Edit** or **Delete** the camera.
-- Use the filter box to find cameras by name, tag, zone or IP, and
+- Open the card's actions menu to **Edit** or **Remove** the camera.
+- Use the filter box to find cameras by camera, zone or IP, and
   **Refresh** to reload the list.
 
 If your network uses a proxy, add the RTSP hosts to `no_proxy` on the VSS

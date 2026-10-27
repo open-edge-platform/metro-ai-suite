@@ -10,6 +10,7 @@ import {
   classifyPrompt,
   instructionContext,
   newAgentTurn,
+  phaseFromTurns,
   subjectImageOf,
   subjectTextOf,
   reviewsFromTurns,
@@ -49,6 +50,32 @@ const review = (confirm: string[], reject: string[]): OperatorTurn => ({
   text: "",
   input: serializeFeedback({ confirm, reject }),
   createdAt: 0,
+});
+
+describe("phaseFromTurns", () => {
+  const reply = (text = "Done."): AgentTurn => ({
+    ...grid("r", []),
+    text,
+    search: undefined,
+  });
+
+  it("is traced after a confirming review, as at the end of a live run", () => {
+    const turns: Turn[] = [
+      grid("g1", [hit("m1")]),
+      review(["m1"], []),
+      reply(),
+    ];
+    expect(phaseFromTurns(turns)).toBe("traced");
+    // A report afterwards keeps the traced state.
+    expect(phaseFromTurns([...turns, reply("Report.")])).toBe("traced");
+  });
+
+  it("is validating while the latest grid has no confirmed review", () => {
+    expect(phaseFromTurns([grid("g1", [hit("m1")])])).toBe("validating");
+    expect(
+      phaseFromTurns([grid("g1", [hit("m1")]), review([], ["m1"]), reply()]),
+    ).toBe("validating");
+  });
 });
 
 describe("reviewsFromTurns", () => {
@@ -164,6 +191,29 @@ describe("investigation subject", () => {
     expect(subjectTextOf(turns)).toBe("also check camera_2");
     expect(subjectImageOf(turns.slice(0, 1))).toBeUndefined();
     expect(subjectTextOf(turns.slice(0, 1))).toBe("Can you access the VSS MCP");
+  });
+
+  it("skips a prompt whose finished reply ran no search", () => {
+    const reply = (extra: Partial<AgentTurn> = {}): AgentTurn => ({
+      ...grid("r", []),
+      search: undefined,
+      ...extra,
+    });
+    const searched = reply({ search: { hits: [], unreadable: 0 } });
+    const turns: Turn[] = [
+      op("Find this person", "search", "/a.jpg"),
+      searched,
+      op("Which cameras are live right now?"),
+      reply(),
+    ];
+    expect(subjectTextOf(turns)).toBe("Find this person");
+    expect(subjectImageOf(turns)?.imageUrl).toBe("/a.jpg");
+    const running = [
+      ...turns,
+      op("also check camera_2"),
+      reply({ status: "streaming" }),
+    ];
+    expect(subjectTextOf(running)).toBe("also check camera_2");
   });
 });
 

@@ -28,31 +28,38 @@ VSS has indexed: uploaded videos and what the live cameras have already
 recorded. Each match names its camera by tag (for example `camera_1`). Nothing
 watches the cameras going forward until you start a live search (step 6).
 
-![Search results with the review grid](../_assets/argus-search-results.jpg "Search results")
+Your message appears on the right; a photo shows above it. Argus's reply
+appears on the left next to its eye icon: a short summary of what it searched
+and found, then the review grid. The **Case file** panel on the right shows
+the subject and the review counts.
 
-Expand **Used N tools** to see what Argus did (skills loaded and VSS tools
-called) for this turn.
-
-![Argus tool steps](../_assets/argus-tool-steps.jpg "Tool steps")
+Above each reply, chips show what Argus did for that turn: skills loaded and
+VSS tools called. With three or more, they are collapsed under **Used N
+tools**; click it to expand them. Click a chip to see the start of that
+tool's result.
 
 ## 2. Review the matches
 
-The grid shows the **top six** matches. Each card has the match ref (`m1`,
-`m2` …), the clip time, the VSS relevance score, the camera and date. Cards
-marked **Argus pick** are the ones Argus recommends.
+The grid shows the **top six** matches, three per row. Each card has a frame
+from the clip with the match ref (`m1`, `m2` …), the clip time and the VSS
+relevance score on it, then the camera, its zone and the date, and a
+**Confirm** button. A confirmed card turns green; a card marked as a false
+positive turns grey. Argus may mark the cards it recommends as **Argus pick**.
 
 - Click **Show N more findings** to reveal six more at a time, up to **20**.
 - Click a thumbnail to open the clip player.
 - Click **Confirm** on every card that shows the subject. Anything shown but
   left unconfirmed is sent to Argus as a false positive.
-- Click **Save N confirmed**. If nothing matches, click **None match** (after
-  any hidden matches are shown). Nothing is sent and no new search runs; the
+- Click **Save N confirmed**. If nothing matches, click **None match**. While
+  matches are still hidden it reads **None match, show N more** and shows them
+  first. Nothing is sent and no new search runs; the
   footer offers **Try another photo** and **Refine in chat** (describe
   clothing, name cameras or give a time range).
 - If some VSS results could not be read, the grid says how many were left out.
   If none could be read, it shows **Retry**.
 
-![Review grid expanded to 12 matches](../_assets/review-grid.jpg "Review grid")
+The footer counts what you confirmed, for example **3 confirmed of 9**, and
+how many sightings this investigation already has.
 
 Only the latest grid can be changed. Until you search again you can update it;
 the button then reads **Update review** and replaces that grid's earlier
@@ -65,24 +72,23 @@ A new grid starts with the sightings already on the route confirmed.
 
 ## 3. Play a clip
 
-The clip player opens near full-screen at the matching segment and shows the
-camera, time, segment range and relevance. **Confirm** in the player works the
-same as on the card.
-
-![Clip player](../_assets/clip-player.jpg "Clip player")
+The clip player opens near full-screen at the matching segment. Below the
+video it shows the match ref, the camera, the time, the segment range,
+the relevance and the zone. The footer has **Pause & crop person** and
+**Confirm**; **Confirm** works the same as on the card. Press **Esc** to close
+the player.
 
 ## 4. Crop the person and search again
 
 When a clip shows the subject clearly, use it as a better reference image:
 
 1. In the clip player, click **Pause & crop person**. The frame freezes and is
-   dimmed.
-2. Drag a rectangle around the person. Drag inside it to move it, **Redo** to
+   dimmed, and a toolbar appears at the bottom of the frame.
+2. Drag a rectangle around the person. Its size in video pixels shows above
+   it. Drag inside it to move it, **Redo** to
    draw again. Use **Frame** ‹ › to step to a sharper frame. **Esc** or
    **Cancel** leaves crop mode.
 3. Click **Save crop** (or press **Enter**).
-
-![Crop the person out of a frame](../_assets/crop-person.jpg "Crop person")
 
 The crop is cut at the video's native resolution and uploaded to VSS. Argus
 runs an image search for it and a new grid appears. The crop becomes the
@@ -95,7 +101,9 @@ photo and what a live search looks for.
 Once at least one sighting is confirmed, a **Route** card appears in the chat
 and the case file lists the stops. The confirmed sightings from all grids are
 de-duplicated and sorted by when they happened. The card stays in place for
-the rest of the investigation. Open **Floorplan** to see the route drawn camera-to-camera. See
+the rest of the investigation and draws the route on a small floorplan:
+**Replay** animates it camera-to-camera and **Open floorplan** opens the
+**Floorplan** page. See
 [Configure the Floorplan](./configure-floorplan.md) to map VSS cameras onto
 your plan.
 
@@ -125,6 +133,9 @@ neither VSG nor Argus offers a live search.
   30 min) or when there has been no new sighting for **Stop when quiet for**
   (default 10 min). Change both on the **Settings** page.
 
+Each timeline row shows a frame of the sighting, the camera, the start and end
+time, the zone, the detection count and **Confirm** (**Confirmed** once added).
+
 ## 7. Write the report
 
 On the Route card, click **Generate report** and choose **Handover report**,
@@ -136,6 +147,11 @@ replies with a draft:
 - Read the draft in the chat. Use **Edit before export** to change it.
 - Click **Generate PDF**, then **Download**. The PDF lists every confirmed
   sighting in time order, followed by a **Movement** section.
+
+To steer the draft, type the request yourself, for example "Write a handover
+report on the person in the black t-shirt".
+
+![Handover report draft from Argus](../_assets/report-draft.jpg "Report draft")
 
 PDFs are built in the browser and kept only for the open tab. The **Reports**
 page lists them and links to past investigations: open one in Argus to
@@ -164,3 +180,7 @@ parameters. They are stored in the browser.
 | Live watch time limit | `30` min | Live search stops by itself after this. |
 | Stop when quiet for | `10` min | Live search stops after this long without a new sighting. |
 | Show the case file | on | Side panel on wide screens. |
+
+**Clear local data** removes what this browser stores: the floorplan, live
+search timelines and these settings. Hermes sessions and VSS data are not
+affected.

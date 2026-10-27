@@ -121,4 +121,46 @@ describe("sessions", () => {
     expect(fetch.mock.calls[0][0]).toBe("/h/api/sessions/s%201");
     expect(s.title).toBe("VSG · lobby");
   });
+
+  it("names a transcript's tool_call wrapper after the tools it called", async () => {
+    const call = (id: string, name: string, args: string) => ({
+      id,
+      function: { name, arguments: args },
+    });
+    const vss = "mcp__video_search_summarization__vss_";
+    const fetch = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: [
+            {
+              role: "assistant",
+              content: "",
+              tool_calls: [
+                call(
+                  "c1",
+                  "tool_call",
+                  JSON.stringify({
+                    calls: [
+                      { name: `${vss}list_streams`, arguments: {} },
+                      { name: `${vss}list_tags`, arguments: {} },
+                    ],
+                  }),
+                ),
+                call("c2", "tool_call", "not json"),
+                call("c3", "skill_view", '{"name":"x"}'),
+              ],
+            },
+          ],
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const [m] = await createHttpHermes("/h").getMessages("s1");
+    expect(m.toolCalls?.map((c) => [c.id, c.name])).toEqual([
+      ["c1", `${vss}list_streams`],
+      [undefined, `${vss}list_tags`],
+      ["c2", "tool_call"],
+      ["c3", "skill_view"],
+    ]);
+  });
 });

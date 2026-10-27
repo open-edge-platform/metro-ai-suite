@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { formatClock } from "@/lib/time";
 import type { TraceStop } from "@/stores/case";
 import {
+  clearLabelX,
   fovWedge,
   legArrows,
   planSize,
@@ -90,6 +91,29 @@ export function SpatialMap({
   const font = 12 * u;
   /** Rough rendered width of a label, enough to keep it inside the canvas. */
   const textWidth = (t: string, fs: number) => t.length * fs * 0.56;
+  const camFont = font * 0.92;
+  /** A camera's name label; near the right edge it goes left of the camera. */
+  const cameraLabel = (key: string, cam: { x: number; y: number }) => {
+    const w = textWidth(key, camFont);
+    const left = cam.x + 9 * u + w > size.width;
+    return {
+      x: left ? cam.x - 9 * u : cam.x + 9 * u,
+      textAnchor: left ? ("end" as const) : undefined,
+      box: {
+        x: left ? cam.x - 9 * u - w : cam.x + 9 * u,
+        y: cam.y - 9 * u - camFont,
+        w,
+        h: camFont,
+      },
+    };
+  };
+  const showLabel = (key: string) =>
+    labels === "all" || (labels === "route" && routeKeys.has(key));
+  // What a zone name must not print over: camera dots and shown camera names.
+  const cameraBoxes = Object.entries(plan.cameras).flatMap(([key, cam]) => [
+    { x: cam.x - 7 * u, y: cam.y - 7 * u, w: 14 * u, h: 14 * u },
+    ...(showLabel(key) ? [cameraLabel(key, cam).box] : []),
+  ]);
   // Labels sit on a halo of the plan colour so crossing lines and zone names
   // don't make them unreadable.
   const halo = {
@@ -182,7 +206,16 @@ export function SpatialMap({
               strokeDasharray={z.outdoor ? `${6 * u} ${4 * u}` : undefined}
             />
             <text
-              x={z.label.x}
+              x={clearLabelX(
+                {
+                  x: z.label.x,
+                  y: z.label.y - font,
+                  w: textWidth(z.name, font),
+                  h: font,
+                },
+                cameraBoxes,
+                6 * u,
+              )}
               y={z.label.y}
               className="fill-blueprint-ink font-sans"
               fontSize={font}
@@ -288,7 +321,8 @@ export function SpatialMap({
             : state === "empty"
               ? ", no footage yet"
               : "";
-          const show = labels === "all" || (labels === "route" && hot);
+          const show = showLabel(key);
+          const label = cameraLabel(key, cam);
           const clickable = !!onCameraClick;
           return (
             <g
@@ -357,17 +391,15 @@ export function SpatialMap({
               {show && (
                 <text
                   {...halo}
-                  // Near the right edge the label goes left of the camera.
-                  {...(cam.x + 9 * u + textWidth(key, font * 0.92) > size.width
-                    ? { x: cam.x - 9 * u, textAnchor: "end" }
-                    : { x: cam.x + 9 * u })}
+                  x={label.x}
+                  textAnchor={label.textAnchor}
                   y={cam.y - 9 * u}
                   className={cn(
                     halo.className,
                     "font-sans",
                     hot ? "fill-white" : "fill-blueprint-ink",
                   )}
-                  fontSize={font * 0.92}
+                  fontSize={camFont}
                   fontWeight={hot ? 600 : 400}
                 >
                   {key}

@@ -115,7 +115,7 @@ export function CameraFleetPage() {
         <div className="mr-auto">
           <h2 className="text-lg font-semibold">Live cameras</h2>
           <p className="text-sm text-muted-foreground">
-            {cameras.length} cameras
+            {cameras.length} camera{cameras.length === 1 ? "" : "s"}
             {(Object.keys(tally) as (keyof typeof tally)[])
               .filter((k) => tally[k])
               .map((k) => `, ${tally[k]} ${STATUS_META[k].label.toLowerCase()}`)

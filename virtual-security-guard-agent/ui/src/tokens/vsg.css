@@ -33,7 +33,8 @@
   );
   /* Operator-confirmed sighting. */
   --vsg-confirm: var(--green);
-  --vsg-confirm-soft: color-mix(in oklch, var(--green) 12%, var(--background));
+  /* oklab: an oklch mix with white (hue 0) would drift the green to pink. */
+  --vsg-confirm-soft: color-mix(in oklab, var(--green) 12%, var(--background));
   /* False positive. */
   --vsg-reject: var(--carbon);
   /* Camera nodes and fields of view. */
@@ -72,7 +73,7 @@
   );
   --vsg-confirm: var(--electric-moss);
   --vsg-confirm-soft: color-mix(
-    in oklch,
+    in oklab,
     var(--electric-moss) 14%,
     var(--background)
   );

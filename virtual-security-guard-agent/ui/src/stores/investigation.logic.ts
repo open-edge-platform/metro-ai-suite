@@ -301,6 +301,16 @@ export function latestDirective<T extends Directive["type"]>(
   return undefined;
 }
 
+/**
+ * Did this reply search? A prompt is classified "search" before
+ * it runs, so a finished reply must have a real search result to count; one
+ * still running (or being grounded) counts until it says otherwise.
+ */
+function replySearched(reply: Turn | undefined): boolean {
+  if (reply?.role !== "agent") return true;
+  return reply.status === "streaming" || !!reply.grounding || !!reply.search;
+}
+
 /** Latest operator search turn matching `pick`, newest first. */
 function latestSearch(
   turns: Turn[],
@@ -308,7 +318,13 @@ function latestSearch(
 ): OperatorTurn | undefined {
   for (let i = turns.length - 1; i >= 0; i--) {
     const t = turns[i];
-    if (t.role === "operator" && t.kind === "search" && pick(t)) return t;
+    if (
+      t.role === "operator" &&
+      t.kind === "search" &&
+      pick(t) &&
+      replySearched(turns[i + 1])
+    )
+      return t;
   }
   return undefined;
 }
@@ -507,7 +523,12 @@ export function turnsFromMessages(messages: HermesMessage[]): Turn[] {
 /** Replay phase across a restored transcript. */
 export function phaseFromTurns(turns: Turn[]): InvestigationPhase {
   let settled: InvestigationPhase = "idle";
-  for (const t of turns)
-    if (t.role === "agent") settled = settleAfter(t.text, settled);
+  let op: OperatorTurn | undefined;
+  for (const t of turns) {
+    if (t.role === "operator") op = t;
+    // Same rule as the end of a live run: a confirming review traces the route.
+    else if (op && confirmsSightings(op)) settled = "traced";
+    else settled = settleAfter(t.text, settled);
+  }
   return settled;
 }

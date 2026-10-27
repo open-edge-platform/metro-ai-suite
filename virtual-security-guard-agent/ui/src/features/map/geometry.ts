@@ -141,6 +141,32 @@ export function zoneShapes(plan: Floorplan, size: Size): ZoneShape[] {
   });
 }
 
+const overlaps = (a: Rect, b: Rect) =>
+  a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+/**
+ * Left edge for a label box slid right until it clears every box (camera
+ * dots and names), so a camera in a zone's corner doesn't print over the
+ * zone name.
+ */
+export function clearLabelX(
+  label: Rect,
+  boxes: readonly Rect[],
+  gap: number,
+): number {
+  let x = label.x;
+  // x only grows, and a box once passed can't overlap again: this ends.
+  for (let moved = true; moved;) {
+    moved = false;
+    for (const b of boxes)
+      if (overlaps({ ...label, x }, b)) {
+        x = b.x + b.w + gap;
+        moved = true;
+      }
+  }
+  return x;
+}
+
 /** Polyline through route points. */
 export function routePath(points: { x: number; y: number }[]): string {
   return points

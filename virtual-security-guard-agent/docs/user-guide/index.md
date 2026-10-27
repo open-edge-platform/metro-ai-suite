@@ -12,7 +12,7 @@ agent server. Argus searches recorded and live camera footage through Intel®
 so VSG renders what Argus finds: match grids for human review, a floorplan
 route, live camera matches, and PDF incident reports.
 
-![Argus investigation in Virtual Security Guard Agent](./_assets/argus-search-results.jpg "Argus investigation")
+![Architecture: operator browser, vsg-ui container, Hermes agent, VSS MCP server, VSS gateway and model server](./_assets/vsg-architecture.svg)
 
 ## Key Features
 

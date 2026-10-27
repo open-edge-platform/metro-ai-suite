@@ -11,7 +11,7 @@ and live camera footage through Intel® Video Search and Summarization (VSS).
 It renders what Argus finds: match grids for human review, a floorplan route,
 live camera matches, and PDF incident reports.
 
-![Argus investigation in Virtual Security Guard Agent](./docs/user-guide/_assets/argus-search-results.jpg)
+![Architecture: operator browser, vsg-ui container, Hermes agent, VSS MCP server, VSS gateway and model server](./docs/user-guide/_assets/vsg-architecture.svg)
 
 See [How It Works](./docs/user-guide/how-it-works.md).
 
@@ -19,7 +19,6 @@ See [How It Works](./docs/user-guide/how-it-works.md).
 
 - [System Requirements](./docs/user-guide/get-started/system-requirements.md)
 - [Get Started](./docs/user-guide/get-started.md)
-- [Quick Start Guide](./docs/user-guide/quick-start-guide.md)
 
 ## Learn More
 

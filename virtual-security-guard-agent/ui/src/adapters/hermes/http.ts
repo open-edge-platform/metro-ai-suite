@@ -10,6 +10,7 @@ import {
   type HermesMessage,
   type HermesRunStatus,
   type HermesSession,
+  type HermesToolCall,
   type RunEvent,
   type StartRunRequest,
 } from "./types";
@@ -88,6 +89,34 @@ function contentToText(c: unknown): string {
   return "";
 }
 
+const wrappedCalls = z.object({
+  calls: z
+    .array(z.looseObject({ name: z.string().min(1), arguments: z.unknown() }))
+    .min(1),
+});
+
+/**
+ * Hermes stores MCP calls under its `tool_call` meta-tool, with the real
+ * tools in its arguments; live run events already name the real tool. The
+ * first inner call keeps the id its result refers to. A wrapper whose
+ * arguments don't parse stays as it is.
+ */
+function unwrapToolCall(call: HermesToolCall): HermesToolCall[] {
+  let args: unknown;
+  try {
+    args = JSON.parse(call.arguments ?? "");
+  } catch {
+    return [call];
+  }
+  const parsed = wrappedCalls.safeParse(args);
+  if (!parsed.success) return [call];
+  return parsed.data.calls.map((c, i) => ({
+    id: i === 0 ? call.id : undefined,
+    name: c.name,
+    arguments: JSON.stringify(c.arguments ?? {}),
+  }));
+}
+
 /** A transcript message, or undefined for a role the UI doesn't show. */
 function toMessage(m: Json, i: number): HermesMessage | undefined {
   const role = ROLES.find((r) => r === m.role);
@@ -97,13 +126,14 @@ function toMessage(m: Json, i: number): HermesMessage | undefined {
     id: String(m.id ?? i),
     role,
     content: contentToText(m.content),
-    toolCalls: calls.map((c) => {
+    toolCalls: calls.flatMap((c) => {
       const fn = (c.function ?? {}) as Json;
-      return {
+      const call: HermesToolCall = {
         id: typeof c.id === "string" ? c.id : undefined,
         name: String(fn.name ?? c.name ?? "tool"),
         arguments: typeof fn.arguments === "string" ? fn.arguments : undefined,
       };
+      return call.name === "tool_call" ? unwrapToolCall(call) : [call];
     }),
     toolName: typeof m.tool_name === "string" ? m.tool_name : undefined,
     toolCallId: typeof m.tool_call_id === "string" ? m.tool_call_id : undefined,
