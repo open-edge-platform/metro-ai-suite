@@ -1,6 +1,6 @@
 ---
 name: rtsu-troubleshooting
-description: Diagnose Real Time Scene Understanding dashboard, API, RTSP, WebRTC, model, device, storage, and Docker deployment failures.
+description: Diagnose Real-Time Scene Understanding dashboard, API, RTSP, WebRTC, model, device, storage, and Docker deployment failures.
 license: Apache-2.0
 ---
 
@@ -9,7 +9,7 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Real Time Scene Understanding Troubleshooting
+# Real-Time Scene Understanding Troubleshooting
 
 Use this skill when the dashboard, API, RTSP stream, WebRTC playback, model inference, storage, or Docker deployment is not working as expected.
 

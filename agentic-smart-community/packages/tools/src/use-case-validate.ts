@@ -2,6 +2,8 @@ import { SchemaManager, type SchemaDefinition } from "@smart-community-video/db"
 
 export interface UseCaseValidateParams {
   use_case: string;
+  /** Update-only: verify the task actually contains the submitted prompt. */
+  expected_prompt_content?: string;
 }
 
 export interface UseCaseValidateDeps {
@@ -90,6 +92,41 @@ export async function useCaseValidate(
     };
   }
   checks.task_registered = true;
+  if (params.expected_prompt_content !== undefined) {
+    const expected = params.expected_prompt_content;
+    // The summary service may return task content either as an object
+    // (`content: { text }`) or as a plain string (`content: "GLOBAL_PROMPT = '''...'''"`).
+    const contentNode = taskBody.content;
+    const actual = typeof contentNode === "string" ? contentNode : contentNode?.text;
+    let matches = typeof actual === "string" && actual.trim() === expected.trim();
+    if (!matches) {
+      // Compare section by section. The service's smart_autofill appends
+      // scaffold placeholders and can wrap T_MINUS_1 in an envelope, so both
+      // sides are normalized (scaffold/blank lines stripped) before comparing.
+      // Missing, duplicated or unparseable sections reject: only known
+      // service-added scaffold lines are ignored, never business text.
+      const parseSections = (text: string) => {
+        const sections = new Map<string, { count: number; body: string }>();
+        for (const m of text.matchAll(/(GLOBAL_PROMPT|MACRO_CHUNK_PROMPT|LOCAL_PROMPT|T_MINUS_1_PROMPT)\s*=\s*(['"]{3})([\s\S]*?)\2/g)) {
+          const prev = sections.get(m[1]);
+          sections.set(m[1], { count: (prev?.count ?? 0) + 1, body: m[3] });
+        }
+        return sections;
+      };
+      const expectedSections = parseSections(expected);
+      const actualSections = typeof actual === "string" ? parseSections(actual) : new Map<string, { count: number; body: string }>();
+      const source = taskBody.prompts ?? taskBody;
+      matches = expectedSections.size === 4 && [...expectedSections].every(([name, { count, body }]) => {
+        if (count !== 1) return false;
+        if (typeof source[name] === "string") return normalizeSection(source[name]) === normalizeSection(body);
+        const actualSection = actualSections.get(name);
+        return actualSection?.count === 1 && normalizeSection(actualSection.body) === normalizeSection(body);
+      });
+    }
+    if (!matches) return { valid: false, use_case: params.use_case, video_summary_task: taskName, checks,
+      error: "VLM task readback does not match the submitted prompt; update has not been verified" };
+  }
+
 
   // 3. schema consistency: this use case's own required schema fields must appear
   // in LOCAL_PROMPT. Schema is owned per use case, so other use cases' fields
@@ -126,8 +163,31 @@ export async function useCaseValidate(
  * several key paths depending on version; try the common ones and fall back to
  * stringifying the body so substring search still works.
  */
-function extractLocalPrompt(taskBody: any): string {
-  if (!taskBody || typeof taskBody !== "object") return "";
+// Lines the summary service's smart_autofill may append to (or wrap around)
+// submitted prompt sections. Stripped - together with blank lines - from both
+// candidate and readback sections before comparison, so autofill does not cause
+// false mismatches. Whole-section default templates are intentionally NOT
+// stripped: a candidate relying on them differs from the service default and
+// must fail readback honestly.
+const AUTOFILL_SCAFFOLD_LINES = new Set([
+  "##Subtitles:", "{chunk_subtitle}", "User prompt: {question}",
+  "Start time: {st_tm} sec", "End time: {end_tm} sec",
+  "##Context:", "{past_summary}", "[", "]",
+  "The summary of the previous {dur} seconds is in brackets []. Use it as",
+  "context for the current segment; do not copy it into your output.",
+]);
+
+function normalizeSection(body: string): string {
+  return body.split("\n").map(line => line.trim())
+    .filter(line => line !== "" && !AUTOFILL_SCAFFOLD_LINES.has(line)).join("\n");
+}
+
+function extractLocalPrompt(taskBody: any): string {  if (!taskBody || typeof taskBody !== "object") return "";
+  const contentNode = taskBody.content;
+  if (typeof contentNode === "string") {
+    const section = contentNode.match(/LOCAL_PROMPT\s*=\s*(['"]{3})([\s\S]*?)\1/);
+    if (section) return section[2];
+  }
   return (
     taskBody.LOCAL_PROMPT ??
     taskBody.local_prompt ??

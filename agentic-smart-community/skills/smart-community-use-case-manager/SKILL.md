@@ -1,7 +1,7 @@
 ---
 name: smart-community-use-case-manager
-description: "MANDATORY for creating, previewing, refining, registering, or deleting any Smart Community video analytics use case, and for creating, rebinding, or updating any monitor. Use-case creation requires two cross-turn gates: explicit Q1/Q2 answers, then explicit approval of the proposed Final Schema, Rule Path, and Detection Contract. Monitor binding requires two additional cross-turn gates: explicit prefilter/ROI decisions (P2=yes applies ROI template defaults: mode=crop, expand=0.25, auto_split_area=0.35), then explicit approval of the exact assembled pipeline_config before register_source. Never infer, recommend-and-apply, or silently default any gated answer."
-homepage: https://github.com/open-edge-platform/edge-ai-suites
+description: "Manage Smart Community use cases and monitors. Simple existing detection event additions, removals and condition edits use get/dry_run/update with one business difference approval, never full registration. Schema is system-maintained and never a user design question. Apply every explicit supported prefilter parameter; preserve unspecified values."
+homepage: https://github.com/open-edge-platform/metro-ai-suite
 metadata:
   {
     "openclaw":
@@ -14,9 +14,22 @@ metadata:
 # Smart Community Use Case Manager
 
 Creates and registers Smart Community video-analysis use cases. This Skill owns
-capability negotiation, output mode, Final Schema, rule path, registration, and
+capability negotiation, internal output mode/schema/rules, registration, and
 monitor binding. It does not contain domain definitions; those are compiled
 into each use-case prompt from the user's business requirements.
+
+## Fast updates of existing use cases and monitors
+
+For an existing use case, use `references/update-use-case.md` and the
+`get/update` actions. This flow takes precedence over new-case Q1/Q2,
+authoring-after-design-approval, and monitor M1–M4 gates for updates that keep
+the mode and binding. Read current state, draft only the changes, preview the
+exact candidate, then obtain ONE later explicit confirmation of the differences
+before committing. Do not repeat unchanged questions or regenerate unchanged
+rules. Read-only get/dry_run calls are allowed before confirmation.
+For prefilter-only changes use monitor `update_pipeline`; no prompt/rules
+are authored and no VLM task is registered. Mode changes and task cloning are
+outside this update flow. New creation uses the business design flow below. Binding retains its gates, but explicit parameters already supplied by the user must be honored without re-asking them.
 
 ## References
 
@@ -27,6 +40,7 @@ Read references only at their stated trigger:
   matrix, four-section template, semantic lint, and behavior validation.
 - **Extended schema or custom alert behavior:**
   `references/evaluate-rules.md` — `evaluate_rules.py` contract and templates.
+- **Incremental changes:** `references/update-use-case.md` — one difference confirmation, get/dry_run/update.
 - **Overwrite/refine an existing use case:**
   `references/inspect-existing.md` — read its active schema and artifacts.
 - **Binding a monitor with a stream URL:**
@@ -38,6 +52,21 @@ Read references only at their stated trigger:
 - **MCP server unavailable:**
   `references/curl-fallback.md` — direct `/v1/tasks` task management only.
 
+## Explicit parameter precedence
+
+For new binding, user-provided prefilter/ROI switches and classes count as
+explicit decisions; never repeat a question already answered in the request.
+Extract every supported prefilter parameter per pipeline-config.md, merge
+monitor_defaults first and explicit request values last. Numeric parameters
+alone do not imply enabling prefilter. Existing pipeline-only changes bypass
+M1–M4 and use the delta update flow. Schema approval is never a binding gate.
+
+## Hard boundary — use the tools, never change the platform
+
+Work only through the `smart_community_*` tools. Never edit the platform's source code or build files (the Agentic Smart Community checkout: `packages/`, `videostream-analytics/`, `docker/`, `skills/`, and so on), never build or rebuild images, and never restart or recreate containers or services. This applies even if it looks like the only way past an error.
+
+If a tool call fails and its documented parameters cannot fix it, stop. Report the exact error text, what you already tried, and that the fix needs a change to the platform by the user. Do not read the platform source to work around it, and do not substitute shell commands for the tool.
+
 ## Hard tool-call gates
 
 Quick index of the two irreversible tool calls. Each is forbidden unless every
@@ -45,18 +74,18 @@ predicate is true; the authoritative rules live in the referenced sections.
 
 ### `smart_community_use_case_register` (`generate_task` / `register`)
 
-- an explicit Q1/Q2 reply exists in a later user turn;
-- the proposed Final Schema, Rule Path, and Detection Contract were displayed;
+- necessary business requirements are resolved;
+- the proposed Detection Contract and alert/report behavior were displayed;
 - a still-later user turn explicitly approved that displayed design.
 
-See **Question flow**, **Q1/Q2 decision block**, **Register (two steps)**.
+See **Question flow**, **Business design approval**, **Register (two steps)**.
 
 ### `smart_community_monitor_ctl action=register_source`
 
 - `source_url` is known and the `use_case` is verified to exist (M0);
-- P1 and P2 were explicitly answered `P1=yes|no, P2=yes|no` in a later turn;
-- all required `target_classes` are complete (P1=yes), and P2=yes applies the
-  ROI template defaults from the reference;
+- P1 and P2 are explicit in the request or a clarification reply;
+- the prefilter model and all required `target_classes` are complete (P1=yes),
+  and P2=yes applies the ROI template defaults from the reference;
 - the exact final `pipeline_config` was displayed (M3);
 - a still-later user turn said exactly `confirm pipeline_config`;
 - the config passed to the tool is identical to the approved one.
@@ -66,7 +95,7 @@ corresponding gate. Full rules in **Monitor pipeline gates**.
 
 ## Data-model boundary
 
-Before Q1/Q2, determine whether the user needs:
+Before business design approval, determine whether the user needs:
 
 - **Primary-event mode:** persist one primary event per clip; secondary visible
   observations may appear in `DESC`.
@@ -95,7 +124,7 @@ This table is authoritative. Later steps must not mix invariants across rows.
 |---|---|---|---|---|
 | Report-only | none | factual narrative; multiple findings allowed | none | completed `video_summary_tasks` |
 | Base alerting | `severity, event, desc` | one primary EVENT | `defaultRuleEvaluator` | `alerts` |
-| Extended alerting | base + user-confirmed extensions | one primary EVENT + extension fields | `evaluate_rules.py` | completed `video_summary_tasks` unless the user asks for `alerts` |
+| Extended alerting | base + internally derived extensions | one primary EVENT + extension fields | `evaluate_rules.py` | completed `video_summary_tasks` unless the user asks for `alerts` |
 
 Product invariants:
 
@@ -110,69 +139,14 @@ Product invariants:
 
 ## Question flow
 
-Q1/Q2 are a mandatory cross-turn gate for every new use case, including preview
-requests. First collect only the use-case name and a simple business
-description. A stream URL may be recorded at intake, but it does not change the
-gate.
+Schema is internal for creation and updates. Extract alerting/report needs from
+explicit user requirements; ask whether alerts are needed only if ambiguous.
+Never ask Q2, field names/types/required flags or user schema approval. Derive
+only the internal fields necessary for supported business requirements, and
+validate them with prompt/rules. Read-only state and capabilities may be read
+before business approval. Existing updates follow update-use-case.md instead.
 
-The initial request never answers Q1 or Q2, even when words such as "alert",
-"warning", "notify", "persist", "field", or an apparent schema occur in the
-business description. Never infer either answer from the use-case name,
-detection targets, safety implications, recommended defaults, prior use cases,
-or canonical examples.
-
-After the name and description are available:
-
-1. Before the explicit Q1/Q2 reply, the only permitted tool call is reading this
-  main `SKILL.md` file itself when it has not already been loaded. Do not read
-  any reference, other skill, config, existing artifact, workspace file, or
-  memory. Do not call memory, search, shell, MCP, `smart_community_*`, or any
-  other tool. Once this main file is loaded and the name and description are
-  available, ask the questions without another tool call.
-2. Ask Q1 and Q2 together using the wording below. Explain that Q2 applies only
-  when Q1 is Yes.
-3. End the assistant turn immediately after the questions. Do not draft a
-  prompt, create or modify files, call any tool, write memory, or claim the
-  answers are confirmed in that turn.
-4. Unlock the remaining workflow only from a later user message that explicitly
-  answers Q1 and, when Q1 is Yes, Q2. Examples of valid replies are
-  `Q1=yes, Q2=no` and `Q1=yes, Q2=yes: zone_id (text)`. For Q1=No, record Q2 as
-  not applicable.
-5. If an answer is missing or ambiguous, ask only for the missing answer and end
-  the turn again. Silence, a recommendation, or the agent's own proposed answer
-  is never confirmation.
-
-Q1 and Q2 are the only user-facing questions for use-case detection behavior,
-output mode, and persisted schema before prompt authoring.
-
-They do not replace the mandatory monitor-binding questions defined in
-**Monitor pipeline gates**. When a monitor is created, rebound, or updated,
-prefilter and ROI decisions must be explicitly collected from the user.
-Never resolve monitor pipeline decisions through use-case defaults.
-
-After the explicit reply is received, resolve event names, evidence, severity,
-priority, uncertainty, and report behavior with the conservative defaults below.
-Do not ask separate design questions for those details. Present the resolved
-design at the mandatory final approval gate below before authoring or
-registration.
-
-### Q1 — Alerting?
-
-Does this use case need to raise alerts?
-
-- **No:** report-only; Final Schema = none; Rule Path = none; skip Q2.
-- **Yes:** structured alerting; base schema = `severity, event, desc`; ask Q2.
-
-### Q2 — Schema extension? (Q1 = yes only)
-
-Persist fields beyond `severity/event/desc`?
-
-- **No:** Base alerting; no `evaluate_rules.py`.
-- **Yes:** Extended alerting; Q2 confirms the extension schema with the user.
-  Final Schema = base + only user-confirmed fields; generate `evaluate_rules.py`
-  from that complete schema.
-
-Outside Q1/Q2, resolve ordinary business ambiguity with conservative defaults:
+For remaining business details, resolve ordinary business ambiguity with conservative defaults:
 
 - Use the behavior named by the user as the single primary detection event.
 - Use `warn` for a detected policy/safety violation unless the user explicitly
@@ -189,43 +163,12 @@ The capability stops in **Data-model boundary** still apply. Stop and explain
 an unsupported requirement rather than turning it into a third question.
 Never ask the user to write the prompt.
 
-If the agent cannot ask:
+## Business design approval
 
-- Stop after intake and state that explicit Q1/Q2 confirmation is required.
-- Do not infer answers, generate a preview, draft artifacts, or register a use
-  case. There is no fallback that bypasses this gate.
-
-## Q1/Q2 decision block
-
-In the assistant turn after the user's explicit Q1/Q2 reply:
-
-1. Show the applicable block and a compact resolved Detection Contract.
-2. Ask the user to confirm this proposed design and continue.
-3. End the assistant turn immediately. Do not read authoring references, draft
-  prompts, create or modify files, or call any `smart_community_*` tool.
-
-This is a mandatory second cross-turn gate. Continue only after a later user
-message explicitly approves the displayed Final Schema, Rule Path, and Detection
-Contract, for example `confirm`, `approved`, or `确认，继续`. The Q1/Q2 reply
-itself cannot approve a design that had not yet been displayed. Silence or the
-agent's own statement that the design is resolved is never approval.
-
-```text
-Report-only
-  Final Schema: none
-  Rule Path: none
-  Report Source: completed video_summary_tasks
-
-Base alerting
-  Final Schema: severity, event, desc
-  Rule Path: defaultRuleEvaluator
-  Report Source: alerts
-
-Extended alerting
-  Final Schema: severity, event, desc, <extensions>
-  Rule Path: evaluate_rules.py
-  Report Source: completed video_summary_tasks
-```
+Show detection events, evidence criteria, alert/report behavior and scope; obtain
+explicit final approval after the proposed design was displayed. Clarify only
+missing business requirements. Do not expose Final Schema or Rule Path as
+user decisions. Existing event updates preview one difference instead.
 
 ## Defaults
 
@@ -239,7 +182,7 @@ Extended alerting
   `{ method: "SIMPLE", processor_kwargs: { levels: 1, level_sizes: [-1], process_fps: 2 } }`.
 - `persist: true` (tool default; mirrors into the booted `<data_dir>/config.yaml`
   — `<data_dir>` = `$SMART_COMMUNITY_DATA_DIR` or `~/.mcp-smart-community`);
-  `overwrite: false` unless the user explicitly updates an existing use case.
+  `overwrite: false` for creation; existing event edits use `update`.
 - Never invent YAML fields such as `rules`, `alert_conditions`,
   `severity_levels`, or `cooldown_seconds`.
 
@@ -250,13 +193,11 @@ T_MINUS affects only explicitly configured history modes. See
 
 ## Draft and lint
 
-1. Verify that a later user message explicitly answered Q1 and, if applicable,
-  Q2. If not, return to **Question flow** without drafting or calling tools.
-2. Verify that the proposed decision block and Detection Contract were then
-  displayed and explicitly approved in another later user message. If not,
-  return to **Q1/Q2 decision block** and end the turn.
+1. Resolve necessary business requirements; schema stays internal.
+2. Verify explicit approval of the displayed business design; otherwise return
+   to **Business design approval**. Existing updates use their own preview flow.
 3. Read `references/prompt-authoring.md`.
-4. Build the approved Detection Contract from the request, Q1/Q2, and defaults.
+4. Build the approved Detection Contract from the request and conservative defaults.
 5. Draft all four Skill-required sections:
    `GLOBAL_PROMPT`, `MACRO_CHUNK_PROMPT`, `LOCAL_PROMPT`, `T_MINUS_1_PROMPT`.
 6. Run the reference's semantic lint and contract round-trip.
@@ -272,14 +213,12 @@ MACRO/T_MINUS; do not rely on those generic defaults for registered use cases.
 Use only `smart_community_use_case_register`. Never manually POST `/v1/tasks`
 while MCP is available.
 
-Before either registration step, verify both user messages are present in order:
-the explicit Q1/Q2 reply after the question turn, and the explicit final approval
-after the proposed design was displayed. Initial-request wording, agent
-inference, defaults, or a plan item marked complete do not satisfy either
-precondition. If either message is absent, do not call the tool.
+Before either new-case registration step, verify explicit approval of the
+business design. These steps are creation-only: existing event changes must use
+get/update, never full registration or overwrite as an update fallback.
 
 Common arguments: `use_case`, one-line English `description`, `persist: true`,
-and `overwrite: false` unless updating.
+and `overwrite: false`.
 
 ### Step 1 — generate task and stage artifacts
 
@@ -307,7 +246,7 @@ Call `action=register`, `persist=true`, and omit `prompt_text` and
 
 Normally omit it: Final Schema is inferred from LOCAL's UPPER_SNAKE output
 lines. Pass it only to declare a non-text type or override a required flag, and
-then list only extension fields explicitly requested through Q2. Detection events, risk labels,
+then list only internally derived extension fields needed for the business contract. Detection events, risk labels,
 derived counts, and booleans not explicitly requested for persistence do not
 belong here.
 
@@ -324,14 +263,14 @@ Do not continue to monitor binding until registration returns `ok:true`.
 ## Monitor pipeline gates
 
 Mandatory whenever: the request includes a stream URL, or the user asks to
-create/bind a monitor, add a camera, rebind a source, or update a monitor's
-pipeline — whether the use case is new or pre-existing.
+create/bind a monitor, add a camera or rebind a source. Existing pipeline-only
+updates follow update-use-case.md and bypass these creation gates.
 
 Monitor creation is **fail-closed**. Never call
 `smart_community_monitor_ctl action=register_source` until every M0–M4
 precondition is met. Do not treat server defaults, an empty `pipeline_config`,
-recommendations, existing conventions, the initial request, or the agent's own
-judgment as user decisions.
+recommendations, existing conventions or the agent's own judgment as user
+decisions. Explicit request values are decisions and must not be re-asked.
 
 Field formats, `prefilter_options` handling, ROI template defaults, config
 examples, and the report template live in `references/pipeline-config.md`. **The M0–M4
@@ -365,7 +304,7 @@ Before starting monitor configuration:
 
 ### M1 — Ask pipeline decisions and end the turn
 
-Ask both together, requiring an exact-form reply:
+Reuse explicit switches in the request. Ask only missing decisions, using:
 
 ```text
 P1 — Prefilter: enable object-class prefiltering?
@@ -373,26 +312,39 @@ P2 — ROI focus: crop/focus a region of interest?
 Reply exactly: P1=yes|no, P2=yes|no
 ```
 
-Note that P1=yes later requires picking `target_classes`, and P2=yes applies
+Note that P1=yes later requires picking the prefilter model (when more than one
+is selectable) and its `target_classes`, and P2=yes applies
 the ROI template defaults (`mode: crop, expand: 0.25, auto_split_area: 0.35`;
 see the reference) with no further ROI questions. **End the turn immediately.**
 
-Not an answer: the initial request (even if it mentions prefilter/ROI/target
-classes), an inference, a recommendation, or a vague/conditional reply
-("maybe", "if useful", "up to you", "看情况", "都行"). Before an explicit
-`P1=.., P2=..` reply, do not assemble `pipeline_config`, call
+Explicit switches/classes supplied in the initial request are answers.
+Not an answer: an inference, a recommendation, or a vague/conditional reply
+("maybe", "if useful", "up to you", "看情况", "都行"). Before explicit decisions are available, do not assemble `pipeline_config`, call
 `prefilter_options`, call `register_source`, or infer an answer. If missing or
 ambiguous, ask only for the missing part and end the turn again.
 
 ### M2 — Resolve required selections and parameters
 
-Continue only after an explicit `P1=.., P2=..` reply.
+Continue after explicit decisions in the request or clarification reply.
 
-* **P1=yes** — call `smart_community_monitor_ctl action=prefilter_options`, present
-  the returned `class_names` exactly, and have the user explicitly pick
-  `target_classes`. Do not select for the user; a recommendation is never a
-  selection; every pick must match a returned class name; handle `labels_source`
-  per the reference. Continue only after the user's explicit selection.
+* **P1=yes** — call `smart_community_monitor_ctl action=prefilter_options`, then
+  resolve two selections in order (details in the reference):
+  1. **Model.** `models[]` is the selectable set. Reuse a model the user already
+     named in the request or a clarification reply if it is a returned `name`.
+     Otherwise, if `models[]` holds **more than one** entry, list every model
+     by `name` with its `description`, `input_shape` and class count, **end the
+     turn**, and have the user explicitly pick one; the class list below
+     depends on this choice, so do not show classes yet. If exactly one is
+     selectable, use it and state which in the M3 summary. Never offer or
+     accept a model listed only under `rejected`; never put a `model_path` in
+     `pipeline_config` — models are chosen by `name`.
+  2. **Classes.** Present the chosen model's `class_names` exactly, reuse
+     supplied `target_classes`, or ask for the missing classes.
+
+  Do not select for the user on either step; a recommendation is never a
+  selection; the model must be a returned `name` and every class must match
+  that model's `class_names`; handle `labels_source` per the reference.
+  Continue only after the user's explicit selections.
 * **P2=yes** — apply the ROI template defaults from the reference verbatim
   (`roi: { enabled: true, mode: crop, expand: 0.25, auto_split_area: 0.35 }`).
   No further ROI questions; there is no geometry to collect (ROI is
@@ -408,7 +360,8 @@ Continue only after an explicit `P1=.., P2=..` reply.
 Only after all decisions/selections/parameters are complete:
 
 1. Assemble the exact `pipeline_config` for `register_source` and display it in
-   full — no hidden or summarized fields.
+   full — no hidden or summarized fields. When prefilter is enabled it carries
+   `model: <name>` alongside `target_classes`.
 2. Also display the decision summary (template in the reference).
 
 Even when both features are off, display an **explicit** disabled config
@@ -438,15 +391,15 @@ acknowledgement (`ok`, `looks good`, `continue`, `好的`, `可以`) or approval
 another part of the workflow does not satisfy this gate.
 
 Immediately before the call, verify the conversation contains, in order:
-(1) the P1/P2 question turn; (2) a later explicit P1/P2 answer; (3) any required
-`target_classes` selection; (4) the turn displaying the exact
+(1) explicit pipeline decisions in the request or clarification; (2) any required
+prefilter model and `target_classes` selection; (4) the turn displaying the exact
 `pipeline_config`; (5) a later explicit approval of that displayed config. If any
 item is absent, return to that state and do not call the tool. The config passed
 must be identical to the approved one — if any field must change, redisplay and
 repeat M3 (previous approval is void).
 
 `register_source` is an **upsert** (existing `monitor_id` updated in place, new
-one created); there is no separate update/rebind action. Choose `monitor_id`:
+one created); pipeline-only changes use update_pipeline. Choose `monitor_id`:
 
 * **New default monitor** — omit `monitor_id` (yields `cam_<use_case>`).
 * **Additional camera** — a custom `monitor_id` starting with `cam_`.
@@ -458,7 +411,7 @@ the approved `pipeline_config`. Never use `<use_case>_monitor` as the ID.
 
 ### Monitor gate failure handling
 
-Missing P1/P2 answer, target-class selection, or final approval:
+Missing P1/P2 answer, prefilter model or target-class selection, or final approval:
 stop and request exactly the missing item (redisplay the config for a missing
 approval). Config changed after approval: void it and repeat M3. Never bypass a
 gate by omitting `pipeline_config`, sending `{}`, relying on server defaults, or
@@ -493,8 +446,6 @@ New Use Case
   VLM Task: <use_case>_monitor
   Mode: report-only | base alerting | extended alerting
   Events/Findings: <...>
-  Final Schema: none | severity,event,desc[,extensions]
-  Rule Path: none | defaultRuleEvaluator | evaluate_rules.py
   Report Source: completed video_summary_tasks | alerts
   Monitor: cam_<use_case> -> <source_url>   # omit when no stream was supplied
   Validation: behaviorally validated | registered but behaviorally unvalidated
@@ -518,20 +469,19 @@ format, example, and fallbacks per `references/final-report.md`.
 - Behavior names mistakenly supplied as extensions: move them to EVENT values.
 - Format violations: remove generated fences, JSON/YAML/arrays/tables, `<<<`,
   repeated EVENT lines, and slash-separated values.
-- Existing artifact conflict: read `references/inspect-existing.md`; use
-  `overwrite=true` only for an intentional update.
+- Existing artifact conflict: read `references/inspect-existing.md`; use get/update for event changes; do not overwrite to bypass update validation.
 - Do not bypass validation with direct DB edits or manual task POSTs.
 
 ## Intent mapping
 
 | User request | Action |
 |---|---|
-| Create/register use case **without** stream URL | Collect name + description → capability check → complete the two use-case gates → author → register → report. Do **not** start monitor configuration |
-| Create/register use case **with** stream URL | Complete the two use-case gates → author and register the use case → execute M0–M4 monitor pipeline gates → register monitor → report |
+| Create/register use case **without** stream URL | Collect name + description → capability check → resolve business needs and obtain business design approval → author → register → report. Do **not** start monitor configuration |
+| Create/register use case **with** stream URL | Resolve business needs and obtain business design approval → author and register the use case → execute M0–M4 monitor pipeline gates → register monitor → report |
 | Bind monitor to existing use case | Verify use_case exists (M0) + resolve source_url → execute M0–M4 monitor pipeline gates → register monitor → report |
 | Add another camera | Verify existing use_case (M0) + source_url + custom `cam_` monitor_id → execute M0–M4 monitor pipeline gates → register monitor → report |
-| Update/rebind monitor pipeline or source | Fetch the existing monitor (`action=list`/`status`) → execute M1–M4 → require approval of the complete replacement `pipeline_config` → `register_source` on the **same existing monitor_id** (upsert; no separate update action) |
-| Preview only | Collect name + description → capability check → ask Q1/Q2 and end turn → receive answers → show resolved design, ask final approval, and end turn → receive explicit approval → author/lint → show preview; no registration |
-| Refine/overwrite existing | Read `inspect-existing.md` → confirm changes → register with overwrite |
+| Update/rebind monitor pipeline or source | Pipeline-only: status → delta preview → one difference approval → update_pipeline on the same monitor_id. Source rebind: existing M1–M4 → register_source |
+| Preview only | Collect business requirements → show business design → receive approval → author/lint → preview; no registration |
+| Add/remove detection events or edit an event condition | Read `update-use-case.md` → get → draft changes → dry_run → one difference confirmation → update |
 | Delete use case | Fetch inventory → display cascade impact, ask confirmation, and end turn → receive explicit confirmation in a later message → `action=unregister`, `persist=true` → verify `cascaded_monitors` (see **Delete a use case (confirmation gate)**) |
 | MCP unavailable task CRUD | Read `curl-fallback.md` |

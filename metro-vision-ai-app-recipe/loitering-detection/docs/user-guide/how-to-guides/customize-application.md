@@ -7,6 +7,12 @@ use: Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) with n
 approach caters to no-code/low-code users, enabling the creation of sophisticated analytics
 solutions with minimal programming.
 
+> [!NOTE]
+> This page covers using the pipeline as shipped - zones, streams, models, and the published
+> MQTT/Grafana data - with no `config.json` edits needed. To change the pipeline *definition*
+> itself (add/remove a GStreamer element, change a hardcoded vs REST-overridable property), see
+> [Updating the Pipeline](./update-pipelines.md) instead.
+
 ## Overall System Architecture
 
 The system follows a modular architecture:
@@ -54,18 +60,23 @@ a per-instance MQTT topic and WebRTC peer-id (e.g. `object_tracking_1`).
 
 -   **Pipelines:** `object_tracking_cpu`, `object_tracking_gpu`, `object_tracking_npu`
 -   **How They Work:**
-    -   **Detection Model:** Uses the `pedestrian-and-vehicle-detector-adas-0001` model for
-    specialized tracking. `gvadetect` runs with `inference-region=0`, so detection/tracking
-    analyze the full frame, not just the configured zone polygons.
+    -   **Detection Model:** `sample_start.sh` always launches with the
+    `pedestrian-and-vehicle-detector-adas-0001` model; the
+    [Loitering Detection Console UI](../getting-started-ui.md) can launch any model placed under
+    `src/dlstreamer-pipeline-server/models/` instead, picked per stream at start time - no
+    pipeline or `config.json` change needed either way. `gvadetect` runs with
+    `inference-region=0`, so detection happens on the full frame, not just the configured
+    zone polygons.
     -   **Tracking Element:** Incorporates `gvatrack` with the setting `tracking-type=zero-term` to follow objects over time.
     -   **Zone & Dwell-Time Analytics:** The `gvaanalytics` element evaluates each tracked
     object's position against a per-stream polygon zone config file and computes dwell time;
     it is the only stage whose output is restricted to the configured zones — an object
     outside every zone is still detected and tracked, just not reported as present/dwelling
     in a zone. `loitering_watermark` (a reused DL Streamer sample element) renders the
-    dwell-time/status text overlay on the video.
+    dwell-time/status text overlay on the video for every tracked object with dwell data,
+    regardless of its detected class/label.
     -   **Additional Parameters:**
-        -   `Threshold`: Set to `0.1` to balance sensitivity and accuracy.
+        -   `Threshold`: Set to `0.7` to balance sensitivity and accuracy.
         -   `Inference Interval`: Controls how often the model analyzes frames.
 -   **Benefits:** These pipelines help track moving objects (like people or vehicles) across
 frames, which is essential for loitering detection and other advanced analytics.
@@ -77,9 +88,10 @@ Each pipeline is designed to be user-friendly and customizable:
 -   **Detection Properties:** Configurable parameters let you adjust the model settings without
 writing code. Example: The "detection-properties" element defines how the object detection
 module should behave.
--   **Detection Device:** The "detection-device" parameter determines which hardware (e.g., CPU)
-to use. It uses an environment variable (`{env[DETECTION_DEVICE]}`) to make it flexible across
-different setups.
+-   **Detection Device:** `object_tracking_cpu`/`_gpu`/`_npu` are separate pipeline definitions,
+one per device - the caller (`sample_start.sh` or the Console UI) selects which one to launch
+against by name, rather than one pipeline taking a device parameter at runtime. See
+[Updating the Pipeline](./update-pipelines.md) for the full REST parameter reference.
 
 #### Messaging Interface (MQTT)
 
@@ -93,7 +105,8 @@ Pipeline Server uses a messaging interface based on Message Queuing Telemetry Tr
     -   `Topics:` Each launched stream publishes its raw per-frame metadata under
     `object_tracking/<N>` (set per-instance via `destination.metadata.topic` in the REST
     launch payload, not hardcoded; see `sample_start.sh`). The `mqtt-table-flattener` sidecar
-    republishes a reshaped summary to `loiter_status/<N>` for the Grafana table.
+    republishes a reshaped, threshold-filtered summary to `object_tracking/<N>/loiterstatus`
+    for the Grafana table.
     -   `Allowed Clients: *` (`*` denotes 'all', ensuring that any subscribed system can
     receive the data)
 
@@ -216,34 +229,41 @@ that wants the raw, full per-frame payload.
 
 Grafana's MQTT data source maps one MQTT message to one table row, and cannot expand a nested
 JSON array (like `objects` above) into multiple rows on its own. A small sidecar service,
-`mqtt-table-flattener` (`src/mqtt-table-flattener/flatten.py`), bridges this gap:
+`mqtt-table-flattener` (`src/mqtt-table-flattener/flatten_and_filter.py`), bridges this gap:
 
 - Subscribes read-only to `object_tracking/+` (never alters it).
 - Performs no zone/dwell-time computation itself — all of that is still done exclusively by
   `gvaanalytics`; the flattener only reshapes already-computed values for display.
-- Once a second, republishes one small flat message per currently-dwelling object to
-  `loiter_status/<N>`, e.g. `{"Stream": "1", "Track ID": 7, "Type": "pedestrian", "Zone":
-  "region1", "Dwell Time (s)": 6.2}`.
+- Once a second, republishes one small flat message per currently-dwelling object whose dwell
+  time has reached `LOITERING_THRESHOLD_SEC` to `<source_topic>/loiterstatus`, e.g.
+  `object_tracking/1/loiterstatus` → `{"Stream": "1", "Track ID": 7, "Type": "pedestrian",
+  "Zone": "region1", "Dwell Time (s)": 6.2}`. This mirrors the same threshold
+  `loitering_watermark.py` uses to color overlay text red, so only objects shown red in the
+  video overlay appear as table rows.
 - Stops republishing a stream once it has been silent for a few seconds (`STALE_AFTER_SEC`,
   default 3s), so the table correctly empties out after a pipeline stops instead of repeating
   its last-known state forever.
 - Runs as a second container from the same `dlstreamer-pipeline-server` image (already pulled
   for the main pipeline service, and already has `paho-mqtt`) — no extra image pull and no
   `pip install` at runtime, so it works in air-gapped deployments too.
-- The `object_tracking`/`loiter_status` topic prefixes are not hardcoded: they come from
-  `SOURCE_TOPIC_PREFIX`/`DEST_TOPIC_PREFIX` in the root `.env` (Compose) or
-  `mqtt_table_flattener.sourceTopicPrefix`/`destTopicPrefix` in `helm-chart/values.yaml` (Helm).
+- The topic suffix and threshold are not hardcoded: they come from `SOURCE_TOPIC_PREFIX`,
+  `DEST_TOPIC_SUFFIX`, and `LOITERING_THRESHOLD_SEC` — static entries in the root `.env`
+  (Compose) or `mqtt_table_flattener.sourceTopicPrefix`/`destTopicSuffix`/`loiteringThresholdSec`
+  in `helm-chart/values.yaml` (Helm). These `.env` vars are loitering-detection-specific and
+  unused by smart-parking/smart-intersection, so they have no effect on those apps.
 
-The Grafana dashboard's status table subscribes to `loiter_status/+` and needs no per-stream
-changes when adding a new stream, since it already covers the whole topic namespace.
+The Grafana dashboard's status table subscribes to `object_tracking/+/loiterstatus` and needs no
+per-stream changes when adding a new stream, since it already covers the whole topic namespace.
 
 ### Video overlay
 
 The reused `loitering_watermark` element reads the same dwell-time metadata and draws a
-per-object dashboard line (`<zone_id>: <type>-<id> : <dwell_time>s`), turning red once dwell
-time crosses the configured `loitering-threshold` (default `5.0` seconds). See
-[Get Started](../get-started.md) for how to tune or disable this overlay via REST parameters at
-launch time.
+per-object dashboard line (`<zone_id>: <type>-<id> : <dwell_time>s`) for every tracked object
+that has zone/dwell data, regardless of its detected class name (so it works the same whether
+the launched model reports `pedestrian`, `person`, or anything else) - turning red once dwell
+time crosses the configured `loitering-threshold` (default `5.0` seconds). See [Get Started](../get-started.md) for how to tune or disable this overlay via REST parameters at
+launch time & [Getting started - Loitering Detection Console UI](../getting-started-ui.md) for how to toggle
+this overlay per stream from the Console UI.
 
 
 ## Grafana visualization

@@ -155,7 +155,7 @@
             "uid": "PBA9FB8DAC51D59B8"
           },
           "refId": "A",
-          "topic": "loiter_status/+"
+          "topic": "object_tracking/+/loiterstatus"
         }
       ],
       "title": "Loiter Table - All Streams",
@@ -184,6 +184,44 @@
         }
       ],
       "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 70
+      },
+      "id": 29,
+      "panels": [],
+      "title": "Documentation",
+      "type": "row"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 6,
+        "x": 9,
+        "y": 71
+      },
+      "id": 30,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style=\"display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center\">\n  <h3 style=\"margin:0 0 8px 0\">Scan for Documentation</h3>\n  <img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUgAAAFIAQMAAAAI2vVwAAAABlBMVEUAAAD///+l2Z/dAAAAAnRSTlP//8i138cAAAAJcEhZcwAACxIAAAsSAdLdfvwAAAGzSURBVGiB7ZXLdgMxCEP1/z+tngYJkz5S3EW7kTNxxnCZhVAYcLsQMuR/kKilKrAOj4xOzoZckTSh6/3Uu7Mh9+S7stWCCpb4dTjZkHekN4ndhSF/R7LBpzkR8prsWM+E+vETGPKG1Lvpm88X77iQr8i5RvZ0wamQK1K6ey/ctBsQck1KYoldx2n0mQn5Mwl72Nd8ABQNuSbLt2ccdC+6vp0cckVOgdlCY+ZCXpBDYpkbcJ36EnJPSv4arYDlJ1zgoRtySQqScW1fyuDqRsglCY8D2NA8en+eDCFfkw/xx90Hj6snIS9I2LPH226GRkTIPdlROurdNwx5QdKis75oP8MNCXlD8shr+9ZNdcRPCLkjewT40PZWjD0ZQi5Inl+FuhWyNUPuyfKrzTurpH5PhpAbEuxx0Co/FVUfQl6R5d8Oa3cSIS9IpWkQLrKfGfKGhCeDrVxoR9HDNuTPpJd1Ri+7miEvyA9haMjSd2MyhNyQowWzmK444ZArcqjNBrolOoa8JTUCaNkrpSvkNWnHWuijeMgrkhJ5TAN0dAyQkCvS/3+cIvfjTIeQW3K5Qob8e/INRKxbS+sgK00AAAAASUVORK5CYII=\" style=\"width:160px;height:160px\" alt=\"QR code linking to the loitering detection documentation\"/>\n  <a href=\"https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/loitering-detection/index.html\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"margin-top:8px;font-size:12px\">Loitering Detection Documentation</a>\n</div>",
+        "mode": "html"
+      },
+      "pluginVersion": "11.5.4",
+      "title": "",
+      "type": "text"
     }
   ],
   "preload": false,

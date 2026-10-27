@@ -3,9 +3,9 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Real Time Scene Understanding Skills
+# Real-Time Scene Understanding Skills
 
-Agent skills for the **Real Time Scene Understanding** sample application.
+Agent skills for the **Real-Time Scene Understanding** sample application.
 Each skill teaches an AI coding assistant how to work with the project's real
 interfaces: `scripts/setup_env.sh`, Docker Compose, the FastAPI health endpoint,
 OpenVINO models, and the Python test suite.
