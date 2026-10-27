@@ -74,7 +74,7 @@ import structlog
 from plugin.base.interfaces import DetectionPublishContext, IVmsShim
 from plugin.core.config import VmsInstanceConfig
 from plugin.core.models.domain import AnalyticsEvent, Camera, CommandResult, DetectionFrame
-from vms_shim.milestone.analytics_event import caption_to_event, loitering_to_event
+from vms_shim.milestone.analytics_event import caption_to_event, occurrence_to_event
 from vms_shim.milestone import queries
 from vms_shim.milestone.manifest import (
     EVENT_SUFFIX,
@@ -548,8 +548,8 @@ class MilestoneVmsShim(IVmsShim):
         """Push a translated ``ANALYTICS_EVENT`` document to XProtect.
 
         Build ``event`` with :mod:`vms_shim.milestone.analytics_event` — e.g.
-        ``caption_to_event()`` for LVC or ``loitering_to_event()`` for object
-        detection. Every app posts to its own ``{app_id}-events`` topic.
+        ``caption_to_event()`` for captions or ``occurrence_to_event()`` for other
+        occurrences. Every app posts to its own ``{app_id}-events`` topic.
         """
         topic = topic_name(analytics_app_id, EVENT_SUFFIX)
         sink = await self.get_topic_sink_url(topic, metadata=False)
@@ -574,11 +574,15 @@ class MilestoneVmsShim(IVmsShim):
         if min_interval > 0 and last is not None and now - last < min_interval:
             return True
 
-        if event.kind == "loitering":
-            doc = loitering_to_event(event, camera_id, self._options.get("class_map"))
-        else:
+        if event.kind == "caption":
             doc = caption_to_event(
                 event.text, camera_id, snapshot_jpeg_b64=event.snapshot_jpeg_b64,
+            )
+        else:
+            doc = occurrence_to_event(
+                event, camera_id, self._options.get("class_map"),
+                event_class=self._options.get("event_class"),
+                event_name=self._options.get("event_name"),
             )
         ok = await self.push_analytics_event(camera_id, doc, event.app_id)
         if ok:

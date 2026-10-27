@@ -779,18 +779,21 @@ def _loitering_event(track_id=7, with_box=True):
     )
 
 
-def test_loitering_to_event_has_fixed_name_and_outlined_trigger_object():
-    from vms_shim.milestone.analytics_event import LOITERING_EVENT_NAME, loitering_to_event
+def test_occurrence_to_event_has_configured_name_and_outlined_trigger_object():
+    from vms_shim.milestone.analytics_event import occurrence_to_event
 
-    doc = loitering_to_event(_loitering_event(), f"milestone:{COMPOSITE_ID}")
-    assert LOITERING_EVENT_NAME == "Loitering detected"
+    doc = occurrence_to_event(
+        _loitering_event(), f"milestone:{COMPOSITE_ID}",
+        event_name="Loitering detected", event_class="Loitering Detection",
+    )
+    assert doc["name"] == "Loitering detected" and doc["class"] == "Loitering Detection"
+    assert doc["subclass"] == "loitering"
     text = json.dumps(doc)
-    assert LOITERING_EVENT_NAME in text
     assert "pedestrian 7 loitering 6.2s in zone region1" in text  # description
     assert "Human" in text and "hasOutline" in text and '"trigger": true' in text
     assert "region1" in text
 
-    bare = json.dumps(loitering_to_event(_loitering_event(with_box=False), f"milestone:{COMPOSITE_ID}"))
+    bare = json.dumps(occurrence_to_event(_loitering_event(with_box=False), f"milestone:{COMPOSITE_ID}"))
     assert "hasOutline" not in bare and "pedestrian 7" in bare
 
 
@@ -815,7 +818,7 @@ async def test_publish_loitering_event_posts_to_the_apps_event_topic(milestone_c
     assert calls == [("dls_vision-events", False)]
     sink, doc, content_type = posted[0]
     assert (sink, content_type) == ("http://sink/events", "text/json")
-    assert "Loitering detected" in json.dumps(doc)
+    assert "pedestrian 7 loitering" in json.dumps(doc)  # description; name comes from event_name
 
 
 async def test_publish_event_throttle_is_per_track_for_loitering(milestone_config, monkeypatch):
@@ -959,3 +962,58 @@ def test_label_moves_below_a_box_touching_the_top_edge():
 
     _, y = _label_position({"left": -0.2, "right": 0.2, "top": 1.0, "bottom": 0.6}, "zone")
     assert y < 0.6
+
+
+@pytest.mark.parametrize(("option", "expected"), [
+    (None, "Loitering"),                          # unset: the event kind, capitalised
+    ("", "Loitering"),                            # blank falls back
+    ("  ", "Loitering"),
+    ("Intrusion in zone", "Intrusion in zone"),   # configured
+    ("  Intrusion in zone  ", "Intrusion in zone"),  # whitespace trimmed
+])
+async def test_publish_event_uses_configured_event_name(milestone_config, monkeypatch, option, expected):
+    options = dict(milestone_config.vendor_options)
+    if option is not None:
+        options["event_name"] = option
+    shim = MilestoneVmsShim(milestone_config.model_copy(update={"vendor_options": options}))
+    posted = []
+
+    async def fake_sink(topic, *, metadata=True):
+        return "http://sink/events"
+
+    async def fake_post(sink, body, content_type):
+        posted.append(json.loads(body))
+        return True
+
+    monkeypatch.setattr(shim, "get_topic_sink_url", fake_sink)
+    monkeypatch.setattr(shim, "_post_to_topic", fake_post)
+
+    assert await shim.publish_event(f"milestone:{COMPOSITE_ID}", _loitering_event()) is True
+    assert posted[0]["name"] == expected
+    assert posted[0]["class"] == "dls_vision"   # unset event_class: the app id
+
+
+async def test_event_name_option_does_not_rename_captions(milestone_config, monkeypatch):
+    options = {**milestone_config.vendor_options, "event_name": "Loitering detected"}
+    shim = MilestoneVmsShim(milestone_config.model_copy(update={"vendor_options": options}))
+    posted = []
+
+    async def fake_sink(topic, *, metadata=True):
+        return "http://sink/events"
+
+    async def fake_post(sink, body, content_type):
+        posted.append(json.loads(body))
+        return True
+
+    monkeypatch.setattr(shim, "get_topic_sink_url", fake_sink)
+    monkeypatch.setattr(shim, "_post_to_topic", fake_post)
+    from datetime import timezone
+
+    from plugin.core.models.domain import AnalyticsEvent
+
+    caption = AnalyticsEvent(
+        kind="caption", text="a red car passes",
+        timestamp=datetime.now(tz=timezone.utc), app_id="live_captioning",
+    )
+    assert await shim.publish_event(f"milestone:{COMPOSITE_ID}", caption) is True
+    assert posted[0]["name"] == "a red car passes"

@@ -36,8 +36,6 @@ from typing import Any
 from plugin.core.models.domain import AnalyticsEvent
 from vms_shim.milestone.onvif_metadata import category_to_class
 
-# Fixed so XProtect alarms and rules can select loitering events by name.
-LOITERING_EVENT_NAME = "Loitering detected"
 
 VENDOR_NAME = "Intel Corporation"
 
@@ -210,24 +208,28 @@ def caption_to_event(
     )
 
 
-def loitering_to_event(
+def occurrence_to_event(
     event: AnalyticsEvent,
     camera_id: str,
     class_map: dict[str, str] | None = None,
-    event_class: str = "Loitering Detection",
+    event_class: str | None = None,
+    event_name: str | None = None,
 ) -> dict[str, Any]:
-    """Translate a neutral loitering occurrence into an analytics event.
+    """Translate a neutral occurrence (any non-caption event) into an analytics event.
 
-    The event ``name`` is fixed ("Loitering detected") so XProtect alarms and
-    rules can select it reliably; the track, zone and dwell time go in the
-    description. The loiterer is included as the triggering object, with an
-    outline when its box is known.
+    The event ``name`` is what XProtect analytics events and alarm definitions
+    match on, so it comes from ``vendor_options.event_name``; the track, zone and
+    dwell time go in the description. The object involved is included as the
+    triggering object, with an outline when its box is known.
 
     Args:
-        event: Neutral ``AnalyticsEvent`` with ``kind="loitering"``.
+        event: Neutral ``AnalyticsEvent`` (not a caption).
         camera_id: Any camera identifier form.
         class_map: Category → object class overrides (``vendor_options.class_map``).
-        event_class: Reported as the event ``class`` for rule filtering.
+        event_class: Reported as the event ``class`` (``vendor_options.event_class``);
+            blank or ``None`` uses the event's ``app_id``.
+        event_name: Event ``name`` (``vendor_options.event_name``); blank or ``None``
+            uses the event's kind, capitalised.
     """
     label = event.label or "Object"
     objects = []
@@ -248,10 +250,10 @@ def loitering_to_event(
 
     return build_event(
         camera_id=camera_id,
-        name=LOITERING_EVENT_NAME,
+        name=(event_name or "").strip() or event.kind.capitalize(),
         description=event.text,
-        event_class=event_class,
-        subclass="loitering",
+        event_class=(event_class or "").strip() or event.app_id,
+        subclass=event.kind,
         count=len(objects),
         tag=event.zone or "",
         objects=objects,
