@@ -101,18 +101,26 @@ analytics_apps:
     # Nx and in Milestone Smart Client (colored per class automatically).
     # Keep bounding_box equal to default_zone_polygon below, which is the zone
     # the pipeline measures loitering in (normalized [x_min, y_min, x_max, y_max]).
-    # It matches the pipeline's gvaattachroi roi=0,200,300,400, which is defined
-    # for a 1280x720 frame: 0/1280, 200/720, 300/1280, 400/720. At run start VAP
-    # scales the zone to each camera's resolution and sends it to gvaanalytics,
-    # and its bounding rectangle as the ROI to pipelines that expose
-    # roi-properties (1280x720 -> 0,200,300,400; 1920x1080 -> 0,300,450,600).
+    # At run start VAP scales the zone to each camera's resolution and sends it to
+    # gvaanalytics, and its bounding rectangle as the ROI to pipelines that expose
+    # roi-properties (x_min,y_min,x_max,y_max in pixels; 1920x1080 -> 0,270,576,756).
+    # This rectangle covers where people stand in the AXIS view (about x 0.10,
+    # y 0.56), so they accumulate dwell time. The original recipe zone was
+    # [0, 0.277778, 0.234375, 0.555556] (gvaattachroi roi=0,200,300,400 at 1280x720).
     zones:
       region1:
         label: "Loitering Zone"
-        bounding_box: [0.0, 0.277778, 0.234375, 0.555556]
+        bounding_box: [0.0, 0.25, 0.3, 0.7]
     # Default "zone" control value: the zone sent to the pipeline at run start,
     # as normalized (0-1) [x, y] polygon points. Same rectangle as region1 above.
-    default_zone_polygon: [[0.0, 0.277778], [0.234375, 0.277778], [0.234375, 0.555556], [0.0, 0.555556]]
+    default_zone_polygon: [[0.0, 0.25], [0.3, 0.25], [0.3, 0.7], [0.0, 0.7]]
+
+    # Seconds in the zone before a person counts as loitering. Sent to the
+    # pipeline at run start as loitering-watermark-properties.loitering-threshold
+    # (the on-video text colour). Use the same value as the loitering sidecar's
+    # LOITERING_THRESHOLD_SEC (recipe .env): the sidecar decides when events are
+    # published. Same variable, so one setting drives both.
+    loitering_threshold_s: "${LOITERING_THRESHOLD_SEC:-5.0}"
 
     # Publish every message on the app's status-event mqtt topic
     # "<this app's metadata topic>/<event_topic_suffix>" as an analytics event:

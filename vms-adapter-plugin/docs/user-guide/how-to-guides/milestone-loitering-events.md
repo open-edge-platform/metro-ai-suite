@@ -33,7 +33,7 @@ Each event looks like this in XProtect:
 
 | Field | Value |
 |---|---|
-| Name | `Loitering detected` (fixed, so alarms and rules can select it) |
+| Name | `Loitering detected` (carried in the event data; the alarm selects the auto-created analytics event `Loitering Detection / dls_vision-events`) |
 | Description | e.g. `pedestrian 12 loitering 6.0s in zone region1` |
 | Source | The camera the pipeline runs on |
 | Object | The loiterer, as the triggering object. With an outline and a mapped class (e.g. `Human`) when VAP has seen the person's box in the last 5 s; otherwise the detector label only |
@@ -74,6 +74,16 @@ vms_instances:
       event_min_interval_s: 10
 ```
 
+How long a person must stay in the zone to count as loitering is set in two places
+that should hold the same value:
+
+- The loitering sidecar's `LOITERING_THRESHOLD_SEC` (recipe `.env`) decides when a
+  row, and so an event, is published.
+- VAP's `loitering_threshold_s` in `config.yaml` (default `${LOITERING_THRESHOLD_SEC:-5.0}`,
+  so set the same variable in VAP's `.env`) is sent to the pipeline at run start as
+  `loitering-watermark-properties.loitering-threshold`, which sets when the on-video
+  text turns red. It is sent only to pipelines that declare that parameter.
+
 Recreate the backend so the change is loaded and the app is re-registered:
 
 ```bash
@@ -102,15 +112,20 @@ Expected:
 Unlike detection metadata, events are delivered without ticking the topic on
 the camera's **Processing server** tab.
 
-## Step 3: Define the analytics event in Management Client
+## Step 3: Check the analytics event in Management Client
+
+AI Bridge creates the analytics event for you when VAP registers the app. You don't
+add it by hand.
 
 1. In **Tools → Options → Analytics Events**, make sure analytics events are
    **enabled**. If address filtering is on, allow the AI Bridge host.
-2. Go to **Rules and Events → Analytics Events**, right-click, and choose
-   **Add New**.
-3. Set **Name** to exactly `Loitering detected`. XProtect matches incoming
-   events by name, so case and spacing must be identical.
-4. Save.
+2. Go to **Rules and Events → Analytics Events**. You should see an entry named
+   `<app name> / <topic>`, for example **`Loitering Detection / dls_vision-events`**,
+   with the description "Loitering occurrences as analytics events". If it is
+   missing, restart the VAP backend to re-register the app and check again.
+
+The event's own `name` field (`Loitering detected`) is only text carried with each
+event. It is not what the alarm definition selects.
 
 ## Step 4: Create the alarm definition
 
@@ -120,7 +135,7 @@ the camera's **Processing server** tab.
    | Field | Value |
    |---|---|
    | Name | e.g. `Loitering` |
-   | Triggering event | **Analytics Events** → **Loitering detected** |
+   | Triggering event | **Analytics Events** → **Loitering Detection / dls_vision-events** |
    | Sources | The cameras running Loitering Detection, or all cameras |
    | Time profile | **Always**, or your own schedule |
    | Related cameras | The same cameras, so the alarm opens with video |
@@ -158,7 +173,7 @@ docker logs -f <aibridge-proxy-container> 2>&1 | grep "Sending analytics event"
 |---|---|
 | No `loitering_event_published` in VAP logs | `events_enabled: true`; the flattener is running and its `DEST_TOPIC_SUFFIX` matches `event_topic_suffix`; the pipeline was started through VAP (topic `{prefix}/milestone:{dev}~{stream}`). Rows are only published once someone loiters longer than the threshold. |
 | `result=False` in VAP logs | The `dls_vision-events` topic is missing in AI Bridge: restart the backend to re-register, then repeat Step 2. |
-| AI Bridge logs `succeeded` but no alarm | The analytics event name is exactly `Loitering detected`; analytics events are enabled and the AI Bridge host is allowed; the alarm's sources include the camera. |
+| AI Bridge logs `succeeded` but no alarm | The alarm definition's triggering event is the auto-created `Loitering Detection / dls_vision-events` (not a hand-made event); analytics events are enabled and the AI Bridge host is allowed; the alarm's sources include the camera; the alarm is enabled and its time profile covers now. |
 | Too many alarms | VAP sends one event per row, about one per second per loiterer. Set `vendor_options.event_min_interval_s`. |
 | Alarm has no outline | VAP had not seen that person's box on the metadata topic in the previous 5 s (`with_box=False` in the log). |
 

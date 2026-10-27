@@ -48,6 +48,9 @@ logger = structlog.get_logger(__name__)
 # Pipeline parameter that sets the gvaattachroi element's properties. Sent only
 # to pipelines that declare it, so pipelines without an ROI element are unaffected.
 _ROI_PARAMETER = "roi-properties"
+# Pipeline parameter that sets the loitering_watermark element's properties;
+# likewise sent only to pipelines that declare it.
+_WATERMARK_PARAMETER = "loitering-watermark-properties"
 # Pipeline Server states in which a run still occupies its camera.
 _ACTIVE_RUN_STATES = frozenset({"QUEUED", "RUNNING"})
 
@@ -359,6 +362,14 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
             extra_params[_ROI_PARAMETER] = {
                 **extra_params.get(_ROI_PARAMETER, {}),
                 "roi": self._zone_roi(zone_points),
+            }
+
+        threshold = self._config.loitering_threshold_s
+        if threshold and _WATERMARK_PARAMETER in self._pipeline_parameters.get(pipeline_name, set()):
+            extra_params = dict(extra_params)
+            extra_params[_WATERMARK_PARAMETER] = {
+                **extra_params.get(_WATERMARK_PARAMETER, {}),
+                "loitering-threshold": threshold,
             }
 
         pipeline_root = self._pipeline_root_map.get(pipeline_name, "user_defined_pipelines")

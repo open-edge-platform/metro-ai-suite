@@ -810,3 +810,29 @@ async def test_started_run_is_listed_with_its_zone_without_lookup(mock_vms_shim)
     shim._api.stop_run = AsyncMock(return_value=True)
     await shim.stop_run("r9")
     assert "r9" not in shim._run_info
+
+
+@pytest.mark.parametrize(("threshold", "declared", "expected"), [
+    (2.0, True, {"loitering-threshold": 2.0}),   # configured and declared: sent
+    (2.0, False, None),                          # pipeline has no such element
+    (None, True, None),                          # not configured: pipeline default
+])
+async def test_start_sends_configured_loitering_threshold(threshold, declared, expected):
+    shim = _make_shim(loitering_threshold_s=threshold)
+    shim._pipeline_parameters = {
+        "vap_object_tracking_gpu": {"loitering-watermark-properties"} if declared else set(),
+    }
+    shim._api.start_run = AsyncMock(return_value={"instance_id": "abc123"})
+    params = MagicMock()
+    params.model_dump.return_value = {
+        "pipeline_name": "vap_object_tracking_gpu", "camera_id": "rtsp://cam/s",
+        "camera_id_ref": "nx:abc123", "zone": "", "parameters": {},
+    }
+    await shim.start(params)
+    sent = shim._api.start_run.call_args.args[2]["parameters"]
+    assert sent.get("loitering-watermark-properties") == expected
+
+
+def test_loitering_threshold_must_be_positive():
+    with pytest.raises(ValueError):
+        _make_shim(loitering_threshold_s=0)

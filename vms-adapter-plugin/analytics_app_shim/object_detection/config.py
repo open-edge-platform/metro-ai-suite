@@ -61,6 +61,11 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
     # Default value for the per-camera "zone" control: normalized [x,y] polygon
     # points. Empty by default; deployments set this to their own zone.
     default_zone_polygon: list[list[float]] = Field(default_factory=list)
+    # Seconds a person must stay in the zone before the pipeline marks them as
+    # loitering; sent at run start as loitering-watermark-properties.loitering-threshold.
+    # None leaves the pipeline's own default. Keep the loitering sidecar's
+    # LOITERING_THRESHOLD_SEC equal to this, since it decides when events are published.
+    loitering_threshold_s: float | None = Field(default=None, gt=0)
 
     # Subscribes to the app's dedicated status-event topic (e.g. the loitering-
     # detection recipe's mqtt-table-flattener sidecar) and publishes every row
