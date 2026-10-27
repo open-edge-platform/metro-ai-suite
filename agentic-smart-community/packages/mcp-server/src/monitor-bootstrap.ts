@@ -1,3 +1,4 @@
+import { mergePatch } from "@smart-community-video/tools";
 import { join } from "node:path";
 import type { SmartCommunityDB } from "@smart-community-video/db";
 import { monitorCtl } from "@smart-community-video/tools";
@@ -70,7 +71,8 @@ export async function applyMonitorConfig(
           name: cfg.name ?? monitorId,
           use_case: cfg.use_case,
           video_summary_task: ucCfg.video_summary_task,
-          pipeline_config: cfg.pipeline_config,
+          pipeline_config: ucCfg.monitor_defaults || cfg.pipeline_config
+            ? mergePatch(ucCfg.monitor_defaults ?? {}, cfg.pipeline_config ?? {}) : undefined,
           keepalive: {
             enabled: config.keepalive.enabled,
             timeout_seconds: config.keepalive.timeoutSeconds,

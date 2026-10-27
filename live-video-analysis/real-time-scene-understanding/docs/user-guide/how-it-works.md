@@ -1,6 +1,6 @@
 # How It Works
 
-Real Time Scene Understanding ingests RTSP camera streams, relays low-latency WebRTC video to the browser through MediaMTX, and samples frames in parallel for VLM-based alert gating. When an alert is detected, a deep multi-frame analyzer processes finalized segments, stores artifacts in SeaweedFS, and delivers alert history and details to the dashboard through API endpoints.
+Real-Time Scene Understanding ingests RTSP camera streams, relays low-latency WebRTC video to the browser through MediaMTX, and samples frames in parallel for VLM-based alert gating. When an alert is detected, a deep multi-frame analyzer processes finalized segments, stores artifacts in SeaweedFS, and delivers alert history and details to the dashboard through API endpoints.
 
 ## Architecture Overview
 
@@ -8,9 +8,9 @@ Real Time Scene Understanding ingests RTSP camera streams, relays low-latency We
 
 ### Runtime Services
 
-Real Time Scene Understanding is the main application service that orchestrates stream ingest, alert analysis, and dashboard APIs.
+Real-Time Scene Understanding is the main application service that orchestrates stream ingest, alert analysis, and dashboard APIs.
 
-- Real Time Scene Understanding: FastAPI backend and browser UI for stream control, live view, and alert history/details.
+- Real-Time Scene Understanding: FastAPI backend and browser UI for stream control, live view, and alert history/details.
 - MediaMTX: RTSP ingest target and WebRTC/WHEP playback service.
 - Coturn: TURN server used by WebRTC.
 - Metrics-Manager: SSE metrics endpoint for CPU, RAM, GPU, and NPU visualization.
@@ -57,5 +57,5 @@ flowchart TD
 - [System Requirements](./get-started/system-requirements.md)
 - [Get Started](./get-started.md)
 - [API Reference](./api-reference.md)
-- [Known Issues](./known-issues.md)
+- [Troubleshooting](./troubleshooting.md)
 - [Release Notes](./release-notes.md)

@@ -1,8 +1,8 @@
-# Release Notes: Real Time Scene Understanding
+# Release Notes: Real-Time Scene Understanding
 
 ## Version 1.0.0
 
-Initial release of Real Time Scene Understanding, a Docker Compose application for prompt-driven analysis of live RTSP camera streams.
+Initial release of Real-Time Scene Understanding, a Docker Compose application for prompt-driven analysis of live RTSP camera streams.
 
 ### New
 

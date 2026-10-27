@@ -1,5 +1,4 @@
-/                                                 @rrajore @vagheshp @xwu2intel @ajagadi1 @ArokiEdgard
-/README.md                                        @rrajore @vagheshp @xwu2intel @ajagadi1 @ArokiEdgard  @open-edge-platform/open-edge-platform-docs-write
+*                                                 @rrajore @vagheshp @xwu2intel @ajagadi1 @ArokiEdgard
 /agentic-predictive-maintenance-pipeline                @14pankaj @bharagha @yogeshmpandey @madhuri-rai07 @krish918 @hteeyeoh @bhardwaj-nakul @Supriya-Krishnamurthi @rrajore
 /agentic-predictive-maintenance-pipeline/README.md      @14pankaj @bharagha @yogeshmpandey @madhuri-rai07 @krish918 @hteeyeoh @bhardwaj-nakul @Supriya-Krishnamurthi @rrajore @open-edge-platform/open-edge-platform-docs-write
 /agentic-predictive-maintenance-pipeline/docs           @14pankaj @bharagha @yogeshmpandey @madhuri-rai07 @krish918 @hteeyeoh @bhardwaj-nakul @Supriya-Krishnamurthi @rrajore @open-edge-platform/open-edge-platform-docs-write
@@ -12,9 +11,6 @@
 /live-video-analysis/                             @bharagha @yogeshmpandey  @hteeyeoh
 /live-video-analysis/**/docs/                     @bharagha @yogeshmpandey  @hteeyeoh  @open-edge-platform/open-edge-platform-docs-write
 /live-video-analysis/**/README.md                 @bharagha @yogeshmpandey  @hteeyeoh  @open-edge-platform/open-edge-platform-docs-write
-# /metro-sdk-manager/                             no codeowners, the top codeowners apply
-/metro-sdk-manager/docs/user-guide/                         @vagheshp @rranjan3 @xwu2intel @open-edge-platform/open-edge-platform-docs-write
-/metro-sdk-manager/docs/oep-sdk-manager-files/config.js     @vagheshp @rranjan3 @xwu2intel @open-edge-platform/open-edge-platform-docs-write
 /metro-vision-ai-app-recipe/docs/                           @rrajore @vagheshp @xwu2intel @ajagadi1 @ArokiEdgard  @open-edge-platform/open-edge-platform-docs-write
 /metro-vision-ai-app-recipe/README.md                       @rrajore @vagheshp @xwu2intel @ajagadi1 @ArokiEdgard  @open-edge-platform/open-edge-platform-docs-write
 /metro-vision-ai-app-recipe/loitering-detection/            @rrajore @vagheshp @xwu2intel @ajagadi1 @tjanczak
@@ -61,8 +57,8 @@
 /vms-adapter-plugin/                              @sajeevrajput @rrajore @bharagha @yogeshmpandey @ArokiEdgard
 /vms-adapter-plugin/docs/                         @sajeevrajput @rrajore @bharagha @yogeshmpandey @ArokiEdgard @open-edge-platform/open-edge-platform-docs-write
 /vms-adapter-plugin/README.md                     @sajeevrajput @rrajore @bharagha @yogeshmpandey @ArokiEdgard @open-edge-platform/open-edge-platform-docs-write
-LICENSE            @xwu2intel
-CONTRIBUTING.md    @xwu2intel @open-edge-platform/open-edge-platform-docs-write
-CODE_OF_CONDUCT.md @xwu2intel
-SECURITY.md        @xwu2intel
-README.md          @xwu2intel @open-edge-platform/open-edge-platform-docs-write
+/LICENSE            @xwu2intel
+/CONTRIBUTING.md    @xwu2intel @open-edge-platform/open-edge-platform-docs-write
+/CODE_OF_CONDUCT.md @xwu2intel
+/SECURITY.md        @xwu2intel
+/README.md                                        @rrajore @vagheshp @xwu2intel @ajagadi1 @ArokiEdgard  @open-edge-platform/open-edge-platform-docs-write

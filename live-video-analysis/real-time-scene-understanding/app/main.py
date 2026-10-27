@@ -54,7 +54,7 @@ def _get_alert_s3_client():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting Real Time Scene Understanding service | port=%s", settings.DASHBOARD_PORT)
+    logger.info("Starting Real-Time Scene Understanding service | port=%s", settings.DASHBOARD_PORT)
     logger.info("No startup stream auto-registration — add streams via UI or POST /api/streams")
     try:
         yield
@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Real Time Scene Understanding",
+    title="Real-Time Scene Understanding",
     description="RTSP ingestion and WebRTC rendering pipeline powered by PyAV.",
     version="0.1.0",
     lifespan=lifespan,

@@ -1,6 +1,6 @@
 ---
 name: rtsu-deployment
-description: Deploy and manage Real Time Scene Understanding with Docker Compose, including environment setup, model preflight, health checks, and shutdown.
+description: Deploy and manage Real-Time Scene Understanding with Docker Compose, including environment setup, model preflight, health checks, and shutdown.
 license: Apache-2.0
 ---
 
@@ -9,7 +9,7 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Real Time Scene Understanding Deployment
+# Real-Time Scene Understanding Deployment
 
 Use this skill when the user asks to configure, build, start, stop, restart, or inspect the Docker Compose deployment.
 

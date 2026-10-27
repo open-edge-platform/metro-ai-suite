@@ -16,7 +16,6 @@ This is a monorepo containing multiple Intel Edge AI Suites, each in its own top
 
 When working on a specific component, check for a local `AGENTS.md` file first — it contains authoritative per-component instructions:
 - [federal-and-aerospace-ai-suite/handheld-multi-modal/AGENTS.md](../federal-and-aerospace-ai-suite/handheld-multi-modal/AGENTS.md)
-- [metro-ai-suite/metro-sdk-manager/AGENTS.md](../metro-ai-suite/metro-sdk-manager/AGENTS.md)
 - [metro-ai-suite/live-video-analysis/live-video-captioning/AGENTS.md](../metro-ai-suite/live-video-analysis/live-video-captioning/AGENTS.md)
 - [manufacturing-ai-suite/industrial-edge-insights-vision/win-vision-ai/.github/copilot-instructions.md](../manufacturing-ai-suite/industrial-edge-insights-vision/win-vision-ai/.github/copilot-instructions.md)
 

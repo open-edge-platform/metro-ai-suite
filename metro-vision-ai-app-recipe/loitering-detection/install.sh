@@ -81,42 +81,14 @@ if [ -f ../docker-compose.yml ]; then
 fi
 
 ##############################################################################
-# This app's MQTT topic prefixes are not part of the shared .env (they're
-# loitering-detection-specific); set them here, idempotently, in a clearly
-# commented section rather than leaving them permanently defined for
-# sibling apps that don't use them.
-##############################################################################
-if [ -f ../.env ]; then
-  sed -i \
-    -e '/^# loitering-detection: MQTT topic prefixes/d' \
-    -e '/^# SOURCE_TOPIC_PREFIX -/d' \
-    -e '/^#   publishes to/d' \
-    -e '/^# DEST_TOPIC_PREFIX -/d' \
-    -e '/^#   to for the Grafana/d' \
-    -e '/^SOURCE_TOPIC_PREFIX=/d' \
-    -e '/^DEST_TOPIC_PREFIX=/d' \
-    ../.env
-  cat >> ../.env <<'EOF'
-
-# loitering-detection: MQTT topic prefixes used by the mqtt-table-flattener sidecar.
-# SOURCE_TOPIC_PREFIX - prefix of the raw per-frame metadata topic gvametaconvert
-#   publishes to (<prefix>/<stream-id>); must match sample_start.sh's launch topics.
-# DEST_TOPIC_PREFIX - prefix the flattener republishes one-row-per-object summaries
-#   to for the Grafana MQTT table panel (<prefix>/<stream-id>).
-SOURCE_TOPIC_PREFIX=object_tracking
-DEST_TOPIC_PREFIX=loiter_status
-EOF
-fi
-
-##############################################################################
 # Add the mqtt-table-flattener service: reshapes the raw object_tracking/<N>
 # metadata (published as-is by DLSPS/gvametaconvert, unmodified) into
-# loiter_status/<N> messages Grafana's MQTT table panel can render as rows
-# (one MQTT message = one table row). Reuses the dlstreamer-pipeline-server
-# image (already pulled, already has paho-mqtt) instead of adding a new one.
-# Loitering-detection-specific, so this is inserted only into the generated
-# compose file (before the top-level "networks:" key, since "services:" is
-# not the last section), not the shared template.
+# object_tracking/<N>/<DEST_TOPIC_SUFFIX> messages Grafana's MQTT table panel can
+# render as rows (one MQTT message = one table row), filtered by LOITERING_THRESHOLD_SEC.
+# Reuses the dlstreamer-pipeline-server image (already pulled, already has paho-mqtt)
+# instead of adding a new one. Loitering-detection-specific, so this is inserted only
+# into the generated compose file (before the top-level "networks:" key, since
+# "services:" is not the last section), not the shared template.
 ##############################################################################
 if [ -f ../docker-compose.yml ] && ! grep -q '^  mqtt-table-flattener:' ../docker-compose.yml; then
   awk '
@@ -128,10 +100,11 @@ if [ -f ../docker-compose.yml ] && ! grep -q '^  mqtt-table-flattener:' ../docke
       print "      - MQTT_HOST=broker"
       print "      - MQTT_PORT=1883"
       print "      - SOURCE_TOPIC_PREFIX=${SOURCE_TOPIC_PREFIX}"
-      print "      - DEST_TOPIC_PREFIX=${DEST_TOPIC_PREFIX}"
+      print "      - DEST_TOPIC_SUFFIX=${DEST_TOPIC_SUFFIX}"
+      print "      - LOITERING_THRESHOLD_SEC=${LOITERING_THRESHOLD_SEC}"
       print "    volumes:"
       print "      - \"./${SAMPLE_APP}/src/mqtt-table-flattener:/app:ro\""
-      print "    entrypoint: [\"python3\", \"/app/flatten.py\"]"
+      print "    entrypoint: [\"python3\", \"/app/flatten_and_filter.py\"]"
       print "    depends_on:"
       print "      - broker"
       print "    networks:"
@@ -142,5 +115,95 @@ if [ -f ../docker-compose.yml ] && ! grep -q '^  mqtt-table-flattener:' ../docke
     }
     { print }
   ' ../docker-compose.yml > ../docker-compose.yml.tmp && mv ../docker-compose.yml.tmp ../docker-compose.yml
+fi
+
+##############################################################################
+# Console UI service: operator UI to start/stop streams, draw a zone and view
+# live loitering analytics. Only for the "loitering-detection-ui" install
+# variant (ENABLE_UI=true, set by the top-level install.sh) - this is inserted
+# into the generated compose file only, same as mqtt-table-flattener,
+# so a plain "loitering-detection" install never see this service at all.
+# Reuses the dlstreamer-pipeline-server image (already pulled, already has
+# Flask, requests and paho-mqtt instead of building one.
+##############################################################################
+if [ "${ENABLE_UI:-false}" = "true" ] && [ -f ../docker-compose.yml ] && ! grep -q '^  console:' ../docker-compose.yml; then
+  awk '
+    /^networks:/ && !inserted {
+      print "  console:"
+      print "    image: ${DLSTREAMER_PIPELINE_SERVER_IMAGE}"
+      print "    container_name: ui-console"
+      print "    restart: unless-stopped"
+      print "    env_file:"
+      print "      - ./console-addon/.env"
+      print "    environment:"
+      print "      - UI_PORT=8091"
+      print "      - HOST_IP=${HOST_IP}"
+      print "      - PIPELINE_SERVER_URL=http://dlstreamer-pipeline-server:8080"
+      print "      - MQTT_HOST=broker"
+      print "      - MQTT_PORT=1883"
+      print "      - MEDIAMTX_URL=http://mediamtx-server:8889"
+      print "      - PROMETHEUS_URL=http://prometheus:9090/prometheus"
+      print "      - MODEL_ROOT=/home/pipeline-server/models"
+      print "      - http_proxy=${http_proxy}"
+      print "      - https_proxy=${https_proxy}"
+      print "      - HTTP_PROXY=${http_proxy}"
+      print "      - HTTPS_PROXY=${https_proxy}"
+      print "      - no_proxy=${HOST_IP},dlstreamer-pipeline-server,mediamtx-server,prometheus,${no_proxy}"
+      print "      - NO_PROXY=${HOST_IP},dlstreamer-pipeline-server,mediamtx-server,prometheus,${no_proxy}"
+      print "    volumes:"
+      print "      - ./console-addon/console:/app:ro"
+      print "      - \"./${SAMPLE_APP}/src/dlstreamer-pipeline-server/models:/home/pipeline-server/models:ro\""
+      print "      - \"./${SAMPLE_APP}/src/dlstreamer-pipeline-server/zones:/home/pipeline-server/zones:ro\""
+      print "      - \"/dev:/dev:ro\""
+      print "    working_dir: /app"
+      print "    entrypoint: [\"/bin/sh\", \"./entrypoint.sh\"]"
+      print "    healthcheck:"
+      print "      test: [\"CMD\", \"python3\", \"-c\", \"import urllib.request; urllib.request.urlopen('"'"'http://localhost:8091/'"'"')\"]"
+      print "      interval: 10s"
+      print "      timeout: 5s"
+      print "      retries: 3"
+      print "      start_period: 10s"
+      print "    networks:"
+      print "      - app_network"
+      print "    depends_on:"
+      print "      - dlstreamer-pipeline-server"
+      print "      - broker"
+      print ""
+      inserted=1
+    }
+    { print }
+  ' ../docker-compose.yml > ../docker-compose.yml.tmp && mv ../docker-compose.yml.tmp ../docker-compose.yml
+fi
+
+##############################################################################
+# Add (or remove) the Console UI's link on nginx's default landing page -
+# only present when the service itself was just added above, so the link
+# is never shown (and never 404/502s) for a plain "loitering-detection"
+# install. Patches src/nginx/nginx.conf directly (bind-mounted as-is, not
+# copied/generated like docker-compose.yml), idempotently in both
+# directions - switching between install variants does not leave it stale.
+##############################################################################
+NGINX_CONF="src/nginx/nginx.conf"
+if [ -f "$NGINX_CONF" ]; then
+  if [ "${ENABLE_UI:-false}" = "true" ] && ! grep -q '<h3><a href="/console/">' "$NGINX_CONF"; then
+    awk '
+      /<h3><a href="\/grafana\/">/ && !inserted {
+        print "    <div class=\"service\">"
+        print "        <h3><a href=\"/console/\">UI Console</a></h3>"
+        print "        <p>Start/stop streams, draw a zone, and view live loitering analytics</p>"
+        print "    </div>"
+        inserted=1
+      }
+      { print }
+    ' "$NGINX_CONF" > "$NGINX_CONF.tmp" && mv "$NGINX_CONF.tmp" "$NGINX_CONF"
+  elif [ "${ENABLE_UI:-false}" != "true" ] && grep -q '<h3><a href="/console/">' "$NGINX_CONF"; then
+    awk '
+      /<div class="service">/ { buf = $0; next }
+      buf && /<h3><a href="\/console\/">/ { buf = ""; skip = 1; next }
+      skip && /<\/div>/ { skip = 0; next }
+      buf { print buf; buf = "" }
+      !skip { print }
+    ' "$NGINX_CONF" > "$NGINX_CONF.tmp" && mv "$NGINX_CONF.tmp" "$NGINX_CONF"
+  fi
 fi
 

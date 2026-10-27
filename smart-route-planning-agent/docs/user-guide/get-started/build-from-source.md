@@ -49,10 +49,10 @@ You can also configure only a single instance, but a minimum of three _Smart Tra
 1. Clone the application source code:
 
 ```bash
-   git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/edge-ai-suites.git
-   cd edge-ai-suites
-   git sparse-checkout set metro-ai-suite
-   cd metro-ai-suite/smart-route-planning-agent
+   git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
+   cd metro-ai-suite
+   git sparse-checkout set smart-route-planning-agent
+   cd smart-route-planning-agent
 ```
 
 2. Build the image from source and run the application suite:

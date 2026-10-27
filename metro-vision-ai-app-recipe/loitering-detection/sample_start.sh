@@ -2,6 +2,12 @@
 
 DLSPS_NODE_IP="localhost"
 
+# Pick up SOURCE_TOPIC_PREFIX/LOITERING_THRESHOLD_SEC; ../.env for normal compose, ./.env for offline packages (flattened by offline-package-generator.sh).
+set -a
+[ -f ../.env ] && . ../.env
+[ -f ./.env ] && . ./.env
+set +a
+
 function run_sample() {
   pipelines=$1
   device=$2
@@ -26,7 +32,7 @@ function run_sample() {
     "destination": {
         "metadata": {
             "type": "mqtt",
-            "topic": "object_tracking/$x",
+            "topic": "${SOURCE_TOPIC_PREFIX:-object_tracking}/$x",
             "publish_frame":false
         },
         "frame": {
@@ -39,11 +45,15 @@ function run_sample() {
         }
     },
     "parameters": {
+        "detection-properties": {
+            "model": "/home/pipeline-server/models/intel/pedestrian-and-vehicle-detector-adas-0001/FP16/pedestrian-and-vehicle-detector-adas-0001.xml",
+            "model_proc": "/home/pipeline-server/models/intel/pedestrian-and-vehicle-detector-adas-0001/pedestrian-and-vehicle-detector-adas-0001.json"
+        },
         "analytics-properties": {
             "config": "/home/pipeline-server/zones/VIRAT_S_00010$x.json"
         },
         "loitering-watermark-properties": {
-            "loitering-threshold": 5.0
+            "loitering-threshold": ${LOITERING_THRESHOLD_SEC:-5.0}
         }
     }
   }

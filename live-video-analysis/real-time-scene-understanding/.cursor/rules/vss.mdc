@@ -1,5 +1,5 @@
 ---
-description: Real Time Scene Understanding Cursor agent router
+description: Real-Time Scene Understanding Cursor agent router
 alwaysApply: true
 ---
 
@@ -8,7 +8,7 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Real Time Scene Understanding (Cursor)
+# Real-Time Scene Understanding (Cursor)
 
 For project-wide instructions, read [`copilot-instructions.md`](../../.github/copilot-instructions.md). Do not duplicate policy from that file.
 

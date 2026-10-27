@@ -12,7 +12,7 @@ class TestMainEntrypoint:
     def test_main_module_exposes_fastapi_app(self):
         import main as main_module
 
-        assert main_module.app.title == "Real Time Scene Understanding"
+        assert main_module.app.title == "Real-Time Scene Understanding"
 
     def test_health_endpoint_works_via_main_app(self):
         import main as main_module

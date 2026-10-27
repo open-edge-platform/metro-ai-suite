@@ -242,6 +242,31 @@
         }
       ],
       "type": "table"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 6,
+        "x": 9,
+        "y": 50
+      },
+      "id": 6,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style=\"display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center\">\n  <h3 style=\"margin:0 0 8px 0\">Scan for Documentation</h3>\n  <img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUgAAAFIAQMAAAAI2vVwAAAABlBMVEUAAAD///+l2Z/dAAAAAnRSTlP//8i138cAAAAJcEhZcwAACxIAAAsSAdLdfvwAAAGnSURBVGiB7dVBbsNADANA/f/TKmCRXLkNGjqH9kInaGJrtgdKUKrdqyIj/0PWXM0/cxwfqkbaEsGKVJ8nqkb68opcgU83phH3auQjeQEO9Axx5OeyKFf8kZ/IPk/kzuvFDon8TfKX6/Xr1W9c5C+SFwZX67Z2MdKWxX3AYV6HmHpF2rL5rVjlu3Uw8oGsHfscWFI80pNXnZ+TcrMRpxmRrgTVDlgDvcKPdCWmt7VTMclrqCOfyLnDA6SMwzoa6cvvNUwwujE00pbNbO+HRt42Q6QjcafbYvR9G/FIU66tcLbDLNq6DXikJYspl0Lni1+0QyINqYlFF9QPlnq9I9/JibhZr7UO1IxIX2oXLMs+nPmOtKWC/3F/OhL5RPL2JM6G6HSkK9d2vT4Lm4Ab4jblkW9lcaP2/tLcsGeMIy2J6JGwaoXNgPUQ6cqC2lONrYBrKpGe5DVlpL3WBf9hpCcZbzN7hI/0I5/Kyb2pNcXU8yzSlgyb+BxgTyI/kmxEIe3bs8hnckWN8BW5DkQ6srlTiWpB1CNtueI+86uNu2KPdKR5RUb+vfwCVeSbCwj36t4AAAAASUVORK5CYII=\" style=\"width:140px;height:140px\" alt=\"QR code linking to the smart parking documentation\"/>\n  <a href=\"https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/smart-parking/index.html\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"margin-top:8px;font-size:12px\">Smart Parking Documentation</a>\n</div>",
+        "mode": "html"
+      },
+      "pluginVersion": "11.5.4",
+      "title": "",
+      "type": "text"
     }
   ],
   "preload": false,

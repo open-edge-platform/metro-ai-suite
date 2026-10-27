@@ -242,4 +242,4 @@ Typical API error codes:
 ## Related docs
 
 - [Get Started](./get-started.md)
-- [Known Issues](./known-issues.md)
+- [Troubleshooting](./troubleshooting.md)

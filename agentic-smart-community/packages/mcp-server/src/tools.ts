@@ -165,19 +165,37 @@ export function registerTools(
 
   // --- smart_community_monitor_ctl ---
   server.registerTool("smart_community_monitor_ctl", {
-    description: "Manage monitor lifecycle: register_source | unregister | start | stop | status | list | prefilter_options. " +
+    description: "Manage monitor lifecycle: register_source | unregister | start | stop | status | list | prefilter_options | update_pipeline | reload_config | register_prefilter_model. " +
       "For register_source, use_case must be a key in config.yaml's use_case_dict; the tool runs " +
       "smart_community_use_case_validate as a pre-check (rejecting if missing fields or summary service issues). " +
-      "prefilter_options is a read-only query returning the prefilter model's selectable target_classes " +
-      "(class_names + labels_source) so a caller can build pipeline_config.prefilter before register_source.",
+      "prefilter_options is a read-only query listing the prefilter models an operator registered, each with its " +
+      "selectable target_classes (class_names + labels_source), plus `rejected` entries that cannot be used and why. " +
+      "Put a monitor on one by setting pipeline_config.prefilter.model to a listed model name — a raw model_path " +
+      "in the request is rejected, since models are selected from the server-side registry. " +
+      "reload_config hot-swaps the videostream-analytics configuration without a restart (no monitor_id needed); " +
+      "call it after the operator edits the VSA config file, then confirm with prefilter_options. " +
+      "register_prefilter_model registers a model INTO the registry (no monitor_id needed): edits the VSA config " +
+      "file, hot-reloads VSA, and confirms via prefilter_options — status is `selectable`, or `rejected` with the reason. " +
+      "status also returns the monitor's effective pipeline (analyticsPipeline) — the defaults←monitor merge VSA " +
+      "actually runs, e.g. whether a monitor that never configured prefilter is filtering, with which model and classes.",
     inputSchema: {
-      action: z.enum(["start", "stop", "register_source", "unregister", "status", "list", "prefilter_options"])
+      action: z.enum(["start", "stop", "register_source", "unregister", "status", "list", "prefilter_options", "update_pipeline", "reload_config", "register_prefilter_model"])
         .describe("Control action"),
       monitor_id: z.string().optional().describe("Monitor ID (required for all except list)"),
       source_url: z.string().optional().describe("Source URL — any protocol videostream-analytics supports (for register_source)"),
       name: z.string().optional().describe("Display name (for register_source)"),
       use_case: z.string().optional().describe("Use case key from config.yaml use_case_dict (required for register_source)"),
-      pipeline_config: z.record(z.unknown()).optional().describe("Pipeline config object (for register_source)"),
+      pipeline_config: z.record(z.unknown()).optional().describe("Pipeline config or update delta. Prefilter supports enabled, model (a registry name from prefilter_options — never a path), target_classes, min_confidence (0..1), min_frames_hit (integer >=1), detect_fps (>0), device, long_side (integer >=0). Unspecified fields are preserved on updates."),
+      dry_run: z.boolean().optional().describe("Preview update_pipeline without changes"),
+      expected_revision: z.string().optional().describe("update_pipeline revision from dry_run"),
+      candidate_hash: z.string().optional().describe("update_pipeline candidate from dry_run"),
+      model: z.string().optional().describe(
+        "Prefilter model name: narrows prefilter_options to one model; the registry key for register_prefilter_model"
+      ),
+      model_path: z.string().optional().describe("Absolute path to the model's IR .xml (register_prefilter_model)"),
+      kind: z.string().optional().describe("What the model does (register_prefilter_model, default detection; only detection supported)"),
+      backend: z.string().optional().describe("Runtime executing the model (register_prefilter_model, default openvino; only openvino supported)"),
+      description: z.string().optional().describe("Free text shown when choosing a model (register_prefilter_model)"),
       persist: z.boolean().default(true).describe(
         "Mirror the change back to the monitors.yaml the server was booted from (--monitors), " +
         "comment-preserving (default true): register_source writes the entry (lets a restart " +
@@ -230,6 +248,9 @@ export function registerTools(
         // treated as unset — otherwise "" leaks through to the "required" throw below.
         if (!enriched.webhook_url) enriched.webhook_url = `http://localhost:${config.eventsWebhook!.port}/events`;
         enriched.video_summary_task = videoSummaryTask;
+        const { mergePatch } = await import("@smart-community-video/tools");
+        const preferences = config.useCaseDict[params.use_case!]?.monitor_defaults;
+        if (preferences || params.pipeline_config) enriched.pipeline_config = mergePatch(preferences ?? {}, params.pipeline_config ?? {});
         // Arm the analytics keepalive watchdog; the server drives the heartbeat loop.
         enriched.keepalive = {
           enabled: config.keepalive.enabled,
@@ -377,7 +398,10 @@ export function registerTools(
   // --- smart_community_use_case_register ---
   server.registerTool("smart_community_use_case_register", {
     description:
-      "Manage use_case lifecycle at runtime without restarting the MCP server. Four actions. " +
+      "Manage use_case lifecycle at runtime without restarting the MCP server. " +
+      "Existing use cases: get returns full state/revision; update merges only changed fields. " +
+      "Preview with dry_run=true, show differences for ONE confirmation, then commit with expected_revision and candidate_hash. " +
+      "Do not repeat new-case Q1/Q2 or unchanged monitor gates for updates. " +
       "For NEW use cases, do not call this tool until the user has answered the " +
       "smart-community-use-case-manager Q1/Q2 flow and confirmed Final Schema + Rule Path; " +
       "detection goals are event values, not schema fields. " +
@@ -428,9 +452,11 @@ export function registerTools(
       "(defaultRuleEvaluator | evaluate_rules.py | none), and report_source. This reflects what the " +
       "running server actually uses, including entries registered with persist=false, so prefer it " +
       "over parsing config.yaml from disk. Call it after a successful register/unregister to report " +
-      "the system's current use cases.",
+      "the system's current use cases. action=get returns complete state/revision. " +
+      "Simple event additions/removals/condition edits use action=update with dry_run then exact candidate commit; " +
+      "never generate_task/register/unregister. Preserve schema, task and bindings; only changed prompt/rules are applied.",
     inputSchema: {
-      action: z.enum(["register", "generate_task", "unregister", "list"]).describe("register | generate_task | unregister | list"),
+      action: z.enum(["register", "generate_task", "unregister", "list", "get", "update"]).describe("register | generate_task | unregister | list | get | update"),
       use_case: z.string().optional().describe(
         "Use case key (lowercase ascii, matches /^[a-z][a-z0-9_]{1,63}$/). " +
         "Required for register/generate_task/unregister; omit for list."
@@ -470,7 +496,7 @@ export function registerTools(
         "OPTIONAL. When omitted, the final schema is inferred from the prompt's LOCAL_PROMPT `KEY:` output " +
         "lines (every field becomes a text column; the prompt is the source of truth). Pass this only to " +
         "declare a non-text column type (integer/real) or override an inferred required flag, and then only " +
-        "extra persisted output columns explicitly confirmed by the user beyond severity/event/desc " +
+        "internally derived extra persisted output columns beyond severity/event/desc " +
         "(e.g. motion_direction, parking_zone). Do not put detection goals/events such as escape, trapped, " +
         "aggressive_behavior, risk_level, *_detected, or *_count here. The tool automatically adds " +
         "severity/event/desc to form the final schema when any structured fields are present. " +
@@ -478,6 +504,14 @@ export function registerTools(
         "Applied via ALTER TABLE ADD COLUMN if missing (idempotent). Stored under this use_case's own " +
         "schema (use_case_dict.<uc>.schema) — never a global shared schema."
       ),
+      expected_revision: z.string().optional().describe("Revision returned by get/dry_run; required for update commit"),
+      candidate_hash: z.string().optional().describe("Exact candidate returned by dry_run; required for update commit"),
+      dry_run: z.boolean().optional().describe("Validate and preview update without writing"),
+      detection_events: z.array(z.string().regex(/^[a-z][a-z0-9_]*$/)).optional().describe("System-maintained final detection event identifiers for event additions/removals. Required whenever prompt_text changes: infer from the existing prompt on first update, retain all unaffected targets, exclude baseline/uncertainty states (states, not detection targets). Must match the candidate prompt's event contract. Never ask users to design schema. Empty sets are rejected: removing the last target requires clarifying use-case disable, which is a separate operation."),
+      schema_additions: z.array(z.object({
+        name: z.string().regex(/^[a-z][a-z0-9_]*$/), type: z.enum(["text", "integer", "real"]), required: z.boolean(),
+      })).optional().describe("Internal compatibility operation only; simple detection event changes preserve schema and do not use this field"),
+      monitor_defaults: z.record(z.unknown()).optional().describe("Binding preferences, such as prefilter.min_confidence; applied to future monitor bindings only"),
       overwrite: z.boolean().optional().describe(
         "When true, replace an existing use_case entry. Default false."
       ),
@@ -499,6 +533,12 @@ export function registerTools(
         db: (db as any).db,
         configPath: config.configPath,
         baseDir: config.dataDir,
+        boundMonitors: (useCase) => db.listMonitors().filter(m => m.useCase === useCase).map(m => ({ ...m })),
+        pauseWorkers: async (useCase) => {
+          const ids = db.listMonitors().filter(m => m.useCase === useCase && workerService.workers.has(m.id)).map(m => m.id);
+          await Promise.all(ids.map(id => workerService.stop(id)));
+          return () => { for (const id of ids) workerService.start(id); };
+        },
       });
 
       // Cascade on unregister: for every monitor referencing this use case, run
