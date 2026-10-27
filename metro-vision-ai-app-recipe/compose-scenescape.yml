@@ -47,7 +47,7 @@ services:
     image: docker.io/nodered/node-red:4.1
     user: root
     environment:
-      TZ: America/Los_Angeles
+      TZ: ${SS_TZ:-America/Los_Angeles}
       http_proxy: ${http_proxy}
       https_proxy: ${https_proxy}
       no_proxy: ${no_proxy},.scenescape.intel.com,influxdb2
@@ -95,7 +95,7 @@ services:
       DOCKER_INFLUXDB_INIT_PASSWORD_FILE: /run/secrets/influxdb2-admin-password
       DOCKER_INFLUXDB_INIT_ADMIN_TOKEN_FILE: /run/secrets/influxdb2-admin-token
       DOCKER_INFLUXDB_INIT_ORG: ITM
-      DOCKER_INFLUXDB_INIT_BUCKET: SS-Anthem
+      DOCKER_INFLUXDB_INIT_BUCKET: ${SS_INFLUX_BUCKET:-SS-Anthem}
       DOCKER_INFLUXDB_INIT_RETENTION: 1w
       http_proxy: ${http_proxy}
       https_proxy: ${https_proxy}
@@ -122,7 +122,7 @@ services:
     image: docker.io/grafana/grafana:11.6.0
     user: root
     volumes:
-      - ./${SAMPLE_APP}/src/grafana/data/dashboards/anthem-intersection.json:/tmp/anthem-intersection.json
+      - ./${SAMPLE_APP}/src/grafana/data/dashboards:/tmp/dashboards
       - ./${SAMPLE_APP}/src/grafana/dashboards.yml:/tmp/dashboards.yml
       - ./${SAMPLE_APP}/src/grafana/datasources.yml:/tmp/datasources.yml
       - grafana-storage:/var/lib/grafana
@@ -150,7 +150,7 @@ services:
         "-e",
         "-c",
         "mkdir -p /var/lib/grafana/dashboards && \
-        cp /tmp/anthem-intersection.json /var/lib/grafana/dashboards/anthem-intersection.json && \
+        cp /tmp/dashboards/*.json /var/lib/grafana/dashboards/ && \
         mkdir -p /etc/grafana/provisioning/dashboards && \
         cp /tmp/dashboards.yml /etc/grafana/provisioning/dashboards/main.yml && \
         mkdir -p /etc/grafana/provisioning/datasources && \
@@ -194,10 +194,12 @@ services:
       - REST_SERVER_PORT=8080
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
+      - ENABLE_WEBRTC=${SS_ENABLE_WEBRTC:-false}
+      - WEBRTC_SIGNALING_SERVER=http://mediamtx-server:8889
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
-      - no_proxy=.scenescape.intel.com,influxdb2,${no_proxy}
-      - NO_PROXY=.scenescape.intel.com,influxdb2,${no_proxy}
+      - no_proxy=.scenescape.intel.com,influxdb2,mediamtx-server,${no_proxy}
+      - NO_PROXY=.scenescape.intel.com,influxdb2,mediamtx-server,${no_proxy}
       - HTTP_PROXY=${http_proxy}
       - HTTPS_PROXY=${https_proxy}
       # NPU related environment variables
@@ -206,7 +208,7 @@ services:
       - ./${SAMPLE_APP}/src/dlstreamer-pipeline-server/config.json:/home/pipeline-server/config.json
       - ./${SAMPLE_APP}/src/dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - ./${SAMPLE_APP}/src/dlstreamer-pipeline-server/videos:/home/pipeline-server/videos
-      - ./${SAMPLE_APP}/src/dlstreamer-pipeline-server/models/intersection:/home/pipeline-server/models/object_detection/intersection
+      - ./${SAMPLE_APP}/src/dlstreamer-pipeline-server/${SS_MODELS_SRC:-models/intersection}:${SS_MODELS_TARGET:-/home/pipeline-server/models/object_detection/intersection}
       - dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
       - dlstreamer-pipeline-server-tmp:/tmp
       - "/dev:/dev"
@@ -255,7 +257,7 @@ services:
       - HTTP_PROXY=${http_proxy}
       - HTTPS_PROXY=${https_proxy}
       - SUPASS=${SUPASS}
-      - EXAMPLEDB=/home/scenescape/Scenescape/smart-intersection-ri.tar.bz2
+      - EXAMPLEDB=/home/scenescape/Scenescape/${SS_SCENE_DB:-smart-intersection-ri.tar.bz2}
       - DBHOST=pgserver
       - DBPORT=5432
     command: >
@@ -280,7 +282,7 @@ services:
       - pgserver-media:/workspace/media
       - pgserver-migrations:/workspace/migrations
       - ./${SAMPLE_APP}/src/webserver/user_access_config.json:/home/scenescape/Scenescape/user_access_config.json
-      - ./${SAMPLE_APP}/src/webserver/smart-intersection-ri.tar.bz2:/home/scenescape/Scenescape/smart-intersection-ri.tar.bz2
+      - ./${SAMPLE_APP}/src/webserver/${SS_SCENE_DB:-smart-intersection-ri.tar.bz2}:/home/scenescape/Scenescape/${SS_SCENE_DB:-smart-intersection-ri.tar.bz2}
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -392,6 +394,37 @@ services:
       - NGINX_CLIENT_MAX_BODY_SIZE=${NGINX_CLIENT_MAX_BODY_SIZE}
       - NGINX_ENVSUBST_TEMPLATE_DIR=/etc/nginx
       - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx
+    restart: on-failure:5
+
+  # WebRTC video streaming, only started with COMPOSE_PROFILES=smart-parking-scenescape (smart-parking ss mode)
+  mediamtx:
+    image: bluenviron/mediamtx:1.11.3
+    container_name: mediamtx-server
+    profiles: ["smart-parking-scenescape"]
+    environment:
+      - MTX_LOGLEVEL=debug
+      - MTX_RTSP=no
+      - MTX_RTMP=no
+      - MTX_HLS=no
+      - MTX_SRT=no
+      - MTX_WEBRTCICESERVERS2_0_URL=turn:$HOST_IP:3478
+      - MTX_WEBRTCICESERVERS2_0_USERNAME=${MTX_WEBRTCICESERVERS2_0_USERNAME}
+      - MTX_WEBRTCICESERVERS2_0_PASSWORD=${MTX_WEBRTCICESERVERS2_0_PASSWORD}
+      - MTX_WEBRTCTRACKGATHERTIMEOUT=10s
+      - MTX_WEBRTCLOCALTCPADDRESS=:8189
+    networks:
+      - scenescape
+    restart: on-failure:5
+
+  coturn:
+    image: coturn/coturn:4.12.0
+    container_name: coturn
+    profiles: ["smart-parking-scenescape"]
+    command: ["-v", "--external-ip=$HOST_IP", "--user=${MTX_WEBRTCICESERVERS2_0_USERNAME}:${MTX_WEBRTCICESERVERS2_0_PASSWORD}", "--realm=turn.local", "--no-tls", "--no-dtls", "--lt-cred-mech"]
+    ports:
+      - "3478:3478/udp"
+    networks:
+      - scenescape
     restart: on-failure:5
 
 networks:

@@ -19,21 +19,29 @@ jobs:
       contents: read # needed for actions/checkout
     runs-on: ubuntu-latest
     outputs:
+      agentic-predictive-maintenance-pipeline_changed: ${{ steps.filter.outputs.agentic-predictive-maintenance-pipeline }}
+      agentic-smart-community_changed: ${{ steps.filter.outputs.agentic-smart-community }}
+      enterprise-data-intelligence_changed: ${{ steps.filter.outputs.enterprise-data-intelligence }}
       image-based-video-search_changed: ${{ steps.filter.outputs.image-based-video-search }}
       live-video-captioning_changed: ${{ steps.filter.outputs.live-video-captioning }}
+      live-video-captioning-rag_changed: ${{ steps.filter.outputs.live-video-captioning-rag }}
       live-video-alert-agent_changed: ${{ steps.filter.outputs.live-video-alert-agent }}
       live-video-search_changed: ${{ steps.filter.outputs.live-video-search }}
+      real-time-scene-understanding_changed: ${{ steps.filter.outputs.real-time-scene-understanding }}
       metro-vision-ai-app-recipe_changed: ${{ steps.filter.outputs.metro-vision-ai-app-recipe }}
       loitering-detection_changed: ${{ steps.filter.outputs.loitering-detection }}
       smart-intersection_changed: ${{ steps.filter.outputs.smart-intersection }}
       smart-parking_changed: ${{ steps.filter.outputs.smart-parking }}
       smart-tolling_changed: ${{ steps.filter.outputs.smart-tolling }}
+      prompt-library_changed: ${{ steps.filter.outputs.prompt-library }}
       sensor-fusion-for-traffic-management_changed: ${{ steps.filter.outputs.sensor-fusion-for-traffic-management }}
+      smart-building-digital-twin_changed: ${{ steps.filter.outputs.smart-building-digital-twin }}
       smart-nvr_changed: ${{ steps.filter.outputs.smart-nvr }}
       smart-route-planning-agent_changed: ${{ steps.filter.outputs.smart-route-planning-agent }}
       smart-traffic-intersection-agent_changed: ${{ steps.filter.outputs.smart-traffic-intersection-agent }}
       video-processing-for-nvr_changed: ${{ steps.filter.outputs.video-processing-for-nvr }}
       visual-search-question-and-answering_changed: ${{ steps.filter.outputs.visual-search-question-and-answering }}
+      vms-adapter-plugin_changed: ${{ steps.filter.outputs.vms-adapter-plugin }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -44,14 +52,24 @@ jobs:
         uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
         with:
           filters: |
+            agentic-predictive-maintenance-pipeline:
+              - 'agentic-predictive-maintenance-pipeline/docs/user-guide/**'
+            agentic-smart-community:
+              - 'agentic-smart-community/docs/user-guide/**'
+            enterprise-data-intelligence:
+              - 'enterprise-data-intelligence/docs/user-guide/**'
             image-based-video-search:
               - 'image-based-video-search/docs/user-guide/**'
             live-video-captioning:
               - 'live-video-analysis/live-video-captioning/docs/user-guide/**'
+            live-video-captioning-rag:
+              - 'live-video-analysis/live-video-captioning-rag/docs/user-guide/**'
             live-video-alert-agent:
               - 'live-video-analysis/live-video-alert-agent/docs/user-guide/**'
             live-video-search:
               - 'live-video-analysis/live-video-search/docs/user-guide/**'
+            real-time-scene-understanding:
+              - 'live-video-analysis/real-time-scene-understanding/docs/user-guide/**'
             metro-vision-ai-app-recipe:
               - 'metro-vision-ai-app-recipe/docs/user-guide/**'
             loitering-detection:
@@ -62,8 +80,12 @@ jobs:
               - 'metro-vision-ai-app-recipe/smart-parking/docs/user-guide/**'
             smart-tolling:
               - 'metro-vision-ai-app-recipe/smart-tolling/docs/user-guide/**'
+            prompt-library:
+              - 'prompt-library/docs/user-guide/**'
             sensor-fusion-for-traffic-management:
               - 'sensor-fusion-for-traffic-management/docs/user-guide/**'
+            smart-building-digital-twin:
+              - 'smart-building-digital-twin/docs/user-guide/**'
             smart-nvr:
               - 'smart-nvr/docs/user-guide/**'
             smart-route-planning-agent:
@@ -74,6 +96,35 @@ jobs:
               - 'video-processing-for-nvr/docs/user-guide/**'
             visual-search-question-and-answering:
               - 'visual-search-question-and-answering/docs/user-guide/**'
+            vms-adapter-plugin:
+              - 'vms-adapter-plugin/docs/user-guide/**'
+
+  build-agentic-predictive-maintenance-pipeline:
+    permissions:
+      contents: read # needed for actions/checkout
+    needs: filter
+    if: ${{ needs.filter.outputs.agentic-predictive-maintenance-pipeline_changed == 'true' }}
+    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    with:
+      docs_directory: agentic-predictive-maintenance-pipeline
+
+  build-agentic-smart-community:
+    permissions:
+      contents: read # needed for actions/checkout
+    needs: filter
+    if: ${{ needs.filter.outputs.agentic-smart-community_changed == 'true' }}
+    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    with:
+      docs_directory: agentic-smart-community
+
+  build-enterprise-data-intelligence:
+    permissions:
+      contents: read # needed for actions/checkout
+    needs: filter
+    if: ${{ needs.filter.outputs.enterprise-data-intelligence_changed == 'true' }}
+    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    with:
+      docs_directory: enterprise-data-intelligence
 
   build-image-based-video-search:
     permissions:
@@ -93,6 +144,15 @@ jobs:
     with:
       docs_directory: live-video-analysis/live-video-captioning
 
+  build-live-video-captioning-rag:
+    permissions:
+      contents: read # needed for actions/checkout
+    needs: filter
+    if: ${{ needs.filter.outputs.live-video-captioning-rag_changed == 'true' }}
+    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    with:
+      docs_directory: live-video-analysis/live-video-captioning-rag
+
   build-live-video-alert-agent:
     permissions:
       contents: read # needed for actions/checkout
@@ -110,6 +170,15 @@ jobs:
     uses: ./.github/workflows/docs-reusable-workflow.yaml
     with:
       docs_directory: live-video-analysis/live-video-search
+
+  build-real-time-scene-understanding:
+    permissions:
+      contents: read # needed for actions/checkout
+    needs: filter
+    if: ${{ needs.filter.outputs.real-time-scene-understanding_changed == 'true' }}
+    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    with:
+      docs_directory: live-video-analysis/real-time-scene-understanding
 
   build-metro-vision-ai-app-recipe:
     permissions:
@@ -156,6 +225,15 @@ jobs:
     with:
       docs_directory: metro-vision-ai-app-recipe/smart-tolling
 
+  build-prompt-library:
+    permissions:
+      contents: read # needed for actions/checkout
+    needs: filter
+    if: ${{ needs.filter.outputs.prompt-library_changed == 'true' }}
+    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    with:
+      docs_directory: prompt-library
+
   build-sensor-fusion-for-traffic-management:
     permissions:
       contents: read # needed for actions/checkout
@@ -164,6 +242,15 @@ jobs:
     uses: ./.github/workflows/docs-reusable-workflow.yaml
     with:
       docs_directory: sensor-fusion-for-traffic-management
+
+  build-smart-building-digital-twin:
+    permissions:
+      contents: read # needed for actions/checkout
+    needs: filter
+    if: ${{ needs.filter.outputs.smart-building-digital-twin_changed == 'true' }}
+    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    with:
+      docs_directory: smart-building-digital-twin
 
   build-smart-nvr:
     permissions:
@@ -210,3 +297,12 @@ jobs:
     uses: ./.github/workflows/docs-reusable-workflow.yaml
     with:
       docs_directory: visual-search-question-and-answering
+
+  build-vms-adapter-plugin:
+    permissions:
+      contents: read # needed for actions/checkout
+    needs: filter
+    if: ${{ needs.filter.outputs.vms-adapter-plugin_changed == 'true' }}
+    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    with:
+      docs_directory: vms-adapter-plugin
