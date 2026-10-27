@@ -40,11 +40,14 @@ Details:
 - The console only renders fenced `vsg-*` blocks. If the Hermes skills are
   missing or out of date, Argus answers in plain text.
 
+- This problem is more persistent with smaller models, those have weak tool calling capablity. 
+
 Checks:
 
 - Reinstall the skills on the Hermes host and start a new session. See
   [Install the Argus skills](./get-started/set-up-prerequisite-stack.md#5-install-the-argus-skills).
 - Check that **Settings → Directive protocol** matches the installed skill.
+- Use a better Agentic models
 
 ## Argus never searches, or writes the tool call as text
 
@@ -142,12 +145,6 @@ Details:
 - The uploaded floorplan and the investigation settings are stored in the
   browser. Upload the plan again on another browser, or use
   **Settings → Clear local data** to reset.
-
-## No login
-
-- The console has no authentication. Run it on a trusted network, bind it to
-  `127.0.0.1` with `VSG_UI_HOST` if needed, and disable the Hermes `terminal`
-  toolset for this agent.
 
 ## Port conflicts
 

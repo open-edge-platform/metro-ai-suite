@@ -11,7 +11,7 @@ uses; size those from their own documentation.
 ## Validated Platforms
 
 - **Hardware**: VSS and the model server (OVMS) on Intel® Xeon® or Intel®
-  Core™ Ultra platforms, or Intel® Arc™ B70 dGPU. The VSG container can run on the
+  Core™ Ultra Series 3 platforms, or Intel® Arc™ B70 dGPU. The VSG container can run on the
   VSS host or on any host that reaches both Hermes and VSS.
 - **Reasoning model**: an OpenVINO™ model on OVMS that returns tool calls. The
   GPU (for an integrated GPU, system memory) needs room for the weights, the
@@ -30,11 +30,11 @@ uses; size those from their own documentation.
 
 The reasoning model is the largest resource that Argus needs. These values are
 the minimum for the default model, `OpenVINO/Qwen3.6-35B-A3B-int4-ov`, and they
-are a starting point, not a performance guarantee.
+are a starting point, not a performance/accuracy guarantee.
 
 | Resource | Minimum |
 |---|---|
-| Processor | Intel® Core™ Ultra processor with an integrated GPU. Validated on Panther Lake (PTL 358H). The integrated GPU uses system RAM. |
+| Processor | Intel® Core™ Ultra 3 processor with an integrated GPU. Validated on Panther Lake (PTL 358H). The integrated GPU uses system RAM. |
 | Memory | 64 GB RAM. The weights, the KV cache, and any VSS models on the same host share it. |
 | Disk | 128 GB free, for the model weights and the Hugging Face cache. |
 

@@ -64,7 +64,7 @@ export HARNESS_OVMS_REST_PORT=8450 && ./install.sh --harness hermes --model "$MO
 > **Note:** Argus needs a model that keeps to a strict reply format and calls
 > tools correctly. `Qwen3.6-35B-A3B` is a mixture-of-experts model with about
 > 3B active parameters, so it is quick but still reliable. Smaller models often
-> break the reply format or misuse tools.
+> break the reply format or misuse tools. Dense models like `OpenVINO/Qwen3.8-27B-int4-ov` are more accurate but are slow. 
 
 - The installer installs Docker, Node.js and Python if they are missing, and
   checks the Intel GPU. Read its

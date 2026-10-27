@@ -5,9 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 
 # How it Works
 
-The operator talks to **Argus** in the browser. Argus runs on a Hermes agent
+The operator talks to **Argus** (Virtual Security Guard Agent Persona) in the browser. Argus runs on a Hermes agent
 server, reasons with a local model, and calls VSS tools through the VSS MCP
-server. Virtual Security Guard Agent (VSG) renders Argus's results and lets
+server. The VSG UI renders Argus's results and lets
 the operator review them.
 
 ## Architecture
@@ -16,7 +16,7 @@ the operator review them.
 
 | Component | Role |
 |---|---|
-| vsg-ui | Serves the React app and proxies an allowlist of Hermes and VSS paths; everything else gets `403`. |
+| vsg-ui | Serves the React app and proxies an allowlist of Hermes and VSS paths |
 | Hermes agent server | Runs Argus, keeps one session per investigation, streams run events over SSE. |
 | VSG Hermes skills | `virtual-security-guard` and `vsg-incident-report`, installed on the Hermes host. |
 | VSS MCP server | Gives the agent VSS tools. |
@@ -41,8 +41,8 @@ the operator review them.
 6. **Report**: chosen from the route card; Argus drafts the report and the
    browser builds the PDF.
 
-For the protocol, grounding, proxy and state details, see
-[Design](./design.md).
+For the detailed protocol, grounding, proxy and state details, see
+[Design](./design.md) document.
 
 ## Learn More
 

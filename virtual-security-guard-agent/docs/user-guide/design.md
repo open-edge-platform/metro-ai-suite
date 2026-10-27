@@ -7,9 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 Developer reference for the Virtual Security Guard Agent (VSG) console. Read
 [How it Works](./how-it-works.md) first for the components and the
-investigation flow; this page does not repeat them. Hermes configuration (MCP
-server, model, API key) is in
-[Set Up the Prerequisite Stack](./get-started/set-up-prerequisite-stack.md).
+investigation flow; this page does not repeat them. Hermes configuration (MCP server, model, API key) is in [Set Up the Prerequisite Stack](./get-started/set-up-prerequisite-stack.md).
 
 ## 1. One Operator Turn
 

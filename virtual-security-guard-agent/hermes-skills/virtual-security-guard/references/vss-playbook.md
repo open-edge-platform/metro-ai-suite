@@ -9,7 +9,7 @@ Tactics for `vss_search_video` and friends in this deployment.
 
 ## Know the cameras
 
-- Each VSS **tag** is one camera, named `P_Lev_<floor>_<location>_ip_<n>`,
+- Each VSS **tag** is one camera,
   e.g. `P_Lev_4_Main_Entry_ip_54`.
 - "Camera" in the operator's words always means a VSS tag. "Search the X, Y,
   Z cameras" = `vss_search_video` with `tags` = the tags for X, Y and Z.

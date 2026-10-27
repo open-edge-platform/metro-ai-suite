@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 # Virtual Security Guard Agent
 
 **Virtual Security Guard Agent (VSG)** is an operator console for **Argus**, an AI
-security agent that runs on a **Hermes**
+security agent persona that runs on a **Hermes**
 agent server. Argus searches recorded and live camera footage through Intel®
 **Video Search and Summarization (VSS)**. Hermes cannot show video or images,
 so VSG renders what Argus finds: match grids for human review, a floorplan
@@ -43,7 +43,6 @@ route, live camera matches, and PDF incident reports.
 :hidden:
 
 get-started.md
-quick-start-guide.md
 how-to-guides.md
 how-it-works.md
 known-issues.md

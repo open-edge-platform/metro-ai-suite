@@ -12,7 +12,6 @@ directory. `make help` lists them all.
 
 - GNU Make.
 - Docker, for `make build`, `make up` and `make push`.
-- Node.js 22, for `make install`, `make dev` and `make dev-mock`.
 
 ## Build the Image
 
