@@ -307,6 +307,7 @@ class MqttSubscriber:
 
         event = AnalyticsEvent(
             kind="loitering",
+            title="Loitering detected",
             text=text,
             timestamp=datetime.now(tz=timezone.utc),
             app_id=publish_context.app_id if publish_context else "dls_vision",

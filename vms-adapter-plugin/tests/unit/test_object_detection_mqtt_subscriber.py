@@ -89,6 +89,7 @@ async def test_status_event_publishes_neutral_loitering_event(mock_vms_shim):
     camera_id, event = mock_vms_shim.publish_event.call_args.args
     assert camera_id == "nx:cam1"
     assert event.kind == "loitering" and event.app_id == "ld"
+    assert event.title == "Loitering detected"  # the app, not the VMS shim, names its event
     assert isinstance(event.timestamp, datetime)
     # Same text the Nx bookmark used before, so Nx output is unchanged
     assert event.text == "pedestrian 7 loitering 6.2s in zone region1"

@@ -178,7 +178,7 @@ MQTT broker:
   loitering threshold, published by the Loitering Detection app. Each row becomes a vendor-neutral
   `AnalyticsEvent` (with the loiterer's latest box from the metadata topic, when known) published
   via `publish_event()`: Nx stores it as a bookmark; Milestone sends an `ANALYTICS_EVENT` named
-  "Loitering detected" (configurable with `event_name`) to the app's `{app_id}-events` topic.
+  "Loitering detected" (class `VAP event`) to the app's `{app_id}-events` topic.
 
 ### React Analytics Provider Dashboard (`ui/`)
 

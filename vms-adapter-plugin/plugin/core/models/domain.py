@@ -168,6 +168,9 @@ class AnalyticsEvent(BaseModel):
 
     kind: Literal["caption", "loitering"] = "caption"
     text: str
+    # Short human-readable event title chosen by the app (e.g. "Loitering detected");
+    # VMSs that have an event name show it. Empty: the VMS falls back to the kind.
+    title: str = ""
     timestamp: datetime
     app_id: str
     run_id: str | None = None

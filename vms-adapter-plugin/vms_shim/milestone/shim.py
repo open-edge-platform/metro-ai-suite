@@ -579,11 +579,7 @@ class MilestoneVmsShim(IVmsShim):
                 event.text, camera_id, snapshot_jpeg_b64=event.snapshot_jpeg_b64,
             )
         else:
-            doc = occurrence_to_event(
-                event, camera_id, self._options.get("class_map"),
-                event_class=self._options.get("event_class"),
-                event_name=self._options.get("event_name"),
-            )
+            doc = occurrence_to_event(event, camera_id, self._options.get("class_map"))
         ok = await self.push_analytics_event(camera_id, doc, event.app_id)
         if ok:
             self._last_event_at[key] = now

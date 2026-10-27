@@ -47,12 +47,6 @@ vms_instances:
       # object for loitering (per camera for LVC captions), so chatty apps don't
       # flood the XProtect event list and alarms. 0 or omitted disables throttling.
       event_min_interval_s: 10
-      # Name and class given to discrete occurrence events (for example loitering;
-      # captions use their own text as the name). Define an analytics event with this
-      # exact name in XProtect and trigger the alarm on it. If unset, the name is the
-      # event kind and the class is the app id.
-      event_name: "${MILESTONE_EVENT_NAME:-Loitering detected}"
-      event_class: "Loitering Detection"
 
 analytics_apps:
   # - type: live_captioning

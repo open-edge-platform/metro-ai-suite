@@ -772,21 +772,20 @@ def _loitering_event(track_id=7, with_box=True):
         x_min=0.2, y_min=0.3, x_max=0.4, y_max=0.9,
     )
     return AnalyticsEvent(
-        kind="loitering", text=f"pedestrian {track_id} loitering 6.2s in zone region1",
+        kind="loitering", title="Loitering detected",
+        text=f"pedestrian {track_id} loitering 6.2s in zone region1",
         timestamp=datetime.now(tz=timezone.utc), app_id="dls_vision",
         label="pedestrian", track_id=track_id, zone="region1", dwell_s=6.2,
         objects=[box] if with_box else [],
     )
 
 
-def test_occurrence_to_event_has_configured_name_and_outlined_trigger_object():
-    from vms_shim.milestone.analytics_event import occurrence_to_event
+def test_occurrence_to_event_uses_app_title_fixed_class_and_outlined_trigger_object():
+    from vms_shim.milestone.analytics_event import EVENT_CLASS, occurrence_to_event
 
-    doc = occurrence_to_event(
-        _loitering_event(), f"milestone:{COMPOSITE_ID}",
-        event_name="Loitering detected", event_class="Loitering Detection",
-    )
-    assert doc["name"] == "Loitering detected" and doc["class"] == "Loitering Detection"
+    doc = occurrence_to_event(_loitering_event(), f"milestone:{COMPOSITE_ID}")
+    assert doc["name"] == "Loitering detected"      # the app's title, no config
+    assert doc["class"] == EVENT_CLASS == "VAP event"
     assert doc["subclass"] == "loitering"
     text = json.dumps(doc)
     assert "pedestrian 7 loitering 6.2s in zone region1" in text  # description
@@ -818,7 +817,7 @@ async def test_publish_loitering_event_posts_to_the_apps_event_topic(milestone_c
     assert calls == [("dls_vision-events", False)]
     sink, doc, content_type = posted[0]
     assert (sink, content_type) == ("http://sink/events", "text/json")
-    assert "pedestrian 7 loitering" in json.dumps(doc)  # description; name comes from event_name
+    assert "pedestrian 7 loitering" in json.dumps(doc)  # description
 
 
 async def test_publish_event_throttle_is_per_track_for_loitering(milestone_config, monkeypatch):
@@ -964,18 +963,8 @@ def test_label_moves_below_a_box_touching_the_top_edge():
     assert y < 0.6
 
 
-@pytest.mark.parametrize(("option", "expected"), [
-    (None, "Loitering"),                          # unset: the event kind, capitalised
-    ("", "Loitering"),                            # blank falls back
-    ("  ", "Loitering"),
-    ("Intrusion in zone", "Intrusion in zone"),   # configured
-    ("  Intrusion in zone  ", "Intrusion in zone"),  # whitespace trimmed
-])
-async def test_publish_event_uses_configured_event_name(milestone_config, monkeypatch, option, expected):
-    options = dict(milestone_config.vendor_options)
-    if option is not None:
-        options["event_name"] = option
-    shim = MilestoneVmsShim(milestone_config.model_copy(update={"vendor_options": options}))
+async def _publish_and_capture(milestone_config, monkeypatch, event):
+    shim = MilestoneVmsShim(milestone_config)
     posted = []
 
     async def fake_sink(topic, *, metadata=True):
@@ -987,26 +976,29 @@ async def test_publish_event_uses_configured_event_name(milestone_config, monkey
 
     monkeypatch.setattr(shim, "get_topic_sink_url", fake_sink)
     monkeypatch.setattr(shim, "_post_to_topic", fake_post)
-
-    assert await shim.publish_event(f"milestone:{COMPOSITE_ID}", _loitering_event()) is True
-    assert posted[0]["name"] == expected
-    assert posted[0]["class"] == "dls_vision"   # unset event_class: the app id
+    assert await shim.publish_event(f"milestone:{COMPOSITE_ID}", event) is True
+    return posted[0]
 
 
-async def test_event_name_option_does_not_rename_captions(milestone_config, monkeypatch):
-    options = {**milestone_config.vendor_options, "event_name": "Loitering detected"}
-    shim = MilestoneVmsShim(milestone_config.model_copy(update={"vendor_options": options}))
-    posted = []
+async def test_published_occurrence_has_app_title_and_fixed_class(milestone_config, monkeypatch):
+    doc = await _publish_and_capture(milestone_config, monkeypatch, _loitering_event())
+    assert (doc["name"], doc["class"], doc["subclass"]) == ("Loitering detected", "VAP event", "loitering")
 
-    async def fake_sink(topic, *, metadata=True):
-        return "http://sink/events"
 
-    async def fake_post(sink, body, content_type):
-        posted.append(json.loads(body))
-        return True
+async def test_occurrence_without_title_falls_back_to_the_kind(milestone_config, monkeypatch):
+    event = _loitering_event().model_copy(update={"title": "  "})
+    doc = await _publish_and_capture(milestone_config, monkeypatch, event)
+    assert doc["name"] == "Loitering"
 
-    monkeypatch.setattr(shim, "get_topic_sink_url", fake_sink)
-    monkeypatch.setattr(shim, "_post_to_topic", fake_post)
+
+async def test_vendor_options_do_not_change_event_name_or_class(milestone_config, monkeypatch):
+    options = {**milestone_config.vendor_options, "event_name": "x", "event_class": "y"}
+    config = milestone_config.model_copy(update={"vendor_options": options})
+    doc = await _publish_and_capture(config, monkeypatch, _loitering_event())
+    assert (doc["name"], doc["class"]) == ("Loitering detected", "VAP event")
+
+
+async def test_caption_keeps_its_text_as_name_with_fixed_class(milestone_config, monkeypatch):
     from datetime import timezone
 
     from plugin.core.models.domain import AnalyticsEvent
@@ -1015,5 +1007,5 @@ async def test_event_name_option_does_not_rename_captions(milestone_config, monk
         kind="caption", text="a red car passes",
         timestamp=datetime.now(tz=timezone.utc), app_id="live_captioning",
     )
-    assert await shim.publish_event(f"milestone:{COMPOSITE_ID}", caption) is True
-    assert posted[0]["name"] == "a red car passes"
+    doc = await _publish_and_capture(milestone_config, monkeypatch, caption)
+    assert (doc["name"], doc["class"], doc["subclass"]) == ("a red car passes", "VAP event", "caption")

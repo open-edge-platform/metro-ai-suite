@@ -33,7 +33,8 @@ Each event looks like this in XProtect:
 
 | Field | Value |
 |---|---|
-| Name | `Loitering detected` by default. Configurable with `event_name`; define an analytics event with the same name in XProtect (Step 3) |
+| Name | `Loitering detected`. Shown in the event data; it is not what raises the alarm (see Step 3) |
+| Class | `VAP event` (fixed) |
 | Description | e.g. `pedestrian 12 loitering 6.0s in zone region1` |
 | Source | The camera the pipeline runs on |
 | Object | The loiterer, as the triggering object. With an outline and a mapped class (e.g. `Human`) when VAP has seen the person's box in the last 5 s; otherwise the detector label only |
@@ -72,19 +73,7 @@ vms_instances:
       # Minimum seconds between events for the same camera and person.
       # 0 or omitted sends every row (about one event per second per loiterer).
       event_min_interval_s: 10
-      # Name and class of occurrence events such as loitering. Define an analytics
-      # event with this exact name in XProtect (Step 3).
-      event_name: "${MILESTONE_EVENT_NAME:-Loitering detected}"
-      event_class: "Loitering Detection"
 ```
-
-`event_name` and `event_class` are generic: they apply to every discrete occurrence
-event VAP sends to this Milestone instance, not only to loitering. Live Video
-Captioning events are not affected, because each caption is its own event name.
-`event_name` can also be set with `MILESTONE_EVENT_NAME` in VAP's `.env`; its default
-is `Loitering detected`. If it is blank or removed, the name falls back to the event
-kind (`Loitering`) and the class to the app id (`dls_vision`). Restart the backend
-after changing it, and update the analytics event in XProtect to match.
 
 How long a person must stay in the zone to count as loitering is set in two places
 that should hold the same value:
@@ -124,22 +113,22 @@ Expected:
 Unlike detection metadata, events are delivered without ticking the topic on
 the camera's **Processing server** tab.
 
-## Step 3: Define the analytics event in Management Client
+## Step 3: Check the analytics event in Management Client
 
-The event's name has to match what VAP sends: **`Loitering detected`** by default, or
-the value of `event_name` if you changed it.
+AI Bridge creates the analytics event for you when VAP registers the app. You don't
+add one by hand, and the event name and class VAP sends are not used to match it:
+in testing, events with different names and classes all raised the same alarm.
 
 1. In **Tools → Options → Analytics Events**, make sure analytics events are
    **enabled**. If address filtering is on, allow the AI Bridge host.
-2. Go to **Rules and Events → Analytics Events**, right-click, and choose
-   **Add New**.
-3. Set **Name** to exactly `Loitering detected` (or your `event_name`).
-   Case and spacing must be identical.
-4. Save.
-
-AI Bridge also creates an entry named like `Loitering Detection / dls_vision-events`
-when VAP registers the app. Alarms that trigger on that entry are **not** raised for
-VAP's loitering events. Use the event you defined above.
+2. Go to **Rules and Events → Analytics Events**. You should see an entry named
+   `<app name> / <topic>`, for example **`Loitering Detection / dls_vision-events`**,
+   with the description "Loitering occurrences as analytics events". If it is
+   missing, restart the VAP backend to re-register the app and check again.
+3. **Restart the XProtect Event Server service** after VAP registers or re-registers
+   the app (the first time, and after any AI Bridge or VAP restart that recreates the
+   topics). Until you do, the Event Server can keep using the old event, and VAP's
+   events reach XProtect without raising alarms.
 
 ## Step 4: Create the alarm definition
 
@@ -148,17 +137,14 @@ VAP's loitering events. Use the event you defined above.
 
    | Field | Value |
    |---|---|
-   | Name | e.g. `Loitering` |
-   | Triggering event | **Analytics Events** → **Loitering detected** (the event from Step 3) |
+   | Name | Anything, e.g. `Loitering` |
+   | Triggering event | **Analytics Events** → **Loitering Detection / dls_vision-events** (from Step 3) |
    | Sources | The cameras running Loitering Detection, or all cameras |
    | Time profile | **Always**, or your own schedule |
    | Related cameras | The same cameras, so the alarm opens with video |
    | Priority / category | As required |
 
 3. Save.
-
-If the event name in XProtect and the name VAP sends differ, VAP and AI Bridge still
-report success, but no alarm is raised.
 
 ## Step 5: View alarms in Smart Client
 
@@ -188,7 +174,7 @@ docker logs -f <aibridge-proxy-container> 2>&1 | grep "Sending analytics event"
 |---|---|
 | No `loitering_event_published` in VAP logs | `events_enabled: true`; the flattener is running and its `DEST_TOPIC_SUFFIX` matches `event_topic_suffix`; the pipeline was started through VAP (topic `{prefix}/milestone:{dev}~{stream}`). Rows are only published once someone loiters longer than the threshold. |
 | `result=False` in VAP logs | The `dls_vision-events` topic is missing in AI Bridge: restart the backend to re-register, then repeat Step 2. |
-| AI Bridge logs `succeeded` but no alarm | The analytics event you defined in XProtect has exactly the name in `event_name` (default `Loitering detected`, case and spacing exact) and the alarm triggers on it, not on the auto-created `<app> / <topic>` entry; analytics events are enabled and the AI Bridge host is allowed; the alarm's sources include the camera; the alarm is enabled and its time profile covers now. |
+| AI Bridge logs `succeeded` but no alarm | Restart the XProtect Event Server (Step 3). Then check that the alarm triggers on the auto-created `<app> / <topic>` analytics event; that analytics events are enabled and the AI Bridge host is allowed; that the alarm's sources include the camera; and that the alarm is enabled with a time profile that covers now. The event name and class are not what to check. |
 | Too many alarms | VAP sends one event per row, about one per second per loiterer. Set `vendor_options.event_min_interval_s`. |
 | Alarm has no outline | VAP had not seen that person's box on the metadata topic in the previous 5 s (`with_box=False` in the log). |
 
