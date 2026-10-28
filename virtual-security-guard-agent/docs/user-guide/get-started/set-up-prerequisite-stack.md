@@ -33,6 +33,7 @@ export MINIO_ROOT_USER=<user> MINIO_ROOT_PASSWORD=<password>
 export POSTGRES_USER=<user> POSTGRES_PASSWORD=<password>
 export RABBITMQ_USER=<user> RABBITMQ_PASSWORD=<password>
 export MULTIMODAL_EMBEDDING_MODEL="MarketaJu/siglip2-person-description-reid"
+export DATAPREP_DETECTION_MODEL="OpenVINO/yolox_s-int8-ov"
 source setup.sh --search
 ```
 
