@@ -1,6 +1,10 @@
 #!/bin/bash
 
 DLSPS_NODE_IP="localhost"
+ENV_FILE="$(dirname "$(readlink -f "$0")")/../.env"
+SCENESCAPE_ENABLED=$(grep -E "^SCENESCAPE_ENABLED=" "$ENV_FILE" 2>/dev/null | cut -d '=' -f2 | tr -d '"' | tr -d "'")
+# Seconds between starting consecutive zone pipelines, so each zone shows a different point of the video
+ZONE_START_DELAY=${ZONE_START_DELAY:-2}
 
 function run_sample() {
   pipelines=$1
@@ -17,6 +21,37 @@ function run_sample() {
   echo
   echo -n ">>>>>Initialization..."
   for x in $(seq 1 $pipelines); do
+    if [ "$SCENESCAPE_ENABLED" = "true" ]; then
+      # Metadata goes to SceneScape via the sscape_adapter in the pipeline; only video is published here
+      payload=$(cat <<EOF
+   {
+    "source": {
+        "uri": "file:///home/pipeline-server/videos/new_video_$x.mp4",
+        "type": "uri"
+    },
+    "destination": {
+        "frame": {
+            "type": "webrtc",
+            "peer-id": "object_detection_$x",
+            "overlay-properties": {
+                "font-scale": 1.0,
+                "draw-txt-bg": false
+            }
+        }
+    },
+    "parameters": {
+        "ntp_config": {
+            "ntpServer": "ntpserv"
+        },
+        "camera_config": {
+            "cameraid": "sp_cam_zone$x",
+            "metadatagenpolicy": "parkingPolicy"
+        }
+    }
+  }
+EOF
+)
+    else
     payload=$(cat <<EOF
    {
     "source": {
@@ -41,12 +76,13 @@ function run_sample() {
   }
 EOF
 )
+    fi
     response=$(curl -k  -s "https://$DLSPS_NODE_IP/api/pipelines/user_defined_pipelines/${pipeline_name}" -X POST -H "Content-Type: application/json" -d "$payload")
     if [ $? -ne 0 ]; then
       echo -e "\nError: curl -k command failed. Check the deployment status."
       return 1
     fi
-    sleep 2
+    sleep "$ZONE_START_DELAY"
     pipeline_list+=("$response")
   done
   running=false
@@ -167,5 +203,8 @@ elif $forcedCPU; then
 fi
 
 echo -e "\n>>>>>Results are visualized in Grafana at 'https://localhost/grafana' "
+if [ "$SCENESCAPE_ENABLED" = "true" ]; then
+  echo -e "\n>>>>>SceneScape scenes are available at 'https://localhost/' "
+fi
 echo -e "\n>>>>>Pipelines status can be checked with 'curl -k --location -X GET https://localhost/api/pipelines/status' or using script 'sample_status.sh'. \n"
 
