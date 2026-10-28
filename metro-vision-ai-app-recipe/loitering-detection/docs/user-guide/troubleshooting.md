@@ -121,7 +121,7 @@ to file new tickets there (after learning about the guidelines for
 
 ## Troubleshooting the Console UI
 
-See [Getting started - Loitering Detection Console UI](./getting-started-ui.md) for normal
+See [Getting started - Loitering Detection Console UI](./get-started-ui.md) for normal
 usage; the issues below are specific to it.
 
 
@@ -138,7 +138,7 @@ usage; the issues below are specific to it.
 2. **No bounding boxes on a stream**
 
    - Detection runs on the full frame and every detected object gets a box regardless of zone
-     (see [How detection and zones interact](./getting-started-ui.md#how-detection-and-zones-interact)),
+     (see [How detection and zones interact](./get-started-ui.md#how-detection-and-zones-interact)),
      so a missing box means the model did not detect that object that frame (confidence below
      the pipeline's threshold), not a zone restriction. Check the stream's raw MQTT topic to
      confirm, or try different model for better recall on some object types/angles.

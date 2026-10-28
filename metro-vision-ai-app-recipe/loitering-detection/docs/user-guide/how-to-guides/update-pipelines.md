@@ -119,6 +119,6 @@ confirmed in `dlstreamer-pipeline-server`'s own logs, where a zone/model change 
 
 ## Related
 
-- [Getting started - Loitering Detection Console UI](../getting-started-ui.md) - the operator-facing side of zones/models/devices.
+- [Getting started - Loitering Detection Console UI](../get-started-ui.md) - the operator-facing side of zones/models/devices.
 - `loitering-detection/sample_start.sh` - the CLI equivalent of the Console UI's `_launch`, useful
   as a second working reference for the same `parameters` schema.
