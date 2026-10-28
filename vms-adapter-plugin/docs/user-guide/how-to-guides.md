@@ -14,9 +14,9 @@ Step-by-step guides for common VAP workflows and integrations.
 
 - [Run Both Applications Simultaneously](./how-to-guides/run-simultaneous-apps.md) — Bring up both Live Video Captioning and Loitering Detection applications on the same host as VAP, with proper configuration for each application to avoid port conflicts.
 
-- [Milestone XProtect via Milestone AI Bridge](./how-to-guides/milestone-ai-bridge.md) — Configure VAP as an IVA app on Milestone AI Bridge: prerequisites, `vendor_options` reference, camera discovery, IVA registration, and the capability matrix for this VMS.
+## Integrations
 
-- [Loitering Events and Alarms in Milestone XProtect](./how-to-guides/milestone-loitering-events.md) — Send Loitering Detection occurrences to XProtect as analytics events, define the event and an alarm in Management Client, and view alarms in Smart Client's Alarm Manager.
+- [Milestone XProtect Integration](./how-to-guides/integrations/milestone/index.md) — Connect VAP to Milestone XProtect through Milestone AI Bridge: concepts, XProtect and AI Bridge setup, running Loitering Detection on XProtect cameras with overlays in Smart Client, loitering events and alarms, and a configuration and troubleshooting reference.
 
 <!--hide_directive
 :::{toctree}
@@ -26,8 +26,7 @@ Tutorial: LVC with NX Witness <./how-to-guides/lvc-with-nx-witness.md>
 Tutorial: Loitering Detection with NX Witness <./how-to-guides/dls-vision-with-nx-witness.md>
 Run Simultaneous Applications <./how-to-guides/run-simultaneous-apps.md>
 TLS and Certificates <./how-to-guides/tls-and-certificates.md>
-Milestone AI Bridge <./how-to-guides/milestone-ai-bridge.md>
-Milestone Loitering Events and Alarms <./how-to-guides/milestone-loitering-events.md>
+Integrations <./how-to-guides/integrations>
 
 :::
 hide_directive-->
