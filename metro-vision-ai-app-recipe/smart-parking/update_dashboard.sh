@@ -32,7 +32,9 @@ else
 fi
 
 if [ -n "$DASH_DIR" ]; then
-  for file in "$DASH_DIR"/*.json; do
+  # src/grafana/data/dashboards holds the SceneScape (ss mode) dashboard
+  for file in "$DASH_DIR"/*.json ./src/grafana/data/dashboards/*.json; do
+    [ -f "$file" ] || continue
     [ -f "$file" ] && sed -i "s|\"text\": *\"https://[0-9]\{1,3\}\(\.[0-9]\{1,3\}\)\{3\}/|\"text\": \"https://$HOST_IP/|g" "$file" 
   sed -i "s|\"value\": *\"https://[0-9]\{1,3\}\(\.[0-9]\{1,3\}\)\{3\}/|\"value\": \"https://$HOST_IP/|g" "$file"
   sed -i "s|\"query\": *\"https://[0-9]\{1,3\}\(\.[0-9]\{1,3\}\)\{3\}/|\"query\": \"https://$HOST_IP/|g" "$file"

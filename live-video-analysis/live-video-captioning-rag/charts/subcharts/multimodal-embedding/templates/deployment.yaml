@@ -29,6 +29,10 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+      {{- with .Values.podSecurityContext.supplementalGroups }}
+        supplementalGroups:
+          {{- toYaml . | nindent 10 }}
+      {{- end }}
       containers:
         - name: multimodal-embedding
           envFrom:
@@ -48,7 +52,13 @@ spec:
             {{- toYaml .Values.readinessProbe | nindent 12 }}
           startupProbe:
             {{- toYaml .Values.startupProbe | nindent 12 }}
-      {{- if .Values.global.embeddingModel.useGPU.enabled }}
+      {{- if .Values.global.embeddingModel.useNPU.enabled }}
+          resources:
+            requests:
+               {{ .Values.global.embeddingModel.useNPU.key}}: 1
+            limits:
+              {{ .Values.global.embeddingModel.useNPU.key}}: 1
+      {{- else if .Values.global.embeddingModel.useGPU.enabled }}
           resources:
             requests:
                {{ .Values.global.embeddingModel.useGPU.key}}: 1
@@ -73,6 +83,10 @@ spec:
               mountPath: /app/ov_models
               subPath: ovmodels
       {{- end }}
+      {{- if .Values.global.embeddingModel.useNPU.enabled }}
+            - name: accel-device
+              mountPath: /dev/accel
+      {{- end }}
       volumes:
         - name: tmp
           emptyDir: {}
@@ -80,6 +94,12 @@ spec:
         - name: dri-device
           hostPath:
             path: /dev/dri
+            type: Directory
+      {{- end }}
+      {{- if .Values.global.embeddingModel.useNPU.enabled }}
+        - name: accel-device
+          hostPath:
+            path: /dev/accel
             type: Directory
       {{- end }}
       {{- if and (.Values.global.usePvc) (.Values.global.embeddingModel.useGPU.enabled) }}
