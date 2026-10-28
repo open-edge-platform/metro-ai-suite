@@ -1,4 +1,4 @@
-# Getting started - Loitering Detection Console UI
+# Get Started - Loitering Detection Console UI
 
 The Loitering Detection Console is the sample application's operator UI: a single page to
 start/stop video analytics streams, pick a model and device, draw an evaluation zone, and watch
@@ -16,9 +16,13 @@ Server's REST API directly.
 
 1. **Clone the Suite**:
 
+   Go to the target directory of your choice and clone the suite.
+   If you want to clone a specific release branch, replace `main` with the desired tag.
+   To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
+
    ```bash
-   git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suites.git
-   cd metro-ai-suites
+   git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
+   cd metro-ai-suite
    git sparse-checkout set metro-vision-ai-app-recipe
    cd metro-vision-ai-app-recipe/
    ```
@@ -53,7 +57,9 @@ Server's REST API directly.
      - The application starts the following microservices.
      - To check if all microservices are in Running state:
 
-          docker ps
+       ```bash
+       docker ps
+       ```
 
      **Expected Services:**
      - Grafana Dashboard
@@ -71,22 +77,21 @@ Server's REST API directly.
      > Run `./sample_start.sh` separately (no flags) if you also want the 4 fixed sample
      > pipelines - the Console UI starts and stops its own pipelines independently of that script.
 
-3. **Starting pipelines**:
+3. **Start the pipelines**:
    - **Number of pipelines** defaults to 1, each with its own **Pipeline N** card below it for
      **Source**, **Model** and **Device** - all pre-filled with defaults, so you can click
-     **Start pipelines** right away to see video with live detections - no field needs to
-     be touched first. Raise **Number of pipelines** to add more cards (e.g. to compare two
+     **Start pipelines** right away to see video with live detections. Raise the **Number of pipelines** to add more cards (e.g., to compare two
      models on the same source side by side).
    - Each pipeline gets its own panel titled **Pipeline N · source · model · device**, with a live
      WebRTC view and a per-object loiter table underneath it.
-   - Need a different zone first? See [Changing the zone](#changing-the-zone) below - zones are
+   - Need a different zone first? See [Change the zone](#change-the-zone) below - zones are
      set by drawing on a pipeline's video after it starts, not from the rail.
 
 ## Customization
 
 ### Number of pipelines
 
-Raising **Number of pipelines** (1-8) adds one **Pipeline N** card per unit increase, each a
+Raising the **Number of pipelines** (1-8) adds one **Pipeline N** card per unit increase, each a
 fully independent pipeline with its own Source/Model/Device - every pipeline you start becomes
 its own DL Streamer Pipeline Server instance and its own panel, so they can run different
 sources, models or devices at once, or the exact same ones for a true side-by-side comparison.
@@ -107,15 +112,15 @@ selection - so two freshly added pipelines start out identically configured. Cha
 you want to differ (typically **Model**, to compare) before clicking **Start pipelines**; only
 one card expands at a time (click another card's header to switch to it).
 
-### Example: comparing two models side by side
+#### Example: compare two models side by side
 
-1. Set **Number of pipelines** to `2`. A **Pipeline 2** card appears below **Pipeline 1**,
+1. Set the **Number of pipelines** to `2`. A **Pipeline 2** card appears below **Pipeline 1**,
    defaulted to the same source/model/device as pipeline 1.
-2. Expand **Pipeline 1** and pick the first model you want to compare (e.g. the default
+2. Expand **Pipeline 1** and pick the first model you want to compare (e.g., the default
    `pedestrian-and-vehicle-detector-adas-0001`) and its **Source** and **Device**.
 3. Expand **Pipeline 2**. Set its **Source** to the *same* video as Pipeline 1 (so both
    pipelines see identical input) and its **Model** to the second model you want to compare
-   (e.g. `yolo11s` - see [Adding a model to compare](#adding-a-model-to-compare) if it is not
+   (e.g., `yolo11s` - see [Add a model to compare](#add-a-model-to-compare) if it is not
    listed yet). Leave **Device** as-is, or change it too if you also want to compare devices
    rather than just models.
 4. Click **Start pipelines**. Two panels appear side by side, titled
@@ -127,13 +132,14 @@ one card expands at a time (click another card's header to switch to it).
    **Pipeline 3** card before clicking **Start pipelines** again - pipelines 1 and 2 keep running
    unaffected; only the newly started one is added alongside them.
 
-### Changing the video, model or device
+### Change the video, model or device
 
 Each pipeline card has its own:
+
 - **Source**: pick a bundled sample video from the **Camera / stream** dropdown, or type an
   RTSP URL instead. The RTSP field takes priority when filled in. See
-  [Changing the video source](#changing-the-video-source) below to add another bundled option.
-- **Model**: choose the model to run. See [Adding a model to compare](#adding-a-model-to-compare)
+  [Change the video source](#change-the-video-source) below to add another bundled option.
+- **Model**: choose the model to run. See [Add a model to compare](#add-a-model-to-compare)
   below to add another option - with two or more pipelines you can run different models on the
   same source side by side for comparison.
 - **Device**: CPU, GPU or NPU. GPU is pre-selected because it gives the best throughput on
@@ -141,25 +147,25 @@ Each pipeline card has its own:
 - **Pipeline configuration**: for how Start/Stop map to DL Streamer Pipeline Server REST calls
   and element properties, see [Updating the Pipeline](./how-to-guides/update-pipelines.md).
 
-### Adding a model to compare
+### Add a model to compare
 
 The **Model** dropdown lists whatever is under the mounted model store
 (`loitering-detection/src/dlstreamer-pipeline-server/models/`) as `<model>.xml` + `<model>.bin`
 pairs, with an optional `<model>.json` model_proc beside them. Drop a new model's files into
 that folder using the same layout and click the refresh button (&#x27F3;) next to **Model** -
-no restart or code change is needed. A model whose IR has a dynamic input shape is still listed
-but flagged, since GPU and NPU reject that shape and returns no detections for it;
-re-export the model with a fixed input size to use it on every device.
+no restart or code change is needed. A model whose Intermediate Representation (IR) has a
+dynamic input shape is still listed but flagged, since GPU and NPU reject that shape and
+returns no detections for it; re-export the model with a fixed input size to use it on every device.
 
-### Changing the video source
+### Change the video source
 
 Add a source to the **Camera / stream** dropdown by adding an entry to `SOURCES_JSON` in
 `console-addon/.env` (id, label, and a `file://` or `rtsp://` URI), then restart the `console`
 service. For a one-off source there is no need to edit anything - use the RTSP field instead.
 
-### Changing the zone
+### Change the zone
 
-The Zone (ROI) card has no manual coordinate entry - check **Draw zone on video**, pick
+The Zone card has no manual coordinate entry - check **Draw zone on video**, pick
 **Rectangle (drag)** or **Polygon (click points)**, then draw directly on a running pipeline's
 video. The shape previews there until you apply it with either **Apply to this pipeline**
 (appears on the pipeline you drew on) or the card's **Apply zone to live pipelines** (every live
@@ -184,30 +190,29 @@ draws a box for every detected object - zones do not affect what gets boxed on s
 `gvaanalytics` separately matches each tracked object's position against whichever zone set is
 active for that session - the file's zones by default, or a single custom `OperatorZone`
 rectangle once the operator customises it (never both at once, see
-[Changing the zone](#changing-the-zone)) - and draws each zone's outline in its configured color
-(e.g. the sample config's `Pathway` in red and `Driveway` in cyan; `OperatorZone` draws in green
+[Change the zone](#change-the-zone)) - and draws each zone's outline in its configured color
+(e.g., the sample config's `Pathway` in red and `Driveway` in cyan; `OperatorZone` draws in green
 since the console does not set a color for it). Only objects matched to at least one zone appear
-in the table below and count toward that stream's dwell/loiter stats; an object outside every
-zone is still detected and boxed, it just never shows up there.
+in the table below and count toward that stream's dwell/loiter statistics; an object outside
+every zone is still detected and boxed, it just never shows up there.
 
 A box missing on an object that does look like it should be detected usually means the model
-itself did not detect it that frame (confidence below the pipeline's threshold) — check the
-stream's raw MQTT topic if this needs confirming, or try the `yolo11s` model, which may have
-better recall for some object types/angles than the default
-`pedestrian-and-vehicle-detector-adas-0001`.
+itself did not detect it that frame (meaning confidence is below the pipeline's threshold) —
+check the stream's raw MQTT topic if this needs confirming, or try the `yolo11s` model, which
+may have better recall for some object types/angles than the default `pedestrian-and-vehicle-detector-adas-0001`.
 
-## Reading the panel
+## How to read the panel
 
 - **fps / objects / max dwell / loiter** summarise the stream: they count every object currently
   inside the session's active zone set (the config file's zones by default, or the custom
   `OperatorZone` rectangle once customised), not everything detected in the frame.
 - The table below it lists every object currently inside any of those zones:
   - **Object ID** — the tracker's id for this object.
-  - **Type** — the detected class (e.g. `pedestrian`).
-  - **Zone** — every zone id this object currently matches (e.g. `Pathway, Driveway` if a
+  - **Type** — the detected class (e.g., `pedestrian`).
+  - **Zone** — every zone id this object currently matches (e.g., `Pathway, Driveway` if a
     track spans both polygons), so you can tell which zone(s) a row's dwell time is coming from
-    when more than one file zone is active at once. Only ever shows `OperatorZone` once a
-    custom rectangle has replaced the file's zones.
+    when more than one file zone is active at once. This field only shows `OperatorZone` once
+    a custom rectangle has replaced the file's zones.
   - **Status** — `Present` below the loiter threshold shown under the Zone card, `Loitering`
     at or above it.
   - **Dwell (s)** — `gvaanalytics`'s own measurement for the longest-running zone the object is
@@ -219,4 +224,3 @@ better recall for some object types/angles than the default
 
 See [Troubleshooting the Console UI](./troubleshooting.md#troubleshooting-the-console-ui) for
 UI-specific issues (missing bounding boxes, zone edits, stuck/silent streams).
-

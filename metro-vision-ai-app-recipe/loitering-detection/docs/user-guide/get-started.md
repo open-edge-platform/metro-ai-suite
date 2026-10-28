@@ -60,6 +60,7 @@ By following this guide, you will learn how to:
      </summary>
      - The application starts the following microservices.
      - To check if all microservices are in Running state:
+
        ```bash
        docker ps
        ```
@@ -91,13 +92,14 @@ By following this guide, you will learn how to:
      </summary>
      - To stop the pipelines without waiting for video streams to finish replay:
 
-       > [!NOTE]
+       > [!CAUTION]
        > This will stop all the pipelines and the streams. **DO NOT** run this
-       > if you want to see loitering detection
+       > if you want to see loitering detection!
 
        ```bash
        ./sample_stop.sh
        ```
+
        </details>
 
 3. **View the Application Output**:
@@ -109,13 +111,13 @@ By following this guide, you will learn how to:
    - Check under the Dashboards section for the application-specific preloaded dashboard.
    - **Expected Results**: The dashboard displays real-time video streams with AI overlays and detection metrics.
 
-## **Access the Application and Components**
+## Access the Application and Components
 
-### **Nginx Dashboard**
+### Nginx Dashboard
 
 - **URL**: `https://localhost`
 
-### **Grafana UI**
+### Grafana UI
 
 - **URL**: `https://localhost/grafana`
 - **Log in with credentials**:
@@ -130,19 +132,20 @@ By following this guide, you will learn how to:
   > detection to run on every frame (the pipelines here already run detection
   > on every frame, so this is a direct drop-in). It uses image data for
   > re-identification, unlike the imageless trackers.
-
-  > [!NOTE]
+  >
+  > ---
+  >
   > Detection (`gvadetect`) and tracking (`gvatrack`) always run on the full video frame —
   > there is no element cropping input to the zone polygons. Only the `gvaanalytics` element
   > restricts its output to the configured zones: objects outside every zone are still
   > detected and tracked, just not reported as present/dwelling in a zone.
 
-### **DL Streamer Pipeline Server**
+### DL Streamer Pipeline Server
 
 - **REST API**: `https://localhost/api/pipelines/status`
 - **WebRTC**: `https://localhost/mediamtx/object_tracking_1/`
 
-### **Tuning or disabling the dwell-time overlay**
+### Tuning or disabling the dwell-time overlay
 
 The on-screen dwell-time dashboard text (drawn by `loitering_watermark`) is controlled by two
 REST-overridable properties, set via `loitering-watermark-properties` in the launch payload used
@@ -161,9 +164,11 @@ by `sample_start.sh` — no code or pipeline changes needed:
   > [!NOTE]
   > Pipeline parameters are only read when a pipeline starts, so editing the payload value
   > alone does not affect an already-running pipeline — it must be restarted.
+
   > [!IMPORTANT]
-  > `loitering-threshold` must be a JSON number (e.g. `7.0`), not a quoted string (`"7.0"`)
-- `quiet-mode`: set to `"true"` to suppress the on-screen text entirely (e.g. to rely on the
+  > `loitering-threshold` must be a JSON number (e.g., `7.0`), not a quoted string (`"7.0"`)
+
+- `quiet-mode`: set to `"true"` to suppress the on-screen text entirely (e.g., to rely on the
   Grafana table only); `"false"` to re-enable it.
 
 Example REST payload fragment (see `sample_start.sh` for the full launch payload):
@@ -182,7 +187,7 @@ Example REST payload fragment (see `sample_start.sh` for the full launch payload
 This only affects the on-screen text; zone outlines/bounding boxes and the Grafana table are
 unaffected.
 
-## **Stop the Application**
+## Stop the Application
 
 - To stop the application microservices, use the following command:
 

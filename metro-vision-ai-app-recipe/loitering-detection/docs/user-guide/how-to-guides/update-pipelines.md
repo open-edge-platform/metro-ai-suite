@@ -85,7 +85,7 @@ matching `config.json`'s schema:
 | Request key | Element it targets | What it sets |
 | --- | --- | --- |
 | `detection-properties` | `detection` (`gvadetect`) | `model`, `device`, `model-instance-id`, `model_proc` |
-| `analytics-properties` | `analytics` (`gvaanalytics`) | `config` (a zone file under `src/dlstreamer-pipeline-server/zones/`, see [Adding a new stream](./customize-application.md#adding-a-new-stream)), or `zones` - the file's zones, or a single custom rectangle, never both (see [Getting started - Loitering Detection Console UI](../getting-started-ui.md#changing-the-zone)) |
+| `analytics-properties` | `analytics` (`gvaanalytics`) | `config` (a zone file under `src/dlstreamer-pipeline-server/zones/`, see [Adding a new stream](./customize-application.md#adding-a-new-stream)), or `zones` - the file's zones, or a single custom rectangle, never both (see [Getting started - Loitering Detection Console UI](../get-started-ui.md#changing-the-zone)) |
 | `loitering-watermark-properties` | `loitering_watermark` | `quiet-mode`, `loitering-threshold` |
 
 There is **no live-update path**: changing any of these (switching model, device, or zone)
@@ -114,6 +114,6 @@ confirmed in `dlstreamer-pipeline-server`'s own logs, where a zone/model change 
 
 ## Related
 
-- [Getting started - Loitering Detection Console UI](../getting-started-ui.md) - the operator-facing side of zones/models/devices.
+- [Getting started - Loitering Detection Console UI](../get-started-ui.md) - the operator-facing side of zones/models/devices.
 - `loitering-detection/sample_start.sh` - the CLI equivalent of the Console UI's `_launch`, useful
   as a second working reference for the same `parameters` schema.

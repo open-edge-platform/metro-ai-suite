@@ -62,7 +62,7 @@ a per-instance MQTT topic and WebRTC peer-id (e.g. `object_tracking_1`).
 -   **How They Work:**
     -   **Detection Model:** `sample_start.sh` always launches with the
     `pedestrian-and-vehicle-detector-adas-0001` model; the
-    [Loitering Detection Console UI](../getting-started-ui.md) can launch any model placed under
+    [Loitering Detection Console UI](../get-started-ui.md) can launch any model placed under
     `src/dlstreamer-pipeline-server/models/` instead, picked per stream at start time - no
     pipeline or `config.json` change needed either way. `gvadetect` runs with
     `inference-region=0`, so detection happens on the full frame, not just the configured
@@ -260,7 +260,7 @@ per-object dashboard line (`<zone_id>: <type>-<id> : <dwell_time>s`) for every t
 that has zone/dwell data, regardless of its detected class name (so it works the same whether
 the launched model reports `pedestrian`, `person`, or anything else) - turning red once dwell
 time crosses the configured `loitering-threshold` (default `5.0` seconds). See [Get Started](../get-started.md) for how to tune or disable this overlay via REST parameters at
-launch time & [Getting started - Loitering Detection Console UI](../getting-started-ui.md) for how to toggle
+launch time & [Getting started - Loitering Detection Console UI](../get-started-ui.md) for how to toggle
 this overlay per stream from the Console UI.
 
 
