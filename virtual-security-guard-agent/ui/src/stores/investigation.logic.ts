@@ -9,7 +9,7 @@ import {
   type SearchGrounding,
 } from "@/protocol/grounding";
 import { extractDirectives, stripDirectives } from "@/protocol/parser";
-import { toDatastorePath } from "@/lib/urls";
+import { redactUrl, toDatastorePath } from "@/lib/urls";
 import { hitKey } from "@/lib/hits";
 import { uid } from "@/lib/utils";
 import { sightingHit, type LiveSighting } from "./liveTimeline";
@@ -99,7 +99,7 @@ export function applyRunEvent(t: AgentTurn, ev: RunEvent): AgentTurn {
             id: uid("tool"),
             tool: ev.tool,
             name: shortToolName(ev.tool),
-            args: ev.preview,
+            args: redactUrl(ev.preview),
             status: "running",
           },
         ],
@@ -116,7 +116,7 @@ export function applyRunEvent(t: AgentTurn, ev: RunEvent): AgentTurn {
         ...(i >= 0
           ? tools[i]
           : { id: uid("tool"), tool: ev.tool, name: shortToolName(ev.tool) }),
-        preview: ev.preview,
+        preview: redactUrl(ev.preview),
         status: ev.error ? "error" : "done",
       };
       if (i >= 0) tools[i] = done;
@@ -506,7 +506,7 @@ export function turnsFromMessages(messages: HermesMessage[]): Turn[] {
           id: c.id ?? uid("tool"),
           tool: c.name,
           name: shortToolName(c.name),
-          args: c.arguments,
+          args: redactUrl(c.arguments),
           status: "done",
         });
     } else if (m.role === "tool") {
@@ -514,7 +514,8 @@ export function turnsFromMessages(messages: HermesMessage[]): Turn[] {
       const t =
         agent.tools.find((x) => m.toolCallId && x.id === m.toolCallId) ??
         [...agent.tools].reverse().find((x) => !x.preview);
-      if (t) t.preview = m.content.slice(0, 500);
+      // Redact before truncating so a cut can't leave a partial credential.
+      if (t) t.preview = redactUrl(m.content)?.slice(0, 500);
     }
   }
   return turns;

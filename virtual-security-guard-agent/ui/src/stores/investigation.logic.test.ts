@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
+import type { HermesMessage } from "@/adapters/hermes/types";
 import type { VssHit } from "@/adapters/vss/types";
 import { placementInput } from "@/features/map/tags";
 import { hitKey } from "@/lib/hits";
@@ -12,6 +13,7 @@ import {
   newAgentTurn,
   phaseFromTurns,
   subjectImageOf,
+  turnsFromMessages,
   subjectTextOf,
   reviewsFromTurns,
   type AgentTurn,
@@ -278,5 +280,40 @@ describe("applyRunEvent completed", () => {
     expect(applyRunEvent(streamed, { type: "completed" }).text).toBe(
       streamed.text,
     );
+  });
+});
+
+describe("tool call credentials", () => {
+  it("redacts RTSP credentials in tool arguments and previews", () => {
+    const started = applyRunEvent(newAgentTurn(), {
+      type: "tool.started",
+      tool: "vss_add_stream",
+      preview: '{"stream_url":"rtsp://admin:secret@10.0.0.5/live"}',
+    });
+    const done = applyRunEvent(started, {
+      type: "tool.completed",
+      tool: "vss_add_stream",
+      preview: "added rtsp://admin:secret@10.0.0.5/live",
+    });
+    const t = done.tools[0];
+    expect(t.args).toBe('{"stream_url":"rtsp://***@10.0.0.5/live"}');
+    expect(t.preview).toBe("added rtsp://***@10.0.0.5/live");
+  });
+
+  it("redacts a replayed tool result before truncating it", () => {
+    const content = `${" ".repeat(485)}rtsp://admin:secret@10.0.0.5/live`;
+    const turns = turnsFromMessages([
+      { id: "1", role: "user", content: "add camera" },
+      {
+        id: "2",
+        role: "assistant",
+        content: "",
+        toolCalls: [{ id: "c1", name: "vss_add_stream", arguments: "{}" }],
+      },
+      { id: "3", role: "tool", content, toolCallId: "c1" },
+    ] as HermesMessage[]);
+    const preview = (turns[1] as AgentTurn).tools[0].preview ?? "";
+    expect(preview).not.toContain("secr");
+    expect(preview).toContain("rtsp://***@");
   });
 });

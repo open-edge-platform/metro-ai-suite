@@ -94,4 +94,14 @@ describe("stopNumbers", () => {
       1, 2, 3,
     ]);
   });
+
+  it("does not merge visits to one camera split by an off-plan stop", () => {
+    const stops = ["a", "elsewhere", "a"].map((t, i) => ({
+      hit: hit(t, i + 1),
+      order: i + 1,
+    }));
+    const { visits, offMap } = layoutRoute(stops, twoCams);
+    expect(visits.map((v) => v.orders)).toEqual([[1], [3]]);
+    expect(offMap).toHaveLength(1);
+  });
 });

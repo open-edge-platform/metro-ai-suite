@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, Check, ChevronRight, Loader2 } from "lucide-react";
 import type { ToolCallView } from "@/stores/investigation";
+import { redactUrl } from "@/lib/urls";
 import { cn } from "@/lib/utils";
 
 const FRIENDLY: Record<string, string> = {
@@ -28,7 +29,7 @@ function friendly(name: string) {
 /** One agent tool call; expands to show the (truncated) result preview. */
 export function ToolChip({ tool }: { tool: ToolCallView }) {
   const [open, setOpen] = useState(false);
-  const detail = tool.preview ?? tool.args;
+  const detail = redactUrl(tool.preview ?? tool.args);
   return (
     <div className="text-xs">
       <button

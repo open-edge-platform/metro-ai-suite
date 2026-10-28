@@ -20,8 +20,23 @@ export function useRoute(): TraceStop[] {
   return useMemo(() => {
     const stops = routeOf({ turns, reviews }, live);
     // Turns change on every streamed token; keep the same array (and so the
-    // map animation) while the route itself is unchanged.
-    const key = stops.map((s) => hitKey(s.hit)).join("|");
+    // map animation) while the route itself is unchanged. A live sighting keeps
+    // its identity while it grows, so the key covers its mutable fields too.
+    const key = stops
+      .map((s) =>
+        [
+          hitKey(s.hit),
+          s.order,
+          s.at?.getTime(),
+          s.until?.getTime(),
+          s.detections,
+          s.hit.score,
+          s.hit.seekS,
+          s.hit.frame?.timestamp,
+          s.hit.posterUrl,
+        ].join(","),
+      )
+      .join("|");
     if (prev.current?.key !== key) prev.current = { key, stops };
     return prev.current.stops;
   }, [turns, reviews, live]);

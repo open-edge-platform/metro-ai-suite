@@ -18,7 +18,7 @@ model mistakes (trailing commas, smart quotes).
 |---|---|---|---|
 | `vsg-context` | UI → Argus | `image_url`, `limit`; appended to search turns (`protocol/feedback.ts`). Cameras and times come from the prompt text. | - |
 | `vsg-matches` | Argus → UI | `keep`, `note`, `notes`. Hits come from the same reply's `vss_search_video` result. | `ValidationGrid` |
-| `vsg-feedback` | UI → Argus | `vss_query_id`, `confirm`, `reject`, `anchor_image_url`; preceded by a prose summary. Unconfirmed shown matches are sent as `reject`. Only the latest grid can be sent; a repeat replaces its earlier verdicts. | operator bubble |
+| `vsg-feedback` | UI → Argus | `vss_query_id`, `confirm`, `reject`; preceded by a prose summary. Unconfirmed shown matches are sent as `reject`. Only the latest grid can be sent; a repeat replaces its earlier verdicts. | operator bubble |
 | `vsg-report` | Argus → UI | `title`, `preset` (`handover`, `escalation`, `brief`), `summary`, `subject`, `timeline[{ref, note}]`, `observations`, `actions`, `confidence` | `ReportCard` (editable draft and PDF) |
 | `vsg-status` | Argus → UI | `phase` (`search`, `validate`, `trace`, `report`, `idle`), `message` | inline progress line |
 

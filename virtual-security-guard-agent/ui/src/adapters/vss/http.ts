@@ -127,7 +127,9 @@ export function createHttpVss(base: string = env.vssBase): VssAdapter {
       return {
         imageId: typeof body.imageId === "string" ? body.imageId : undefined,
         imageUrl,
-        previewUrl: toDatastorePath(imageUrl, base) ?? imageUrl,
+        // Never point the browser at a host VSS named: fall back to the local file.
+        previewUrl:
+          toDatastorePath(imageUrl, base) ?? URL.createObjectURL(file),
       };
     },
 

@@ -39,14 +39,16 @@ export function layoutRoute(
   const visits: MapVisit[] = [];
   const offMap: TraceStop[] = [];
   const seen = new Map<string, number>();
+  // The visit the previous stop belongs to; an off-plan stop ends it.
+  let last: MapVisit | undefined;
   for (const s of stops) {
     const tag = s.hit.cameraTag;
     const cam = tag ? planCamera(plan, tag) : undefined;
     if (!tag || !cam) {
       offMap.push(s);
+      last = undefined;
       continue;
     }
-    const last = visits[visits.length - 1];
     if (last && last.tag === tag) {
       last.orders.push(s.order);
       continue;
@@ -54,7 +56,7 @@ export function layoutRoute(
     const n = seen.get(tag) ?? 0;
     seen.set(tag, n + 1);
     const angle = -Math.PI / 4 + n * (Math.PI / 2.5);
-    visits.push({
+    last = {
       index: visits.length + 1,
       tag,
       x: cam.x,
@@ -63,7 +65,8 @@ export function layoutRoute(
       my: n ? cam.y + nudge * Math.sin(angle) : cam.y,
       orders: [s.order],
       firstAt: s.at,
-    });
+    };
+    visits.push(last);
   }
   return { visits, offMap };
 }
