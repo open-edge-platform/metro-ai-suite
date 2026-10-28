@@ -12,7 +12,7 @@ Video Search and Summarization (VSS). Hermes cannot show video or images. VSG
 shows what the VSG agent finds instead: match grids for human review, a
 floorplan route, live camera matches, and PDF incident reports.
 
-![Architecture: operator browser, vsg-ui container, Hermes agent, VSS MCP server, VSS gateway and model server](./docs/user-guide/_assets/vsg-architecture.svg)
+![VSG demo: the operator asks the VSG agent to find a worker who fell, confirms two matches from the warehouse camera, and the route appears on the floorplan](./docs/user-guide/_assets/vsg-demo.gif)
 
 ## Get Started
 
