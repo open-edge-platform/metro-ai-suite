@@ -1,5 +1,99 @@
 #!/bin/bash -e
 
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+MODE="${2:-def}"
+
+# Link names mounted by the compose files -> "<default target>|<scenescape target>" (same dir).
+# An empty target means the link must not exist in that mode.
+declare -A CONFIG_LINKS=(
+  [src/dlstreamer-pipeline-server/config.json]="config_without_scenescape.json|config_scenescape.json"
+  [src/grafana/datasources.yml]="datasources_without_scenescape.yml|datasources_scenescape.yml"
+  [src/node-red/flows.json]="flows_without_scenescape.json|flows_scenescape.json"
+  [src/node-red/install_package.sh]="install_package_without_scenescape.sh|install_package_scenescape.sh"
+  [src/node-red/flows_cred.json]="|flows_cred_scenescape.json"
+)
+
+link_target() {
+  IFS='|' read -r def_target ss_target <<< "${CONFIG_LINKS[$1]}"
+  if [ "$MODE" = "ss" ]; then echo "$ss_target"; else echo "$def_target"; fi
+}
+
+# Validate everything first so a failure leaves the current links untouched
+for link in "${!CONFIG_LINKS[@]}"; do
+  target="$(link_target "$link")"
+  if [ -n "$target" ] && [ ! -e "${SCRIPT_DIR}/$(dirname "$link")/${target}" ]; then
+    echo "Error: $(dirname "$link")/${target} not found for '${MODE}' mode."
+    exit 1
+  fi
+done
+
+echo "Linking configuration files for '${MODE}' mode..."
+for link in "${!CONFIG_LINKS[@]}"; do
+  link_path="${SCRIPT_DIR}/${link}"
+  target="$(link_target "$link")"
+  if [ -L "$link_path" ]; then
+    unlink "$link_path"
+  fi
+  # Nothing to link in this mode; leave any runtime-generated file (e.g. Node-RED settings.js) alone
+  if [ -z "$target" ]; then
+    continue
+  fi
+  # A regular file here means it was edited in place (e.g. Node-RED Deploy); keep it instead of overwriting
+  if [ -e "$link_path" ]; then
+    backup="${link_path}.user-$(date +%Y%m%d-%H%M%S)"
+    mv "$link_path" "$backup"
+    echo "  WARNING: ${link} was a regular file, saved as $(basename "$backup")"
+  fi
+  ln -s "$target" "$link_path"
+  echo "  ${link} -> ${target}"
+done
+
+host_timezone() {
+    local tz
+    tz=$(timedatectl show -p Timezone --value 2>/dev/null)
+    if [ -z "$tz" ] && [ -f /etc/timezone ]; then
+        tz=$(cat /etc/timezone)
+    fi
+    if [ -z "$tz" ]; then
+        tz=$(readlink -f /etc/localtime 2>/dev/null | sed -n 's|.*/zoneinfo/||p')
+    fi
+    echo "${tz:-UTC}"
+}
+
+# Configure or clean up smart-parking specific environment variables in the parent .env file
+ENV_FILE="${SCRIPT_DIR}/../.env"
+if [ -f "$ENV_FILE" ]; then
+  # Remove any existing smart-parking SceneScape settings first
+  sed -i -e '/^# SceneScape settings for smart-parking/d' \
+         -e '/^\(SCENESCAPE_ENABLED\|SS_SCENE_DB\|SS_INFLUX_BUCKET\|SS_MODELS_SRC\|SS_MODELS_TARGET\|SS_ENABLE_WEBRTC\|SS_TZ\|COMPOSE_PROFILES\)=/d' "$ENV_FILE"
+  sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$ENV_FILE"
+
+  if [ "$MODE" = "ss" ]; then
+    cat >> "$ENV_FILE" <<EOF
+
+# SceneScape settings for smart-parking
+SCENESCAPE_ENABLED=true
+SS_SCENE_DB=smart-parking-ri.tar.bz2
+SS_INFLUX_BUCKET=SS-Parking
+SS_MODELS_SRC=models
+SS_MODELS_TARGET=/home/pipeline-server/models
+SS_ENABLE_WEBRTC=true
+SS_TZ=$(host_timezone)
+COMPOSE_PROFILES=smart-parking-scenescape
+EOF
+  fi
+fi
+
+if [ "$MODE" = "ss" ]; then
+  bash "${SCRIPT_DIR}/init-scenescape.sh"
+fi
+
+# Self-guarded: generates Node-RED admin credentials or backfills if missing
+docker run --rm -t --user "$(id -u):$(id -g)" \
+  -e http_proxy -e https_proxy -e no_proxy \
+  -v "$SCRIPT_DIR/src/secrets:/src/secrets" \
+  docker.io/library/python:3.12 bash /src/secrets/generate_nodered_secret.sh
+
 docker run --rm --user=root \
   -e http_proxy -e https_proxy -e no_proxy \
   -v "$(dirname "$(readlink -f "$0")"):/opt/project" \
