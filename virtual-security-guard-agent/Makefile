@@ -75,7 +75,7 @@ logs: ## Follow the UI container logs
 	$(COMPOSE) logs -f
 
 install-skills: ## Install SOUL.md + Hermes skills (HERMES_HOME, HERMES_SKILLS_DIR; INSTALL_ARGS=--exclusive removes other skills) and restart the gateway
-	HERMES_HOME="$(HERMES_HOME)" HERMES_SKILLS_DIR="$(HERMES_SKILLS_DIR)" hermes-skills/install.sh $(INSTALL_ARGS)
+	HERMES_HOME="$(HERMES_HOME)" HERMES_SKILLS_DIR="$(HERMES_SKILLS_DIR)" bash hermes-skills/install.sh $(INSTALL_ARGS)
 
 clean: ## Remove UI build output
 	rm -rf $(UI_DIR)/dist $(UI_DIR)/coverage

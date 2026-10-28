@@ -33,12 +33,4 @@ code changes.
 
 `REGISTRY` needs a trailing slash. `make push` builds before pushing.
 
-## Other Targets
-
-| Target | Does |
-|---|---|
-| `make down` / `make logs` | Stop the container / follow its logs. |
-| `make install-skills` | Copy the Hermes skills (see [Install the Argus skills](./set-up-prerequisite-stack.md#5-install-the-argus-skills)). |
-| `make clean` | Remove `ui/dist` and `ui/coverage`. |
-
 For `lint`, `test`, `check` and `format`, see [Run Unit Tests](./run-unit-tests.md).

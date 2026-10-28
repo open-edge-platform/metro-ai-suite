@@ -5,8 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # Investigate a Person
 
-This guide walks through a full investigation on the **Argus** page: search,
-review, crop and re-search, route, live search and report. The **Case file**
+This guide walks through a full investigation with the VSG agent (Argus) on
+its **Argus** page: search, review, crop and re-search, route, live search and report. The **Case file**
 panel on the right shows the subject, the review counts and the route.
 
 ## 1. Start a search
@@ -16,24 +16,24 @@ panel on the right shows the subject, the review counts and the route.
 2. Describe the person, attach a photo with the image button (or drag and
    drop it), or both.
 3. Optionally name cameras or a time range in the text, for example
-   "search camera_1 and camera_3 between 2 and 3 pm". Argus maps camera
+   "search camera_1 and camera_3 between 2 and 3 pm". The VSG agent maps camera
    names to VSS tags and says which cameras it searched. Time ranges match
    when footage was ingested into VSS, not the camera clock.
 4. Press **Enter** or the send button.
 
 VSG uploads the photo to VSS, creates a Hermes session for the investigation
-and starts an Argus run. Argus calls the VSS search tool and replies with a
+and starts a VSG agent run. The VSG agent calls the VSS search tool and replies with a
 short summary and a grid of potential matches. The search covers everything
 VSS has indexed: uploaded videos and what the live cameras have already
 recorded. Each match names its camera by tag (for example `camera_1`). Nothing
 watches the cameras going forward until you start a live search (step 6).
 
-Your message appears on the right; a photo shows above it. Argus's reply
+Your message appears on the right; a photo shows above it. The VSG agent's reply
 appears on the left next to its eye icon: a short summary of what it searched
 and found, then the review grid. The **Case file** panel on the right shows
 the subject and the review counts.
 
-Above each reply, chips show what Argus did for that turn: skills loaded and
+Above each reply, chips show what the VSG agent did for that turn: skills loaded and
 VSS tools called. With three or more, they are collapsed under **Used N
 tools**; click it to expand them. Click a chip to see the start of that
 tool's result.
@@ -44,12 +44,12 @@ The grid shows the **top six** matches, three per row. Each card has a frame
 from the clip with the match ref (`m1`, `m2` …), the clip time and the VSS
 relevance score on it, then the camera, its zone and the date, and a
 **Confirm** button. A confirmed card turns green; a card marked as a false
-positive turns grey. Argus may mark the cards it recommends as **Argus pick**.
+positive turns grey. The VSG agent may mark the cards it recommends as **Argus pick**.
 
 - Click **Show N more findings** to reveal six more at a time, up to **20**.
 - Click a thumbnail to open the clip player.
 - Click **Confirm** on every card that shows the subject. Anything shown but
-  left unconfirmed is sent to Argus as a false positive.
+  left unconfirmed is sent to the VSG agent as a false positive.
 - Click **Save N confirmed**. If nothing matches, click **None match**. While
   matches are still hidden it reads **None match, show N more** and shows them
   first. Nothing is sent and no new search runs; the
@@ -90,8 +90,8 @@ When a clip shows the subject clearly, use it as a better reference image:
    **Cancel** leaves crop mode.
 3. Click **Save crop** (or press **Enter**).
 
-The crop is cut at the video's native resolution and uploaded to VSS. Argus
-runs an image search for it and a new grid appears. The crop becomes the
+The crop is cut at the video's native resolution and uploaded to VSS. The VSG
+agent runs an image search for it and a new grid appears. The crop becomes the
 **Subject**: the subject is always the latest image you searched with (or, with
 no image, your latest search prompt). It is the case file photo, the report
 photo and what a live search looks for.
@@ -112,7 +112,7 @@ your plan.
 The Route card has **Start live camera search** while at least one live camera
 is connected; the line beside it says how many cameras it watches and for how
 long. Nothing is watched until you click it. With no live camera connected,
-neither VSG nor Argus offers a live search.
+neither the console nor the VSG agent offers a live search.
 
 - VSS watches live cameras for the subject and the UI polls every 10 seconds.
   The Argus logo's eye scans while the search runs.
@@ -139,8 +139,8 @@ time, the zone, the detection count and **Confirm** (**Confirmed** once added).
 ## 7. Write the report
 
 On the Route card, click **Generate report** and choose **Handover report**,
-**Escalation report** or **Short brief** (or ask Argus in chat). Your message
-shows one line; the sighting list sent to Argus is under **Details**. Argus
+**Escalation report** or **Short brief** (or ask the VSG agent in chat). Your message
+shows one line; the sighting list sent to the VSG agent is under **Details**. The VSG agent
 receives the time-ordered sightings with the movement between cameras and
 replies with a draft:
 
@@ -151,7 +151,7 @@ replies with a draft:
 To steer the draft, type the request yourself, for example "Write a handover
 report on the person in the black t-shirt".
 
-![Handover report draft from Argus](../_assets/report-draft.jpg "Report draft")
+![Handover report draft from the VSG agent](../_assets/report-draft.jpg "Report draft")
 
 PDFs are built in the browser and kept only for the open tab. The **Reports**
 page lists them and links to past investigations: open one in Argus to
@@ -176,7 +176,7 @@ parameters. They are stored in the browser.
 | Setting | Default | Effect |
 |---|---|---|
 | Minimum score (of the top match) | `0.60` | Fraction of the best match's score a match needs to be shown for review and join the route. Lower shows more sightings but adds noise. |
-| Matches per search | `20` | Candidates Argus asks VSS for. The grid shows up to 20 of them that reach the minimum score. |
+| Matches per search | `20` | Candidates the VSG agent asks VSS for. The grid shows up to 20 of them that reach the minimum score. |
 | Live watch time limit | `30` min | Live search stops by itself after this. |
 | Stop when quiet for | `10` min | Live search stops after this long without a new sighting. |
 | Show the case file | on | Side panel on wide screens. |

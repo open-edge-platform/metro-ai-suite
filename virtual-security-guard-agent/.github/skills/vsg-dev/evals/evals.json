@@ -35,12 +35,12 @@
       "id": 3,
       "prompt_file": "example-prompts/03-change-argus-behaviour.md",
       "prompt": "Make Argus summarise confirmed sightings in a table before offering the live search.",
-      "expected_output": "Updates protocol/instructions.ts, hermes-skills/virtual-security-guard/SKILL.md and docs/user-guide/design.md together, and explains that the skills must be reinstalled on the Hermes host with make install-skills.",
+      "expected_output": "Updates protocol/instructions.ts, hermes-skills/virtual-security-guard/SKILL.md and .github/skills/vsg-dev/references/protocol.md together, and explains that the skills must be reinstalled on the Hermes host with make install-skills.",
       "files": [],
       "expectations": [
         "Updates ui/src/protocol/instructions.ts (and its test).",
         "Updates hermes-skills/virtual-security-guard/SKILL.md.",
-        "Updates docs/user-guide/design.md when the flow changes.",
+        "Updates .github/skills/vsg-dev/references/protocol.md when the flow changes.",
         "Tells the user to run make install-skills (with INSTALL_ARGS=--exclusive) on the Hermes host and start a new Hermes session.",
         "Does not reintroduce a live-search offer card or have Argus start a live watch."
       ]

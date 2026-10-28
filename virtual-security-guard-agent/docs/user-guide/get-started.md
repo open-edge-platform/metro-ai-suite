@@ -6,15 +6,15 @@ SPDX-License-Identifier: Apache-2.0
 # Get Started
 
 VSG is one container that serves the console and proxies two upstreams: the
-**Hermes** agent API (where Argus runs) and the **VSS** gateway. It has no
+**Hermes** agent API (where the VSG agent runs) and the **VSS** gateway. It has no
 backend or database of its own.
 
 ## Prerequisites
 
 - A host that meets the [System Requirements](./get-started/system-requirements.md),
-  with [Docker](https://docs.docker.com/engine/install/) (Compose plugin) and
+  with [Docker](https://docs.docker.com/engine/install/) (Compose and Buildx plugins) and
   GNU Make (`sudo apt-get install -y make`).
-- **VSS** in search mode and a **Hermes** agent server with Argus, set up as
+- **VSS** in search mode and a **Hermes** agent server with the VSG agent, set up as
   described in [Set Up the Prerequisite Stack](./get-started/set-up-prerequisite-stack.md).
 
 ## Run the Application
@@ -85,11 +85,11 @@ and **VSS** as **Reachable**.
 
 ### 5. Run a search
 
-Open `http://<HOST_IP>:12346/argus`, then:
+Open the VSG agent's **Argus** page at `http://<HOST_IP>:12346/argus`, then:
 
 1. Describe the person, attach a photo, or both. Optionally name cameras or a
    time range in the text.
-2. Send. Argus replies with a grid of potential matches.
+2. Send. The VSG agent replies with a grid of potential matches.
 3. Play a clip, **Confirm** the sightings that show the subject, and send the
    review.
 4. Continue from the chat: crop and re-search, start a live camera search, or

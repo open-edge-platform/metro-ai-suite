@@ -28,7 +28,7 @@ uses; size those from their own documentation.
 
 ## Model Host (Hermes and OVMS)
 
-The reasoning model is the largest resource that Argus needs. These values are
+The reasoning model is the largest resource that the VSG agent needs. These values are
 the minimum for the default model, `OpenVINO/Qwen3.6-35B-A3B-int4-ov`, and they
 are a starting point, not a performance/accuracy guarantee.
 
@@ -43,7 +43,7 @@ are a starting point, not a performance/accuracy guarantee.
   request after a restart is the slowest, because the model loads and the
   prompt is processed.
 - Smaller models, for example a 9B model, reply faster but more often ignore
-  the reply format or call tools wrongly. Use one to try Argus, not for
+  the reply format or call tools wrongly. Use one to try the VSG agent, not for
   investigations that matter.
 - Larger dense models need more memory and are slow on a CPU or an
   integrated GPU. Run one only on a host with enough memory and, ideally, a
@@ -53,8 +53,10 @@ are a starting point, not a performance/accuracy guarantee.
 
 ## Software
 
-- Docker Engine with the Compose plugin:
+- Docker Engine with the Compose and Buildx plugins:
   [Docker Engine on Ubuntu](https://docs.docker.com/engine/install/ubuntu/).
+  Building the UI image needs BuildKit, which Compose uses only when Buildx is
+  installed. Check with `docker buildx version`.
 - GNU Make: `sudo apt-get install -y make`.
 - A VSS deployment with search enabled, the VSS MCP server, and indexed
   footage.
@@ -72,7 +74,3 @@ are a starting point, not a performance/accuracy guarantee.
 | `12345` | VSS nginx gateway, including the VSS MCP server at `/mcp` | The VSG container and Hermes. |
 | `8010` | Inference Router (`127.0.0.1` only) | Hermes, on the same host. |
 | `8450` (`HARNESS_OVMS_REST_PORT`) | OVMS (`127.0.0.1` only) | The Inference Router. |
-
-Before you continue to [Get Started](../get-started.md), check that
-`HERMES_BASE_URL/health` and `VSS_BASE_URL/manager/health` respond from the
-VSG host.

@@ -16,7 +16,7 @@ Virtual Security Guard Agent is a new sample application: A security agent that 
 - Clip player with **Pause & crop person** and automatic follow-up image search.
 - Time-ordered route of confirmed sightings on an uploadable floorplan whose camera keys are the VSS tags.
 - Optional, operator-started live camera search with time and quiet limits.
-- Argus-drafted, editable incident reports exported as PDF in the browser.
+- Editable incident reports drafted by the VSG agent and exported as PDF in the browser.
 - Live camera management backed by VSS streams.
 - Results grounded in real VSS tool output from the Hermes transcript.
 - Single read-only, non-root nginx container with an allowlist proxy; the

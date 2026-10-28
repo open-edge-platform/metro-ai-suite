@@ -29,31 +29,31 @@ Checks:
   `API_SERVER_KEY`.
 - Behind a proxy: add the Hermes and VSS hosts to `no_proxy`.
 
-## Argus replies but no grid is shown
+## The VSG agent replies but no grid is shown
 
 Symptoms:
 
-- Argus answers in text, but no review grid, report or status widget appears.
+- The VSG agent answers in text, but no review grid, report or status widget appears.
 
 Details:
 
 - The console only renders fenced `vsg-*` blocks. If the Hermes skills are
-  missing or out of date, Argus answers in plain text.
+  missing or out of date, the VSG agent answers in plain text.
 
 - This problem is more persistent with smaller models, those have weak tool calling capablity. 
 
 Checks:
 
 - Reinstall the skills on the Hermes host and start a new session. See
-  [Install the Argus skills](./get-started/set-up-prerequisite-stack.md#5-install-the-argus-skills).
+  [Install the VSG agent skills](./get-started/set-up-prerequisite-stack.md#5-install-the-vsg-agent-skills).
 - Check that **Settings → Directive protocol** matches the installed skill.
 - Use a better Agentic models
 
-## Argus never searches, or writes the tool call as text
+## The VSG agent never searches, or writes the tool call as text
 
 Symptoms:
 
-- Argus replies without running `vss_search_video`, or the reply contains a
+- The VSG agent replies without running `vss_search_video`, or the reply contains a
   tool call written out as text or JSON.
 
 Details:
@@ -71,12 +71,12 @@ Checks:
   that `mcp_servers.vss` in `~/.hermes/config.yaml` points at the VSS MCP
   server.
 
-## Argus ignores its workflow or uses other skills
+## The VSG agent ignores its workflow or uses other skills
 
 Symptoms:
 
 - Replies do not follow the search → review → trace flow, or mention skills
-  that are not Argus's.
+  that are not the VSG agent's.
 
 Details:
 
@@ -93,7 +93,7 @@ Checks:
 
 Symptoms:
 
-- An Argus reply shows an error with a **Retry** button instead of matches.
+- A VSG agent reply shows an error with a **Retry** button instead of matches.
 
 Details:
 
@@ -135,8 +135,8 @@ Checks:
 Details:
 
 - Generated PDFs are kept in browser memory for the open tab only. Use
-  **Reports → Open in Argus** to open a past investigation and generate the
-  PDF again from its report draft.
+  **Reports → Open in Argus** to open a past investigation on the VSG agent's
+  **Argus** page and generate the PDF again from its report draft.
 
 ## Floorplan and settings are per browser
 

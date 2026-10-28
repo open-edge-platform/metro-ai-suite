@@ -36,10 +36,10 @@ tag, unique to its floorplan camera. **Edit** changes only the indexing
 settings. To move a camera, remove it and add it at the new floorplan
 camera. **Remove** asks for confirmation.
 
-You can also ask Argus, for example "add rtsp://10.0.0.12:8554/stairs as the
-Cube Stairs camera". Argus uses the VSS stream tools and tags the stream to a
+You can also ask the VSG agent, for example "add rtsp://10.0.0.12:8554/stairs as the
+Cube Stairs camera". The VSG agent uses the VSS stream tools and tags the stream to a
 floorplan camera that has no live camera yet. If your prompt doesn't say which
-one, Argus lists the free floorplan cameras and asks before adding. The new
+one, the VSG agent lists the free floorplan cameras and asks before adding. The new
 camera shows on the plan when the camera list next refreshes.
 
 ## Edit, pause or remove

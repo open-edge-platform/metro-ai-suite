@@ -6,14 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 # Set Up the Prerequisite Stack
 
 VSG needs two services: **VSS** in search mode, which indexes and searches the
-camera footage, and a **Hermes** agent server, where Argus runs with a model on
+camera footage, and a **Hermes** agent server, where the VSG agent runs with a model on
 **OpenVINO™ Model Server** (OVMS). Set up both on one host, VSS first. If VSS
 runs on another host, replace `<vss-host>` below with its address.
 
-```text
-VSG console ──► Hermes API server :8642 ──► Inference Router 127.0.0.1:8010/v1 ──► OVMS 127.0.0.1:8450/v3
-                  (Argus skills only)    └──► VSS MCP server <vss-host>:12345/mcp
-```
+![VSG console calls the Hermes API server on port 8642, which reasons with the Inference Router and OVMS on the same host and calls tools on the VSS MCP server](../_assets/vsg-prerequisite-stack.svg)
 
 ## 1. Get the sources
 
@@ -61,11 +58,14 @@ export MODEL=OpenVINO/Qwen3.6-35B-A3B-int4-ov
 export HARNESS_OVMS_REST_PORT=8450 && ./install.sh --harness hermes --model "$MODEL"
 ```
 
-> **Note:** Argus needs a model that keeps to a strict reply format and calls
+> **Note:** The VSG agent needs a model that keeps to a strict reply format and calls
 > tools correctly. `Qwen3.6-35B-A3B` is a mixture-of-experts model with about
 > 3B active parameters, so it is quick but still reliable. Smaller models often
 > break the reply format or misuse tools. Dense models like `OpenVINO/Qwen3.8-27B-int4-ov` are more accurate but are slow. 
 
+- When the installer prompts for **Host/IP to advertise in printed endpoint
+  URLs**, enter the host's IP address (`<HOST_IP>`) so the printed URLs work
+  from other machines.
 - The installer installs Docker, Node.js and Python if they are missing, and
   checks the Intel GPU. Read its
   [Get Started](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/frameworks/agent-harness-install/docs/user-guide/get-started.md)
@@ -74,6 +74,9 @@ export HARNESS_OVMS_REST_PORT=8450 && ./install.sh --harness hermes --model "$MO
   converting it. The GPU (for an integrated GPU, system memory) must hold the
   model weights, the KV cache and the VSS models together.
 - Behind a proxy, export `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` first.
+  `NO_PROXY` (and `no_proxy`) must include `localhost`, `127.0.0.1`,
+  `<HOST_IP>` and `<vss-host>`, so that Hermes reaches the Inference Router
+  and the VSS MCP server directly instead of through the proxy.
 
 Point Hermes at the router and the model, then check the installation:
 
@@ -95,20 +98,24 @@ From the installer directory:
 This adds `mcp_servers.vss` to `~/.hermes/config.yaml`. The VSS MCP server
 must be the only entry under `mcp_servers`. Remove any other entries.
 
-## 5. Install the Argus skills
+> **Note:** Behind a proxy, Hermes can reach the VSS MCP server only if
+> `<vss-host>` is in `NO_PROXY` and `no_proxy` (see step 3). Otherwise its
+> requests go to the proxy, and the VSG agent cannot search.
 
-Argus is defined by the files in `hermes-skills/`:
+## 5. Install the VSG agent skills
+
+The VSG agent, named Argus, is defined by the files in `hermes-skills/`:
 
 | File | Purpose |
 |---|---|
-| `SOUL.md` | Argus's identity and boundaries. Installed as `~/.hermes/SOUL.md`, which applies to **every** agent on the Hermes host. |
+| `SOUL.md` | The VSG agent's identity (the Argus persona) and boundaries. Installed as `~/.hermes/SOUL.md`, which applies to **every** agent on the Hermes host. |
 | `virtual-security-guard` | The search, validate, trace and report workflow, the VSS tool playbook, the reply format and the guardrails. |
 | `vsg-incident-report` | Turns confirmed sightings into a report draft. |
 
 The Hermes installer also adds bundled skills to `~/.hermes/skills`. Hermes
-loads every skill there, and they compete with Argus for the model's
-attention. From the `virtual-security-guard-agent` directory, install Argus
-and move all other skills aside:
+loads every skill there, and they compete with the VSG agent for the model's
+attention. From the `virtual-security-guard-agent` directory, install the VSG
+agent skills and move all other skills aside:
 
 ```bash
 make install-skills INSTALL_ARGS="--exclusive --no-restart"
@@ -131,7 +138,7 @@ afterwards.
 
 ## 6. Limit the tools
 
-The console has no login, so Argus must only have the tools it needs. Run
+The console has no login, so the VSG agent must only have the tools it needs. Run
 `hermes tools`, select the API server platform, and keep only `skills` and the
 `vss` MCP tools. Turn off the other toolsets, for example terminal, file, code
 execution, browser and web.

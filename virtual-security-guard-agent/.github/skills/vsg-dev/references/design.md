@@ -6,12 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 # Virtual Security Guard Agent: Design
 
 Developer reference for the Virtual Security Guard Agent (VSG) console. Read
-[How it Works](./how-it-works.md) first for the components and the
-investigation flow; this page does not repeat them. Hermes configuration (MCP server, model, API key) is in [Set Up the Prerequisite Stack](./get-started/set-up-prerequisite-stack.md).
+[How it Works](../../../../docs/user-guide/how-it-works.md) first for the components and the
+investigation flow; this page does not repeat them. Hermes configuration (MCP server, model, API key) is in [Set Up the Prerequisite Stack](../../../../docs/user-guide/get-started/set-up-prerequisite-stack.md).
 
 ## 1. One Operator Turn
 
-![Sequence diagram of one operator turn between UI, Hermes, VSS MCP and VSS](./_assets/vsg-operator-turn-sequence.svg)
+![Sequence diagram of one operator turn between UI, Hermes, VSS MCP and VSS](./assets/vsg-operator-turn-sequence.svg)
 
 Every turn is one Hermes run in the investigation's session. Session titles
 start with `VSG · ` so past investigations can be listed
@@ -19,46 +19,8 @@ start with `VSG · ` so past investigations can be listed
 
 ## 2. Directive Protocol (v1)
 
-Argus replies in prose plus at most one fenced JSON block of each type.
-Schemas: `ui/src/protocol/directives.ts` (kept in sync with
-`hermes-skills/virtual-security-guard/references/directive-protocol.md`).
-
-| Block | Direction | Fields | UI |
-|---|---|---|---|
-| `vsg-context` | UI → Argus | `image_url`, `limit` | Appended to the operator prompt (`protocol/feedback.ts`). |
-| `vsg-feedback` | UI → Argus | `vss_query_id`, `confirm`, `reject`, `anchor_image_url` | Review verdicts; preceded by a prose summary. |
-| `vsg-matches` | Argus → UI | `keep`, `note`, `notes` | Review grid; hits come from the same reply's `vss_search_video` result. |
-| `vsg-report` | Argus → UI | `title`, `preset` (`handover`, `escalation`, `brief`), `summary`, `subject`, `timeline[{ref, note}]`, `observations`, `actions`, `confidence` | Editable report and PDF. |
-| `vsg-status` | Argus → UI | `phase` (`search`, `validate`, `trace`, `report`, `idle`), `message` | Progress line. |
-
-- Refs are `m<N>`: the Nth entry of the search result (or its `match_id`).
-  A video id or `video_id@start` is tolerated; unresolvable refs are ignored.
-- Other `vsg-*` fences (for example the retired `vsg-track`) are ignored.
-
-### Per-run instructions
-
-Each run carries a short `instructions` text (`protocol/instructions.ts`). It
-restates the block grammar, because a small model forgets it, and adds session
-context: phase, live cameras, whether live search is available, the running
-watch, the current query id, verdicts so far, and every confirmed sighting as
-a numbered timeline. The procedures themselves live in the
-`virtual-security-guard` Hermes skill. When the protocol changes, update
-`directives.ts`, `instructions.ts` and `hermes-skills/*` together, then
-reinstall the skills.
-
-Argus uses these VSS MCP tools, called through Hermes `tool_call` with the
-full name (for example `mcp__video_search_mcp__vss_list_streams`):
-
-| Tool | Use |
-|---|---|
-| `vss_search_video` | Search by text or image. |
-| `vss_list_tags` | Map camera names to VSS tags. |
-| `vss_list_streams`, `vss_add_stream`, `vss_update_stream`, `vss_remove_stream` | Manage live RTSP cameras the operator names. |
-
-A camera is a VSS tag. For "search the X, Y and Z cameras", Argus maps each
-name to tags (case-insensitive, `_` = space) and searches with those `tags`.
-The composer has no camera or time pickers: cameras and time ranges come only
-from the prompt text, and `vsg-context` carries just `image_url` and `limit`.
+Blocks, fields, refs, per-run instructions and the VSS MCP tools Argus uses:
+[protocol.md](./protocol.md).
 
 ## 3. Grounding
 
@@ -68,7 +30,7 @@ prompt (`groundingForRun` in `protocol/grounding.ts`). The tool
 output is untrusted: only typed fields are read, at most 200 hits, and media
 URLs are reduced to same-origin datastore paths.
 
-![Flowchart of how a finished run becomes the review grid](./_assets/vsg-design-data-flow.svg)
+![Flowchart of how a finished run becomes the review grid](./assets/vsg-design-data-flow.svg)
 
 The transcript is the only source of hits (`features/agent/useDirectiveHits.ts`):
 nothing the model writes into a block is shown, and the query id comes only
@@ -135,7 +97,7 @@ the card shows **Retry stop** (a toast with Retry after a reset).
 `InvestigationPhase` in `stores/investigation.logic.ts`. The phase picks the
 composer placeholder and is sent in the instructions.
 
-![State diagram of the investigation phases](./_assets/vsg-investigation-phases.svg)
+![State diagram of the investigation phases](./assets/vsg-investigation-phases.svg)
 
 **Stop** cancels the run and returns to the phase before it. Camera and
 watch requests run in the `idle` phase.
@@ -167,7 +129,7 @@ names none; Argus never renames or retags a camera. Report sightings and the tim
 camera's zone (`cameraZone`). The plan persists in browser
 storage (`vsg.floorplan.v1`). The route draws confirmed and live sightings
 in time order, collapsing consecutive stops on the same camera. Authoring
-steps: [Configure the Floorplan](./how-to-guides/configure-floorplan.md).
+steps: [Configure the Floorplan](../../../../docs/user-guide/how-to-guides/configure-floorplan.md).
 
 ## 8. State Stores
 
@@ -187,7 +149,7 @@ Pure route helpers (`confirmedSightings`, `movementLegs`, `timelineLines`)
 live in `stores/case.ts`.
 
 Selectors must return stable references; see
-[`.github/copilot-instructions.md`](../../.github/copilot-instructions.md).
+[`.github/copilot-instructions.md`](../../../copilot-instructions.md).
 
 ## 9. nginx Gateway (BFF)
 

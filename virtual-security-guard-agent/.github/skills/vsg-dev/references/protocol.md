@@ -8,18 +8,51 @@ SPDX-License-Identifier: Apache-2.0
 Source of truth: `ui/src/protocol/directives.ts`. Argus-facing copy:
 `hermes-skills/virtual-security-guard/references/directive-protocol.md`.
 
-Blocks are fenced JSON with a `vsg-` language tag. The parser
+Argus replies in prose plus at most one fenced JSON block of each type. Blocks
+are fenced JSON with a `vsg-` language tag. The parser
 (`protocol/parser.ts`, `parseAgentText`) splits a reply into text, directive,
 pending (still streaming) and invalid segments; `lenientJson` tolerates common
 model mistakes (trailing commas, smart quotes).
 
-| Block | Direction | Purpose | Rendered by |
+| Block | Direction | Fields | Rendered by |
 |---|---|---|---|
-| `vsg-context` | UI → Argus | Image URL and result limit, appended to search turns. Cameras and times come from the prompt text. | - |
-| `vsg-matches` | Argus → UI | `keep` refs (`m<N>` = Nth hit of the same reply's tool result), notes. | `ValidationGrid` |
-| `vsg-feedback` | UI → Argus | `confirm` / `reject` refs, labels, optional note. Unconfirmed shown matches are sent as `reject`. Only the latest grid can be sent; a repeat replaces its earlier verdicts. | operator bubble |
-| `vsg-report` | Argus → UI | Incident report draft (title, preset, summary, timeline, actions, confidence). | `ReportCard` |
-| `vsg-status` | Argus → UI | One-line status. | inline text |
+| `vsg-context` | UI → Argus | `image_url`, `limit`; appended to search turns (`protocol/feedback.ts`). Cameras and times come from the prompt text. | - |
+| `vsg-matches` | Argus → UI | `keep`, `note`, `notes`. Hits come from the same reply's `vss_search_video` result. | `ValidationGrid` |
+| `vsg-feedback` | UI → Argus | `vss_query_id`, `confirm`, `reject`, `anchor_image_url`; preceded by a prose summary. Unconfirmed shown matches are sent as `reject`. Only the latest grid can be sent; a repeat replaces its earlier verdicts. | operator bubble |
+| `vsg-report` | Argus → UI | `title`, `preset` (`handover`, `escalation`, `brief`), `summary`, `subject`, `timeline[{ref, note}]`, `observations`, `actions`, `confidence` | `ReportCard` (editable draft and PDF) |
+| `vsg-status` | Argus → UI | `phase` (`search`, `validate`, `trace`, `report`, `idle`), `message` | inline progress line |
+
+- Refs are `m<N>`: the Nth entry of the search result (or its `match_id`).
+  A video id or `video_id@start` is tolerated; unresolvable refs are ignored.
+- Other `vsg-*` fences (such as the retired `vsg-track`) are dropped by the
+  parser.
+
+## Per-run instructions
+
+Each run carries a short `instructions` text (`protocol/instructions.ts`). It
+restates the block grammar, because a small model forgets it, and adds session
+context: phase, live cameras, whether live search is available, the running
+watch, the current query id, verdicts so far, and every confirmed sighting as
+a numbered timeline. The procedures themselves live in the
+`virtual-security-guard` Hermes skill. When the protocol changes, update
+`directives.ts`, `instructions.ts` and `hermes-skills/*` together, then
+reinstall the skills.
+
+## VSS MCP tools
+
+Argus calls these through Hermes `tool_call` with the full name (for example
+`mcp__video_search_mcp__vss_list_streams`):
+
+| Tool | Use |
+|---|---|
+| `vss_search_video` | Search by text or image. |
+| `vss_list_tags` | Map camera names to VSS tags. |
+| `vss_list_streams`, `vss_add_stream`, `vss_update_stream`, `vss_remove_stream` | Manage live RTSP cameras the operator names. |
+
+A camera is a VSS tag. For "search the X, Y and Z cameras", Argus maps each
+name to tags (case-insensitive, `_` = space) and searches with those `tags`.
+The composer has no camera or time pickers: cameras and time ranges come only
+from the prompt text, and `vsg-context` carries just `image_url` and `limit`.
 
 ## Run lifecycle
 
@@ -64,5 +97,3 @@ matches them to PDF rows. The PDF adds a Movement section from
   map changes only on confirm.
 - Stops on operator Stop, the time limit (`watchMinutes`) or no new matches
   (`watchIdleMinutes`).
-- Other `vsg-*` fences (such as the retired `vsg-track`) are dropped by the
-  parser.

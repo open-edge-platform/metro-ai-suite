@@ -23,7 +23,7 @@ camera matches, and PDF incident reports.
 VSG has no backend of its own. A single nginx container serves the static
 bundle and reverse-proxies an **allowlist** of Hermes and VSS routes; the Hermes
 API key is injected by nginx and never reaches the browser. Deeper design notes
-live in [`docs/user-guide/design.md`](../docs/user-guide/design.md).
+live in [`.github/skills/vsg-dev/references/design.md`](skills/vsg-dev/references/design.md).
 
 ## Investigation Flow
 
@@ -91,8 +91,8 @@ Served by nginx in Docker; configured through `deploy/.env`.
   `Date.now()`; dedupe or compare VSS values with each other.
 - A live watch starts only on an explicit operator action.
 - When the Argus protocol changes, update `protocol/instructions.ts`,
-  `hermes-skills/*/SKILL.md`, and `docs/user-guide/design.md` together, then
-  reinstall the Hermes skills.
+  `hermes-skills/*/SKILL.md`, and `.github/skills/vsg-dev/references/protocol.md`
+  together, then reinstall the Hermes skills.
 
 ## Skills
 

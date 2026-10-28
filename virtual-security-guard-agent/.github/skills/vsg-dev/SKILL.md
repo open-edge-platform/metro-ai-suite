@@ -20,7 +20,7 @@ Hermes and VSS APIs behind it. Run commands yourself and relay the output.
 
 Background: [`../../copilot-instructions.md`](../../copilot-instructions.md)
 (what the app is, repo map). Design detail:
-[`docs/user-guide/design.md`](../../../docs/user-guide/design.md).
+[references/design.md](references/design.md).
 
 ## Ground rules
 
@@ -184,7 +184,8 @@ together, because Argus reads the skills and the UI parses the result:
    (per-run instructions sent with every run). Update their tests.
 2. `hermes-skills/virtual-security-guard/SKILL.md` (+ `references/`) and,
    for reports, `hermes-skills/vsg-incident-report/`.
-3. `docs/user-guide/design.md`.
+3. [references/protocol.md](references/protocol.md) (and
+   [references/design.md](references/design.md) if the flow changes).
 4. Tell the user to reinstall on the **Hermes host**, then start a new Hermes
    session:
    `make install-skills INSTALL_ARGS=--exclusive`
