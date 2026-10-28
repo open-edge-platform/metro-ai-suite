@@ -23,8 +23,9 @@ RUN groupadd -g ${USER_GROUP_ID} routeuser && \
 
 USER routeuser
 
-# Expose port for Gradio interface
+# Expose ports for the Gradio interface and the Intersections API
 EXPOSE 7860
+EXPOSE 8765
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \

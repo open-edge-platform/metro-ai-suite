@@ -10,6 +10,7 @@ from typing import Any, Optional
 import gradio as gr
 
 from config import APP_DETAILS, INITIAL_MAP_HTML
+from intersections_api import start_in_background as start_intersections_api
 from services.route_service import RouteService
 from utils.logging_config import setup_logging
 from schema import QueueItem
@@ -423,6 +424,7 @@ def main():
         logger.info(
             f"Starting Route Planner application on {server_name}:{server_port}..."
         )
+        start_intersections_api(host=server_name)
         app = create_gradio_interface()
         app.queue(default_concurrency_limit=9, max_size=20)
         app.launch(**server_config)
