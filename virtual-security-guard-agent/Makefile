@@ -52,12 +52,11 @@ push: build ## Push the container image
 	docker push $(IMAGE)
 
 env: ## Create or update deploy/.env from deploy/.env.example (HERMES_BASE_URL=... HERMES_API_KEY=... VSS_BASE_URL=...)
-	@test -n "$(HERMES_BASE_URL)" -a -n "$(HERMES_API_KEY)" -a -n "$(VSS_BASE_URL)" || \
+	@test -n "$$HERMES_BASE_URL" -a -n "$$HERMES_API_KEY" -a -n "$$VSS_BASE_URL" || \
 		{ echo "Usage: make env HERMES_BASE_URL=http://<hermes-host-ip>:8642 HERMES_API_KEY=<key> VSS_BASE_URL=http://<vss-host>:12345"; exit 1; }
 	@src=deploy/.env.example; test ! -e deploy/.env || src=deploy/.env; \
-	umask 077 && sed -e 's|^HERMES_BASE_URL=.*|HERMES_BASE_URL=$(HERMES_BASE_URL)|' \
-		-e 's|^HERMES_API_KEY=.*|HERMES_API_KEY=$(HERMES_API_KEY)|' \
-		-e 's|^VSS_BASE_URL=.*|VSS_BASE_URL=$(VSS_BASE_URL)|' $$src > deploy/.env.tmp && mv deploy/.env.tmp deploy/.env
+	umask 077 && awk '/^(HERMES_BASE_URL|HERMES_API_KEY|VSS_BASE_URL)=/ { k = substr($$0, 1, index($$0, "=") - 1); print k "=" ENVIRON[k]; next } { print }' \
+		"$$src" > deploy/.env.tmp && mv deploy/.env.tmp deploy/.env
 	@echo "Wrote deploy/.env"
 
 up: ## Start the UI (needs deploy/.env): use the local image, else pull it, else build it
