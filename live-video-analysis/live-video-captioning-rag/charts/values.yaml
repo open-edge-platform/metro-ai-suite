@@ -56,6 +56,11 @@ global:
     useGPU:
       enabled: false
       key: ""
+    useNPU:
+      enabled: false
+      key: "npu.intel.com/accel"
+      embeddingStaticSeqLen: ""
+      embeddingChunkLongText: ""
 
 # Overrides for the live-video-captioning dependency chart.
 # Key names mirror live-video-captioning/charts/values.yaml, nested under live-video-captioning-rag.
