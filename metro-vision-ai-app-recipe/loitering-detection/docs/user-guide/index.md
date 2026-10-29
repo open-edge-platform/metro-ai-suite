@@ -76,7 +76,6 @@ solution faster.
 :hidden:
 
 get-started.md
-Get Started - Console UI <./get-started-ui.md>
 how-to-guides.md
 troubleshooting.md
 Release Notes <./release-notes.md>

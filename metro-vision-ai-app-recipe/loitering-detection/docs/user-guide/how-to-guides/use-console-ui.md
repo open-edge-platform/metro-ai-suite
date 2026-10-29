@@ -1,4 +1,4 @@
-# Get Started - Loitering Detection Console UI
+# Use the Console UI
 
 The Loitering Detection Console is the sample application's operator UI: a single page to
 start/stop video analytics streams, pick a model and device, draw an evaluation zone, and watch
@@ -7,85 +7,24 @@ Server's REST API directly.
 
 ## Prerequisites
 
-- Verify that your system meets the [minimum requirements](./get-started/system-requirements.md).
-- Install Docker: [Installation Guide](https://docs.docker.com/get-docker/).
-  Enable running docker without "sudo": [Post Install](https://docs.docker.com/engine/install/linux-postinstall/)
-- Install Git: [Installing Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+Complete the [Get Started - Set up](../get-started.md#set-up-and-first-use) section, selecting
+the **Console UI** installation option in point 2, and start the application.
+Open `https://localhost/console/`, replacing `localhost` with the host IP for remote access.
+Paths below are relative to the `metro-vision-ai-app-recipe` directory.
 
-## Set up and first use
+> [!CAUTION]
+> The Console and sample scripts share the same Pipeline Server. Running `./sample_start.sh`
+> stops all existing instances before launching the four fixed samples; `./sample_stop.sh`
+> also stops all instances, including Console pipelines.
 
-1. **Clone the Suite**:
+## Start and stop pipelines
 
-   Go to the target directory of your choice and clone the suite.
-   If you want to clone a specific release branch, replace `main` with the desired tag.
-   To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
-
-   ```bash
-   git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
-   cd metro-ai-suite
-   git sparse-checkout set metro-vision-ai-app-recipe
-   cd metro-vision-ai-app-recipe/
-   ```
-
-2. **Setup Application and Download Assets**:
-   - Use the installation script to configure the application and download required models. Use
-     the `-ui` app name variant so the Console UI service is added to the generated
-     `docker-compose.yml` (a plain `./install.sh loitering-detection` never adds it):
-
-     ```bash
-     ./install.sh loitering-detection-ui
-     ```
-
-   > [!NOTE]
-   > For environments requiring a specific host IP address (for example, when deploying across different network interfaces), you can explicitly
-   > specify the IP address: `./install.sh loitering-detection-ui <HOST_IP>` (Replace `<HOST_IP>` with
-   > your target IP address.)
-
-## Run the application
-
-1. **Start the Application**:
-   - Download container images with Application microservices and run with Docker Compose:
-
-     ```bash
-     docker compose up -d
-     ```
-
-     <details>
-     <summary>
-     Check Status of Microservices
-     </summary>
-     - The application starts the following microservices.
-     - To check if all microservices are in Running state:
-
-       ```bash
-       docker ps
-       ```
-
-     **Expected Services:**
-     - Grafana Dashboard
-     - DL Streamer Pipeline Server
-     - MQTT Broker
-     - Loitering Detection Console (operator UI)
-
-     </details>
-
-2. **Access the Console UI**:
-   - Open a browser and go to `https://localhost/console/` to access the Console UI.
-     - Change `localhost` to your host IP if you are accessing it remotely.
-
-     > [!NOTE]
-     > Run `./sample_start.sh` separately (no flags) if you also want the 4 fixed sample
-     > pipelines - the Console UI starts and stops its own pipelines independently of that script.
-
-3. **Start the pipelines**:
-   - **Number of pipelines** defaults to 1, each with its own **Pipeline N** card below it for
-     **Source**, **Model** and **Device** - all pre-filled with defaults, so you can click
-     **Start pipelines** right away to see video with live detections. Raise the **Number of pipelines** to add more cards (e.g., to compare two
-     models on the same source side by side).
-   - Each pipeline gets its own panel titled **Pipeline N · source · model · device**, with a live
-     WebRTC view and a per-object loiter table underneath it.
-   - Need a different zone first? See [Change the zone](#change-the-zone) below - zones are
-     set by drawing on a pipeline's video after it starts, not from the rail.
+Each **Pipeline N** card selects a source, model, and device. Click **Start pipelines** to
+launch the configured cards. Each instance gets a panel titled
+**Pipeline N · source · model · device**, with a live WebRTC view and a per-object loiter table.
+Click **X** at the top right of a panel to stop that instance, or **Stop all** to stop all
+pipelines shown in the Console. To change a zone, draw on a running pipeline's video as described in
+[Change the zone](#change-the-zone).
 
 ## Customization
 
@@ -96,8 +35,9 @@ fully independent pipeline with its own Source/Model/Device - every pipeline you
 its own DL Streamer Pipeline Server instance and its own panel, so they can run different
 sources, models or devices at once, or the exact same ones for a true side-by-side comparison.
 Lowering the count removes the trailing card(s); an already-started pipeline that corresponded
-to a removed card keeps running until you **Stop** (Click `X` on right most corner of indidual stream window) it or **Stop all** - lowering the count only
-affects what the next **Start pipelines** click will create.
+to a removed card keeps running. Click **X** at the top right of a panel to stop a pipeline,
+or **Stop all** to stop all pipelines. Lowering the count only affects what the next
+**Start pipelines** click will create.
 
 **Start pipelines** only launches cards that are not already running - a card linked to a live
 pipeline is marked **Running** next to its title and is left alone. So after starting
@@ -145,7 +85,7 @@ Each pipeline card has its own:
 - **Device**: CPU, GPU or NPU. GPU is pre-selected because it gives the best throughput on
   most deployments; switch it if your hardware or model does not support that device.
 - **Pipeline configuration**: for how Start/Stop map to DL Streamer Pipeline Server REST calls
-  and element properties, see [Updating the Pipeline](./how-to-guides/update-pipelines.md).
+  and element properties, see [Updating the Pipeline](./update-pipelines.md).
 
 ### Add a model to compare
 
@@ -174,14 +114,22 @@ the id `OperatorZone` - `gvaanalytics` evaluates one zone set or the other, neve
 a new pipeline without drawing anything first keeps the deployment's own zone file exactly as
 configured.
 
-Polygon and multi-zone support exists in `gvaanalytics` and is used by the file's own zones:
-`loitering-detection/src/dlstreamer-pipeline-server/zones/loitering_analytics_config.json` can
-define any number of zones, each a rectangle or an arbitrary polygon - see the
-[upstream sample's config](https://github.com/open-edge-platform/dlstreamer/blob/main/samples/gstreamer/gst_launch/python-elements/loitering_detection/virat_s_000101-config.json)
-for the schema. Its contents are read fresh on every pipeline start (not baked into the
-pipeline), so editing the file takes effect on the next **Start pipelines** - no service restart
-needed. Once a pipeline has been switched to a custom zone there is no UI action to switch it
-back to the file's zones; stop it and start a new one instead.
+For persistent multi-zone configuration, see
+[Zone configuration files](./customize-application.md#zone-configuration-files).
+The deployed files under `loitering-detection/src/dlstreamer-pipeline-server/zones/` are read
+fresh on every pipeline start, so editing the relevant file takes effect on the next
+**Start pipelines** - no service restart is needed. Once a pipeline has been switched to a
+custom zone there is no UI action to switch it back to the file's zones; stop it and start
+a new one without a custom zone instead.
+
+### Show or hide the dwell-time overlay
+
+Select **Show dwell-time overlay on video** before starting pipelines to control the text
+drawn by `loitering_watermark`. To change an existing pipeline's setting, stop it and start
+it again with the desired checkbox state. This does not hide bounding boxes, zone outlines,
+or the Console's table. See
+[Video overlay](./customize-application.md#video-overlay) for the launch properties,
+threshold settings, and restart behavior.
 
 ## How detection and zones interact
 
@@ -189,7 +137,7 @@ Detection and tracking (`gvadetect`/`gvatrack`) always run on the full frame, an
 draws a box for every detected object - zones do not affect what gets boxed on screen.
 `gvaanalytics` separately matches each tracked object's position against whichever zone set is
 active for that session - the file's zones by default, or a single custom `OperatorZone`
-rectangle once the operator customises it (never both at once, see
+shape once the operator customises it (never both at once, see
 [Change the zone](#change-the-zone)) - and draws each zone's outline in its configured color
 (e.g., the sample config's `Pathway` in red and `Driveway` in cyan; `OperatorZone` draws in green
 since the console does not set a color for it). Only objects matched to at least one zone appear
@@ -205,14 +153,14 @@ may have better recall for some object types/angles than the default `pedestrian
 
 - **fps / objects / max dwell / loiter** summarise the stream: they count every object currently
   inside the session's active zone set (the config file's zones by default, or the custom
-  `OperatorZone` rectangle once customised), not everything detected in the frame.
+  `OperatorZone` shape once customised), not everything detected in the frame.
 - The table below it lists every object currently inside any of those zones:
   - **Object ID** — the tracker's id for this object.
   - **Type** — the detected class (e.g., `pedestrian`).
   - **Zone** — every zone id this object currently matches (e.g., `Pathway, Driveway` if a
     track spans both polygons), so you can tell which zone(s) a row's dwell time is coming from
     when more than one file zone is active at once. This field only shows `OperatorZone` once
-    a custom rectangle has replaced the file's zones.
+    a custom shape has replaced the file's zones.
   - **Status** — `Present` below the loiter threshold shown under the Zone card, `Loitering`
     at or above it.
   - **Dwell (s)** — `gvaanalytics`'s own measurement for the longest-running zone the object is
@@ -222,5 +170,5 @@ may have better recall for some object types/angles than the default `pedestrian
 
 ## Troubleshooting
 
-See [Troubleshooting the Console UI](./troubleshooting.md#troubleshooting-the-console-ui) for
+See [Troubleshooting the Console UI](../troubleshooting.md#troubleshooting-the-console-ui) for
 UI-specific issues (missing bounding boxes, zone edits, stuck/silent streams).
