@@ -11,16 +11,22 @@ to file new tickets there (after learning about the guidelines for
 1. **Changing the Host IP Address**
 
    - If you need to use a specific Host IP address instead of the one automatically detected
-     during installation, you can explicitly provide it using the following command:
+     during installation, you can explicitly provide it using the following command. Replace `<HOST_IP>` with your desired IP address:
 
      ```bash
-     ./install.sh <application-name> <HOST_IP>
+     ./install.sh loitering-detection <HOST_IP>
      ```
 
      Example:
 
      ```bash
-     ./install.sh smart-parking 192.168.1.100
+     ./install.sh loitering-detection 192.168.1.100
+     ```
+
+   - If you use the Console UI, use `loitering-detection-ui` instead:
+
+     ```bash
+     ./install.sh loitering-detection-ui <HOST_IP>
      ```
 
 2. **Containers Not Starting**:
