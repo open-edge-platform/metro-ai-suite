@@ -26,7 +26,7 @@ not only `open-edge-platform/skills`.
 Deliverable shape: *end-to-end solution* (Compose stack) for
 `metro-ai-app-recipe` (production mode); *quick single app / PoC* for
 `dlstreamer-coding-agent`; *multi-camera solution* for the `scenescape-setup`
-path. Map the Step 1 **packaging** answer (Q4) to the route: `demo`/`function`/
+path. Map the resolved **packaging** preference to the route: `demo`/`function`/
 `port` (quick single app) → `dlstreamer-coding-agent`; `microservice` (full
 end-to-end stack) → `metro-ai-app-recipe`; and the Step 1 **camera-coverage**
 answer to Scenescape: a multi-camera whole-scene view → `scenescape-setup`.
@@ -35,7 +35,7 @@ Use `dlsps-user` for operating the standalone pipeline-server service; use
 `metro-ai-app-recipe` for the integrated analytics stack, and
 `dlstreamer-coding-agent` when authoring or migrating pipeline code.
 
-### 1a. API recipe → delegate routing (Step 1, Q8)
+### 1a. API recipe → delegate routing (optional preference)
 
 The **API-recipe** answer selects the media/analytics delegate and **takes
 precedence** for these use cases (full detail in [`API_RECIPES.md`](API_RECIPES.md)):
@@ -147,10 +147,10 @@ rather than treating the Metro vision recipe as a universal industrial route.
   manufacturing-quality app → §7; OEP module lifecycle / time-series analytics
   → §8; UAV Mission Compute SDK → §9.
 - **Deployment target** picks the Docker vs Helm variant (chatqna, vss). For
-  vision, the **packaging** answer (Q4) picks the route: a *demo / function /
+  vision, the resolved **packaging** picks the route: a *demo / function /
   port* single app → **`dlstreamer-coding-agent`** (a single DL Streamer pipeline
   or sample app); a *microservice / full end-to-end* stack →
-  **`metro-ai-app-recipe`** (production mode). The **API-recipe** answer (Q8)
+  **`metro-ai-app-recipe`** (production mode). An explicit **API-recipe** preference
   overrides for media/analytics — see §1a (DLS → `dlstreamer-coding-agent`;
   OV+OpenCV / OVMS+FFmpeg → custom-code paths).
 - **Multi-camera / spatial** whole-scene tracking (a subject followed *across*

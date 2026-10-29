@@ -58,12 +58,16 @@ The invoking prompt maps its vertical to concrete `{{OBJECT}}`,
 ## How to use this skill
 
 1. Read this file end-to-end.
-2. Ask **Question 0 (packaging)** first. If **demo/function/port** (single-app
+   When invoked by an orchestrator, reuse its approved specification for the
+   questions below; ask only for missing required values. Surface incompatible
+   choices (including model precision) before building, not after deployment.
+2. Resolve packaging from the request or approved plan [microservice].
+   If **demo/function/port** (single-app
    path), branch to [Demo/PoC mode](#demopoc-mode) + load
-   [`references/DEMO_POC.md`](references/DEMO_POC.md), skip questions 1–7; else
+   [`references/DEMO_POC.md`](references/DEMO_POC.md), skip full-stack questions; else
    (**microservice**, the default full stack) continue.
-3. Ask the 7 questions in ONE batched message (defaults in brackets); accept
-   `go`/`defaults`/empty. Question 7 selects the **Scenescape** path.
+3. Ask only unanswered questions below in ONE batch; accept defaults/empty.
+   Skip the batch when the approved specification already supplies the answers.
 4. Run parameter validation (below); refuse to proceed on any failure.
 5. Load reference file(s) on demand — **not all up front** (per the *Reference
    files* table): Scenescape when `{{SCENESCAPE}}=yes`; PIPELINE for GPU/NPU,
@@ -111,27 +115,34 @@ The invoking prompt maps its vertical to concrete `{{OBJECT}}`,
 | `{{CAMERA_IDS}}` | (Scenescape only) unique IDs (no `/`), one per input stream, in input order |
 | `{{TURN_USER}}`, `{{TURN_PASS}}` | Coturn / MediaMTX ICE credentials (default `turnuser` / a generated secret) |
 
-## Questions (single batched prompt)
+## Questions (only missing information, single batch)
 
-**Question 0 — Packaging** [`microservice`]: `demo`/`function`/`port`
-(single-app: PoC, one-shot job, or migrate a pipeline) or `microservice` (full
-stack, **default**). For `demo`/`function`/`port`, STOP → follow
-[Demo/PoC mode](#demopoc-mode); skip questions 1–7 (`microservice` only).
+1. **Goal and alerts** — what objects/events matter, when should an alert fire,
+   and where should it appear? [provided object/rule; MQTT `{{ALERT_TOPIC}}`,
+   explicitly MQTT-only unless a visible/external channel is configured]
+2. **Video and coverage** — how many sources and which files/cameras?
+   [{{NUM_SOURCES}}× sample-video, independent views] Ask about cross-camera
+   tracking only for multiple cameras; if needed, collect scene name and unique
+   camera IDs and follow [SCENESCAPE](references/SCENESCAPE.md).
+   RTSP/device inputs are continuous: no video download or file watchdog.
+3. **Delivery** — full dashboard service or lightweight demo, and which output
+   folder? [microservice, `{{STACK_DIR}}`]
 
-1. Model [`{{DEFAULT_MODEL}}`] (also: `{{OTHER_MODELS}}`; or `auto` — give a
-   performance goal, I'll suggest one from the OpenVINO / Intel / Metro Analytics
-   Catalog HF collections via `model-download`)
-2. Classifier [`{{CLASSIFIER}}`] (or `none`)
-3. Target hardware [CPU] — Intel `CPU`/`GPU`/`NPU`/`AUTO` (I pick). Multi-vendor
-   noted as *suggestions only*; no platform/generation naming.
-4. Inputs [{{NUM_SOURCES}}× sample-video] (or RTSP URLs / `/dev/videoN` / local
-   paths); sets `INPUT_TYPE`. RTSP/device are **continuous** → no sample-video
-   download, no file:// watchdog (see [PIPELINE](references/PIPELINE.md)).
-5. Node-RED rule [`{{DEFAULT_RULE}}`, `{{RULE_SCOPE}}`]
-6. Alert channel [MQTT `{{ALERT_TOPIC}}`]
-7. Scenescape multi-camera spatial analysis? [`{{SCENESCAPE}}`, default `no`]
-   (if `yes`, also collect `{{SCENE_NAME}}` + one unique `{{CAMERA_IDS}}` per
-   input stream → [`references/SCENESCAPE.md`](references/SCENESCAPE.md))
+Model, classifier, and hardware are optional preferences, not extra required
+questions. Reuse supplied values; otherwise select the model for balanced
+accuracy/latency, no classifier unless the goal requires one, and a supported
+Intel CPU/GPU/NPU device. Show these choices before building; do not name
+hardware generations.
+
+For appearance alerts, carry through the approved transition/re-arm behavior
+and cooldown separately from the count/window rule. State whether delivery is
+MQTT-only, a visible dashboard notification, or an external destination; do not
+claim email/webhook delivery without configuring and testing that destination.
+
+For sample inputs, prefer licensed fixed-camera footage with minimal clutter and
+clear target objects; retain source attribution. Verify real counts naturally
+cross the approved threshold before using the clip as alert evidence. If they
+do not, report the limitation rather than changing the rule or fabricating events.
 
 ## Parameter validation (enforce BEFORE `install.sh` runs)
 
@@ -154,7 +165,7 @@ DLSPS→MQTT→Mosquitto→Node-RED→Grafana; DLSPS→WHIP→MediaMTX (peer-id
 
 ## Demo/PoC mode
 
-When Question 0 selects `demo`/`function`/`port` (single-app packaging), **do not
+When packaging is `demo`/`function`/`port` (single-app packaging), **do not
 build the full stack** — produce one lightweight app proving a model runs on
 Intel HW (DL Streamer app or minimal OpenVINO script). Follow
 [`references/DEMO_POC.md`](references/DEMO_POC.md) (load only on this branch);
@@ -162,7 +173,7 @@ production criteria (1–11) do **not** apply.
 
 ## Scenescape spatial-analysis path (optional, `{{SCENESCAPE}}=yes`)
 
-When Question 7 selects Scenescape, **branch**: keep the DLSPS detection pipeline
+When cross-camera tracking selects Scenescape, **branch**: keep the DLSPS detection pipeline
 but replace the MediaMTX/WebRTC + Node-RED + Grafana-MQTT tail with an Intel®
 Scenescape multi-camera scene-fusion stack. **Do not re-implement by hand** —
 delegate to `scenescape-setup`, passing `{{SCENE_NAME}}` + `{{CAMERA_IDS}}`.
@@ -201,12 +212,18 @@ The generated `README.md` MUST document, at minimum:
   include the ASCII diagram + seven containers.
 - **Quick start** — `./install.sh` → `docker compose up -d` →
   `./sample_start.sh <cpu|gpu|npu>`, plus stop/status scripts.
+  Distinguish stopping detection from stopping the full stack. Disable the
+  watchdog before deleting pipelines; document stopping any host-side watchdog
+  as well as Compose services, preserving configuration and data.
 - **Access URLs + credentials** — dashboard `https://<HOST_IP>/grafana/`
   (**Grafana login `admin`/`admin`**, change on first login), DLSPS REST
   `https://<HOST_IP>/api/pipelines`, WHEP
   `https://<HOST_IP>/mediamtx/{{DETECTIONS_TOPIC_PREFIX}}_N/`.
 - **Configuration** — key `.env` values (`HOST_IP`, GIDs, TURN creds) + how to
   swap the video source for RTSP.
+  Consume source/model/class/rule/cooldown settings from one documented
+  configuration, validate them, and provide the regeneration/restart command;
+  routine changes must not require editing generator or flow code.
 
 ## Template variable substitution
 
@@ -255,6 +272,11 @@ recipe uses the same path — consult it for `config.json`, `mosquitto.conf`,
 > When `{{SCENESCAPE}}=yes`, criteria 3–11 are **superseded** by the Scenescape
 > criteria in [`references/SCENESCAPE.md`](references/SCENESCAPE.md); 1–2 still apply.
 
+After changing a video/source, repeat the affected detection, count, notification,
+browser playback/rendering, and file-replay checks against the final input.
+Record source identity and observation time; earlier footage's results and
+retained historical alerts are not proof for the replacement source.
+
 1. `./install.sh` succeeds: `.env` populated; INT8 model + optional classifier
    IR under `src/dlstreamer-pipeline-server/models/…`; videos downloaded; TLS
    cert with SAN.
@@ -281,19 +303,26 @@ recipe uses the same path — consult it for `config.json`, `mosquitto.conf`,
    (`/grafana/api/datasources/uid/mqtt_ds/health`) MUST return `"MQTT
    Connected"` — broker in **`jsonData.uri`** (`tcp://broker:1883`), not `url:`.
    Blank-panel / redirect-loop fixes: [`references/PROXY_UI.md`](references/PROXY_UI.md).
+   Verify in a browser that video frames advance and numeric panels receive
+   live values matching MQTT, plus a visible notification when configured.
+   WHEP HTML, publisher logs, datasource health, and panel configuration alone
+   are not playback/rendering proof. If browser verification is unavailable,
+   report this criterion as unverified, not passed.
 10. `pytest -q tests/` passes; `pytest --collect-only -q tests/ | tail -1`
     reports ≥ 9 tests collected (no empty stubs).
 11. **Watchdog continuity** (file:// sources): after `video-length + 30 s`,
     `/api/pipelines/status` shows `{{NUM_SOURCES}}` `RUNNING` (`COMPLETED`
     history is fine), WebRTC re-establishes, MQTT still flowing
     (`>{{NUM_SOURCES}}` `RUNNING` = missing watchdog dedup guard).
+    Verify the detection stop command leaves no active pipelines after one
+    watchdog interval; then verify the documented full-stack stop leaves no
+    project services or host watchdog running. For a running-app delivery,
+    restart and recheck health/detections afterward; honor explicit stop requests.
 
 ## Final summary — surface the proof (don't just name files)
 
-Graders see only your **final message** + tool *names*, not file contents. An
-expectation counts as met only if you **state it and quote the one decisive
-line** in your closing summary — walk every completion criterion plus the
-proof-point checklist (topology, WebRTC, pinned tags, MQTT/class filter, no
-literal `{{...}}`, certs, curl guards, watchdog, rule, classifier, Scenescape)
-detailed in [`references/INSTALL.md`](references/INSTALL.md) →
-*Final-summary proof points*. A claim with no quoted evidence is treated as unmet.
+Keep the closing summary concise: verified capabilities, failures or unverified
+criteria, access URLs, credential guidance, start/stop/status commands, and
+whether services remain running. Save criterion-by-criterion evidence and the
+[*Final-summary proof points*](references/INSTALL.md#final-summary-proof-points)
+in the generated README; link to it instead of repeating the full checklist.

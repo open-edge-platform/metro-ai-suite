@@ -244,10 +244,9 @@ Corporate Docker proxy settings inject `HTTP_PROXY`/`http_proxy` into **every** 
 
 ## Final-summary proof points
 
-Reviewers/users see only your final message + a transcript of tool **names** —
-not file bodies. So your closing summary MUST **quote the one decisive line**
-for each applicable item (a claim with no visible evidence is treated as unmet).
-Walk this list explicitly and confirm every item that applies to the prompt:
+Record one decisive evidence line for each applicable item in the generated
+README, marking failures and unverified items explicitly. Link to that evidence
+from the concise closing summary rather than repeating this entire checklist:
 
 1. **Seven-container topology** — name all seven services running on one
    `app_network`: `nginx, dlstreamer-pipeline-server, broker, node-red, grafana,
