@@ -21,11 +21,10 @@ compatibility: >-
 
 # Metro AI App Recipe — DLSPS + WebRTC + Mosquitto + Node-RED + Grafana + Nginx
 
-Build an end-to-end `{{OBJECT}}`-analytics stack on Intel hardware in
-`./{{STACK_DIR}}/` with Docker Compose. **Vertical-agnostic:** the same
-seven-container topology serves any DL Streamer / OpenVINO CV pipeline — only the
-model, class filter, alert rule, dashboard, and topics differ. Follows the
-open-edge-platform
+Build a Docker Compose `{{OBJECT}}`-analytics stack in `./{{STACK_DIR}}/` on Intel
+hardware. **Vertical-agnostic:** seven containers serve any DL Streamer / OpenVINO
+CV pipeline; only model, class filter, alert rule, dashboard, and topics differ.
+Follows the
 [Metro Vision AI App Recipe](https://github.com/open-edge-platform/metro-ai-suite/tree/main/metro-vision-ai-app-recipe)
 **MediaMTX + Coturn + WebRTC** path, streamlined (**no Prometheus/OTel**).
 Scenescape is **off by default** (opt-in multi-camera analysis). Data-flow and
@@ -33,10 +32,9 @@ routing are detailed in **Reference architecture** below.
 
 ## When to use this skill
 
-**Use when** building an object-detection, classification, object-counting, or
-zone/line-crossing alerting pipeline for any vertical (see table below).
-Optionally adds a Scenescape multi-camera path, or a lightweight demo/PoC single
-app when no full stack is needed.
+**Use for** detection, classification, counting, or zone/line-crossing alerts in
+any vertical. Supports optional Scenescape multi-camera analysis or a single-app
+demo/PoC instead of the full stack.
 
 **Not for:** non-Intel or cloud-only deployments, Prometheus/OpenTelemetry
 metrics stacks, or training/exporting models.
@@ -57,10 +55,9 @@ The invoking prompt maps its vertical to concrete `{{OBJECT}}`,
 
 ## How to use this skill
 
-1. Read this file end-to-end.
-   When invoked by an orchestrator, reuse its approved specification for the
-   questions below; ask only for missing required values. Surface incompatible
-   choices (including model precision) before building, not after deployment.
+1. Read this file. Reuse the orchestrator's approved specification; ask only for
+   missing required values. Surface incompatible choices (including model
+   precision) before building.
 2. Resolve packaging from the request or approved plan [microservice].
    If **demo/function/port** (single-app
    path), branch to [Demo/PoC mode](#demopoc-mode) + load
@@ -84,7 +81,7 @@ The invoking prompt maps its vertical to concrete `{{OBJECT}}`,
 | [`references/PIPELINE.md`](references/PIPELINE.md) | DLSPS `config.json`, GPU/NPU variants (`_gpu`/`_npu` + `group_add`), input sources (file/RTSP/device), `gvaclassify` wiring, REST launcher, watchdog |
 | [`references/PROXY_UI.md`](references/PROXY_UI.md) | `nginx.conf` proxy (WHEP/WHIP + WebRTC-TCP), Grafana iframe panels, dashboard provisioning, Mosquitto |
 | [`references/NODE_RED.md`](references/NODE_RED.md) | `flows.json`, MQTT wildcard, `gva_meta` probe, alert flow |
-| [`references/INSTALL.md`](references/INSTALL.md) | file layout, `.env`, `validate_env.sh` + rules, `install.sh`, `docker-compose.yml` volumes |
+| [`references/INSTALL.md`](references/INSTALL.md) | image pins, file layout, generated README requirements, `.env`, `validate_env.sh` + rules, `install.sh`, `docker-compose.yml` volumes |
 | [`references/TESTS.md`](references/TESTS.md) | `conftest.py`, `test_webrtc_stream.py`, assertion contracts |
 | [`references/SCENESCAPE.md`](references/SCENESCAPE.md) | **`{{SCENESCAPE}}=yes` only** — multi-camera scene-fusion via `scenescape-setup` skill |
 | [`references/DEMO_POC.md`](references/DEMO_POC.md) | **single-app packaging only** (`{{PACKAGING}}`∈`demo`/`function`/`port`) — lightweight single-app path (DL Streamer or OpenVINO); no full stack |
@@ -128,21 +125,20 @@ The invoking prompt maps its vertical to concrete `{{OBJECT}}`,
 3. **Delivery** — full dashboard service or lightweight demo, and which output
    folder? [microservice, `{{STACK_DIR}}`]
 
-Model, classifier, and hardware are optional preferences, not extra required
-questions. Reuse supplied values; otherwise select the model for balanced
-accuracy/latency, no classifier unless the goal requires one, and a supported
-Intel CPU/GPU/NPU device. Show these choices before building; do not name
-hardware generations.
+Model, classifier, and hardware preferences are optional. Reuse supplied values;
+otherwise choose balanced accuracy/latency, no classifier unless required, and a
+supported Intel CPU/GPU/NPU device. Show choices before building; omit hardware
+generations.
 
-For appearance alerts, carry through the approved transition/re-arm behavior
-and cooldown separately from the count/window rule. State whether delivery is
-MQTT-only, a visible dashboard notification, or an external destination; do not
-claim email/webhook delivery without configuring and testing that destination.
+For appearance alerts, preserve approved transition/re-arm behavior and cooldown
+separately from count/window rules. State delivery: MQTT-only, visible dashboard
+notification, or external. Configure and test email/webhook destinations before
+claiming delivery.
 
-For sample inputs, prefer licensed fixed-camera footage with minimal clutter and
-clear target objects; retain source attribution. Verify real counts naturally
-cross the approved threshold before using the clip as alert evidence. If they
-do not, report the limitation rather than changing the rule or fabricating events.
+Prefer licensed, uncluttered fixed-camera footage with clear targets; retain
+attribution. For alert evidence, verify real counts naturally cross the approved
+threshold; otherwise report the limitation without changing rules or fabricating
+events.
 
 ## Parameter validation (enforce BEFORE `install.sh` runs)
 
@@ -181,49 +177,13 @@ Architecture, images, validation, criteria in
 [`references/SCENESCAPE.md`](references/SCENESCAPE.md); load only on this branch.
 Default (`{{SCENESCAPE}}=no`) path is unchanged.
 
-## Images — pin to the latest available tag (never `:latest`)
+## Installation and generated documentation
 
-Resolve each image to the **newest published stable tag on Docker Hub** (query
-the repo's `tags` API with `ordering=last_updated`), pin it, and ignore
-`*-weekly` pre-releases. **Grafana is the one exception:** keep it pinned to
-`11.5.4` (the MQTT datasource plugin only works on that tag).
-
-- `intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24`
-- `eclipse-mosquitto:2.1.2-alpine`
-- `nodered/node-red:5.0.4`
-- `nginx:1.31.3-alpine`
-- `bluenviron/mediamtx:1.20.0` (WebRTC: WHIP in, WHEP out)
-- `coturn/coturn:4.17.0` (ICE/TURN)
-- `grafana/grafana:11.5.4` (**pinned — do not upgrade**) with `GF_INSTALL_PLUGINS="grafana-mqtt-datasource 1.3.3,yesoreyeram-infinity-datasource 3.11.1"` — a bad plugin version kills the container → Nginx 502
-- `intel/dlstreamer:2026.2.0-ubuntu24` (one-shot in `install.sh`: model dl + INT8 quantize + TLS cert)
-
-## Layout (flat)
-
-Generate a flat `{{STACK_DIR}}/`: `README.md`, `docker-compose.yml`, `.env`,
-`validate_env.sh`, `install.sh`, `sample_*.sh`/`update_dashboard.sh`, a `src/`
-tree (per-service dirs), and `tests/`. Full annotated tree in
-[`references/INSTALL.md`](references/INSTALL.md).
-
-### `README.md` (required content)
-
-The generated `README.md` MUST document, at minimum:
-
-- **Architecture** — the data + video flow from *Reference architecture* above;
-  include the ASCII diagram + seven containers.
-- **Quick start** — `./install.sh` → `docker compose up -d` →
-  `./sample_start.sh <cpu|gpu|npu>`, plus stop/status scripts.
-  Distinguish stopping detection from stopping the full stack. Disable the
-  watchdog before deleting pipelines; document stopping any host-side watchdog
-  as well as Compose services, preserving configuration and data.
-- **Access URLs + credentials** — dashboard `https://<HOST_IP>/grafana/`
-  (**Grafana login `admin`/`admin`**, change on first login), DLSPS REST
-  `https://<HOST_IP>/api/pipelines`, WHEP
-  `https://<HOST_IP>/mediamtx/{{DETECTIONS_TOPIC_PREFIX}}_N/`.
-- **Configuration** — key `.env` values (`HOST_IP`, GIDs, TURN creds) + how to
-  swap the video source for RTSP.
-  Consume source/model/class/rule/cooldown settings from one documented
-  configuration, validate them, and provide the regeneration/restart command;
-  routine changes must not require editing generator or flow code.
+Before generating the full stack, load
+[`references/INSTALL.md`](references/INSTALL.md) for image selection and pins
+(never `:latest`; Grafana stays `11.5.4`), the flat `{{STACK_DIR}}/` layout,
+and mandatory generated README content, including configuration and safe
+start/stop instructions.
 
 ## Template variable substitution
 

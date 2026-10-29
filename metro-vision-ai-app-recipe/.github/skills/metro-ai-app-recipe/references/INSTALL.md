@@ -1,6 +1,26 @@
 # Install + Compose reference
 
+## Images — pin to the latest available tag (never `:latest`)
+
+Resolve each image to the **newest published stable tag on Docker Hub** (query
+the repo's `tags` API with `ordering=last_updated`), pin it, and ignore
+`*-weekly` pre-releases. **Grafana is the one exception:** keep it pinned to
+`11.5.4` (the MQTT datasource plugin only works on that tag).
+
+- `intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24`
+- `eclipse-mosquitto:2.1.2-alpine`
+- `nodered/node-red:5.0.4`
+- `nginx:1.31.3-alpine`
+- `bluenviron/mediamtx:1.20.0` (WebRTC: WHIP in, WHEP out)
+- `coturn/coturn:4.17.0` (ICE/TURN)
+- `grafana/grafana:11.5.4` (**pinned — do not upgrade**) with `GF_INSTALL_PLUGINS="grafana-mqtt-datasource 1.3.3,yesoreyeram-infinity-datasource 3.11.1"` — a bad plugin version kills the container → Nginx 502
+- `intel/dlstreamer:2026.2.0-ubuntu24` (one-shot in `install.sh`: model dl + INT8 quantize + TLS cert)
+
 ## Layout (flat)
+
+Generate a flat `{{STACK_DIR}}/`: `README.md`, `docker-compose.yml`, `.env`,
+`validate_env.sh`, `install.sh`, `sample_*.sh`/`update_dashboard.sh`, a `src/`
+tree (per-service dirs), and `tests/`.
 
 ```
 {{STACK_DIR}}/
@@ -24,6 +44,27 @@
     #           mqtt_detections, webrtc_stream, nodered_alert,
     #           grafana_mqtt_data, grafana_dashboard_content
 ```
+
+## `README.md` (required content)
+
+The generated `README.md` MUST document, at minimum:
+
+- **Architecture** — the data + video flow from *Reference architecture* in
+  the skill; include the ASCII diagram + seven containers.
+- **Quick start** — `./install.sh` → `docker compose up -d` →
+  `./sample_start.sh <cpu|gpu|npu>`, plus stop/status scripts.
+  Distinguish stopping detection from stopping the full stack. Disable the
+  watchdog before deleting pipelines; document stopping any host-side watchdog
+  as well as Compose services, preserving configuration and data.
+- **Access URLs + credentials** — dashboard `https://<HOST_IP>/grafana/`
+  (**Grafana login `admin`/`admin`**, change on first login), DLSPS REST
+  `https://<HOST_IP>/api/pipelines`, WHEP
+  `https://<HOST_IP>/mediamtx/{{DETECTIONS_TOPIC_PREFIX}}_N/`.
+- **Configuration** — key `.env` values (`HOST_IP`, GIDs, TURN creds) + how to
+  swap the video source for RTSP.
+  Consume source/model/class/rule/cooldown settings from one documented
+  configuration, validate them, and provide the regeneration/restart command;
+  routine changes must not require editing generator or flow code.
 
 ## `.env`
 
