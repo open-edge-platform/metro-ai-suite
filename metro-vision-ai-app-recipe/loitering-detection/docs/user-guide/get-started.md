@@ -8,8 +8,8 @@ deliver accurate and actionable insights.
 By following this guide, you will learn how to:
 
 - **Set up the sample application**: Use Docker Compose to quickly deploy the application in your environment.
-- **Run a predefined pipeline**: Execute a pipeline to see loitering detection in action.
-- **Access the application's features and user interfaces**: Explore the Grafana dashboard and DL Streamer Pipeline Server to monitor, analyze and customize workflows.
+- **Run video analytics**: Start the predefined sample pipelines or use the optional Console UI.
+- **View the results**: Watch video and loitering analytics in Grafana or the Console UI.
 
 ## Prerequisites
 
@@ -33,85 +33,106 @@ By following this guide, you will learn how to:
    cd metro-vision-ai-app-recipe/
    ```
 
-2. **Setup Application and Download Assets**:
-   - Use the installation script to configure the application and download required models:
+2. **Set up the Application and Download Assets**:
+   Choose **one** installation command:
+
+   - **Without the Console UI**: Use the sample scripts and Grafana.
 
      ```bash
      ./install.sh loitering-detection
      ```
 
+   - **With the Console UI**: Add an operator interface for starting and stopping pipelines,
+     selecting models and devices, and drawing zones. Grafana remains available.
+
+     ```bash
+     ./install.sh loitering-detection-ui
+     ```
+
    > [!NOTE]
-   > For environments requiring a specific host IP address (for example, when deploying across different network interfaces), you can explicitly
-   > specify the IP address: `./install.sh loitering-detection <HOST_IP>` (Replace `<HOST_IP>` with
-   > your target IP address.)
+   > To select a specific host IP address, append it to your chosen command:
+   > `./install.sh loitering-detection <HOST_IP>` or
+   > `./install.sh loitering-detection-ui <HOST_IP>`.
+   > Replace `<HOST_IP>` with your target IP address.
+
+   Both choices configure the same Docker Compose stack and download the required assets.
+   The `-ui` variant adds the `console` service; the plain variant does not include it.
 
 ## Run the application
 
-1. **Start the Application**:
-   - Download container images with Application microservices and run with Docker Compose:
+Run all commands from the `metro-vision-ai-app-recipe` directory.
+
+1. **Start the application**:
+
+   - Download the container images and start the microservices:
 
      ```bash
      docker compose up -d
      ```
 
      <details>
-     <summary>
-     Check Status of Microservices
-     </summary>
-     - The application starts the following microservices.
-     - To check if all microservices are in Running state:
+     <summary>Check Status of Microservices</summary>
 
-       ```bash
-       docker ps
-       ```
+     - To check that the services are running:
 
-     **Expected Services:**
-     - Grafana Dashboard
-     - DL Streamer Pipeline Server
-     - MQTT Broker
-     - Scenescape services (for Smart Intersection only)
+     ```bash
+     docker ps
+     ```
+
+     The stack includes Grafana, DL Streamer Pipeline Server, MQTT, and supporting services.
+     The `console` service is present only if you selected the `-ui` installation.
 
      </details>
 
-2. **Run Predefined Pipelines**:
-   - Start video streams to run video inference pipelines:
+2. **Follow your chosen workflow**:
 
-     ```bash
-     ./sample_start.sh
-     ```
+   Choose either workflow below. When accessing the application remotely, replace `localhost`
+   in the browser addresses with the host IP.
 
-   - To check the status of the pipelines:
+   > [!CAUTION]
+   > Both workflows use the same Pipeline Server. `./sample_start.sh` stops **all** existing
+   > pipeline instances before launching its four sample pipelines. `./sample_stop.sh` also
+   > stops all instances, including those started in the Console UI. Do not run these scripts
+   > while you want to keep Console pipelines running.
 
-     ```bash
-     ./sample_status.sh
-     ```
+#### Run the predefined samples and view Grafana
 
-     <details>
-     <summary>
-     Stop pipelines
-     </summary>
-     - To stop the pipelines without waiting for video streams to finish replay:
+1. Start the four sample pipelines (CPU is used when no device flag is supplied):
 
-       > [!CAUTION]
-       > This will stop all the pipelines and the streams. **DO NOT** run this
-       > if you want to see loitering detection!
+   ```bash
+   ./sample_start.sh
+   ```
 
-       ```bash
-       ./sample_stop.sh
-       ```
+2. Check their status:
 
-       </details>
+   ```bash
+   ./sample_status.sh
+   ```
 
-3. **View the Application Output**:
-   - Open a browser and go to `https://localhost/grafana` to access the Grafana dashboard.
-     - Change the localhost to your host IP if you are accessing it remotely.
-   - Log in with the following credentials:
-     - **Username**: `admin`
-     - **Password**: `admin`
-   - Check under the Dashboards section for the application-specific preloaded dashboard.
-   - **Expected Results**: The dashboard displays real-time video streams with AI overlays and detection metrics.
+3. Open `https://localhost/grafana` and log in with username `admin` and password `admin`.
+   You will be prompted to change the password on first login.
+4. Under **Dashboards**, open the preloaded **Video Analytics Dashboard**.
+   Expect video streams with detection overlays and loitering metrics for objects in the
+   configured zones.
+
+#### Start and view a pipeline in the Console UI
+
+This workflow requires the `-ui` installation choice.
+
+1. Open `https://localhost/console/`.
+2. Leave **Number of pipelines** at `1`. The **Pipeline 1** card has a prefilled source,
+   model, and device; select a device supported by your hardware if necessary.
+3. Click **Start pipelines**.
+4. Expect a panel titled **Pipeline N · source · model · device** with live WebRTC video
+   and a per-object loitering table. Objects enter the table when they are inside a configured
+   zone; a detection outside all zones can still have a bounding box without a table row.
+
+For comparisons, source/model selection, zone drawing, and panel interpretation, see
+[Use the Console UI](./how-to-guides/use-console-ui.md).
 
 ## Access the Application and Components
+
+Console pipelines have their own video panels; for details see [Use the Console UI](./how-to-guides/use-console-ui.md).
 
 ### Nginx Dashboard
 
@@ -145,59 +166,34 @@ By following this guide, you will learn how to:
 - **REST API**: `https://localhost/api/pipelines/status`
 - **WebRTC**: `https://localhost/mediamtx/object_tracking_1/`
 
-### Tuning or disabling the dwell-time overlay
-
-The on-screen dwell-time dashboard text (drawn by `loitering_watermark`) is controlled by two
-REST-overridable properties, set via `loitering-watermark-properties` in the launch payload used
-by `sample_start.sh` — no code or pipeline changes needed:
-
-- `loitering-threshold`: dwell time (seconds) after which the overlay turns red. Default `5.0`.
-  To change it, edit the `"loitering-threshold"` value in the payload in `sample_start.sh` (or
-  pass a different value in your own `curl` call using the same payload shape), then restart the
-  pipelines so the new value takes effect:
-
-  ```bash
-  ./sample_stop.sh
-  ./sample_start.sh
-  ```
-
-  > [!NOTE]
-  > Pipeline parameters are only read when a pipeline starts, so editing the payload value
-  > alone does not affect an already-running pipeline — it must be restarted.
-
-  > [!IMPORTANT]
-  > `loitering-threshold` must be a JSON number (e.g., `7.0`), not a quoted string (`"7.0"`)
-
-- `quiet-mode`: set to `"true"` to suppress the on-screen text entirely (e.g., to rely on the
-  Grafana table only); `"false"` to re-enable it.
-
-Example REST payload fragment (see `sample_start.sh` for the full launch payload):
-
-```json
-{
-  "parameters": {
-    "loitering-watermark-properties": {
-      "loitering-threshold": 7.0,
-      "quiet-mode": "false"
-    }
-  }
-}
-```
-
-This only affects the on-screen text; zone outlines/bounding boxes and the Grafana table are
-unaffected.
-
 ## Stop the Application
 
-- To stop the application microservices, use the following command:
+To stop a Console pipeline, click **X** in the top-right corner of its panel; use **Stop all** for all pipelines shown
+in the Console.
 
-  ```bash
-  docker compose down
-  ```
+To stop all pipeline instances through the sample script:
 
-## Next Steps
+```bash
+./sample_stop.sh
+```
 
-- [Customize the Application](./how-to-guides/customize-application.md)
+> [!CAUTION]
+> `./sample_stop.sh` stops all pipelines and streams, including Console-launched instances.
+> Run it only when you are finished viewing those streams.
+
+To stop the application microservices:
+
+```bash
+docker compose down
+```
+
+## Advanced options
+
+- [Use the Console UI](./how-to-guides/use-console-ui.md): Compare models, change sources and devices, and draw zones.
+- [Customize the Application](./how-to-guides/customize-application.md): Configure file-based zones, streams, and Grafana data.
+- [Tune or disable the dwell-time overlay](./how-to-guides/customize-application.md#video-overlay): Set overlay properties at pipeline launch.
+- [Update the Pipeline](./how-to-guides/update-pipelines.md): Edit pipeline definitions and REST-overridable properties.
+- [All How-to Guides](./how-to-guides.md): Explore device, telemetry, offline packaging, and benchmarking guides.
 
 ## Troubleshooting
 
@@ -205,8 +201,11 @@ unaffected.
    - If you need to use a specific Host IP address instead of the one automatically detected during installation, you can explicitly provide it using the following command. Replace `<HOST_IP>` with your desired IP address:
 
      ```bash
-     ./install.sh <HOST_IP>
+     ./install.sh loitering-detection <HOST_IP>
      ```
+
+   - If you use the Console UI, use `loitering-detection-ui` instead to retain the Console service.
+     Rerunning the installer stops the current stack; start it again with `docker compose up -d`.
 
 2. **Containers Not Starting**:
    - Check the Docker logs for errors:
@@ -242,6 +241,7 @@ unaffected.
 
 ## Supporting Resources
 
+- [Support and Troubleshooting](./troubleshooting.md)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
 - [DL Streamer Pipeline Server](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/index.html)
 

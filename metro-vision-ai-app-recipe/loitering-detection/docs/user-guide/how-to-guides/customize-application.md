@@ -17,18 +17,19 @@ solutions with minimal programming.
 
 The system follows a modular architecture:
 
--   **Video Input:** Cameras or video streams provide the raw data.
--   **Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server):** Processes video
-streams locally using AI models to detect and track objects across the full frame, and
-evaluates each tracked object against configurable zone polygons to compute dwell time
-natively via the `gvaanalytics` element — no external data-processing service required.
--   **Grafana:** Visualizes the published MQTT data (zone presence, dwell time, and loitering
-status), providing real-time dashboards.
+- **Video Input:** Cameras or video streams provide the raw data.
+- **Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server):** Processes video
+  streams locally using AI models to detect and track objects across the full frame, and
+  evaluates each tracked object against configurable zone polygons to compute dwell time
+  natively via the `gvaanalytics` element — no external data-processing service required.
+- **Grafana:** Visualizes the published MQTT data (zone presence, dwell time, and loitering
+  status), providing real-time dashboards.
 
 ## DL Streamer Pipeline Server
 
+> [!NOTE]
 > For detailed documentation on Deep Learning Streamer Pipeline Server (DL Streamer Pipeline
-Server), visit the [DL Streamer Pipeline Server Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/index.html).
+> Server), visit the [DL Streamer Pipeline Server Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/index.html).
 
 ![Pipeline Architecture](../_assets/pipeline.png)
 
@@ -40,9 +41,9 @@ real-time object detection and tracking, minimizing latency and reducing bandwid
 
 #### Logging and general configuration
 
--   `C_LOG_LEVEL: INFO` - Sets the logging level for C components to "INFO," which provides
-useful information about the system's operations without being overly verbose.
--   `PY_LOG_LEVEL: INFO` - Similarly, sets the logging level for Python components.
+- `C_LOG_LEVEL: INFO` - Sets the logging level for C components to "INFO," which provides
+  useful information about the system's operations without being overly verbose.
+- `PY_LOG_LEVEL: INFO` - Similarly, sets the logging level for Python components.
 
 #### Video processing pipelines
 
@@ -58,72 +59,73 @@ detection, tracking, and zone/dwell-time analytics in a single pipeline for a gi
 stream is launched against one of these by REST call (see `sample_start.sh`), which assigns it
 a per-instance MQTT topic and WebRTC peer-id (e.g. `object_tracking_1`).
 
--   **Pipelines:** `object_tracking_cpu`, `object_tracking_gpu`, `object_tracking_npu`
--   **How They Work:**
-    -   **Detection Model:** `sample_start.sh` always launches with the
+- **Pipelines:** `object_tracking_cpu`, `object_tracking_gpu`, `object_tracking_npu`
+- **How They Work:**
+  - **Detection Model:** `sample_start.sh` always launches with the
     `pedestrian-and-vehicle-detector-adas-0001` model; the
-    [Loitering Detection Console UI](../get-started-ui.md) can launch any model placed under
+    [Loitering Detection Console UI](./use-console-ui.md#add-a-model-to-compare) can launch any model placed under
     `src/dlstreamer-pipeline-server/models/` instead, picked per stream at start time - no
     pipeline or `config.json` change needed either way. `gvadetect` runs with
     `inference-region=0`, so detection happens on the full frame, not just the configured
     zone polygons.
-    -   **Tracking Element:** Incorporates `gvatrack` with the setting `tracking-type=zero-term` to follow objects over time.
-    -   **Zone & Dwell-Time Analytics:** The `gvaanalytics` element evaluates each tracked
+  - **Tracking Element:** Incorporates `gvatrack` with the setting `tracking-type=zero-term` to follow objects over time.
+  - **Zone & Dwell-Time Analytics:** The `gvaanalytics` element evaluates each tracked
     object's position against a per-stream polygon zone config file and computes dwell time;
     it is the only stage whose output is restricted to the configured zones — an object
     outside every zone is still detected and tracked, just not reported as present/dwelling
     in a zone. `loitering_watermark` (a reused DL Streamer sample element) renders the
     dwell-time/status text overlay on the video for every tracked object with dwell data,
     regardless of its detected class/label.
-    -   **Additional Parameters:**
-        -   `Threshold`: Set to `0.7` to balance sensitivity and accuracy.
-        -   `Inference Interval`: Controls how often the model analyzes frames.
--   **Benefits:** These pipelines help track moving objects (like people or vehicles) across
-frames, which is essential for loitering detection and other advanced analytics.
+  - **Additional Parameters:**
+    - `Threshold`: Set to `0.7` to balance sensitivity and accuracy.
+    - `Inference Interval`: Controls how often the model analyzes frames.
+- **Benefits:** These pipelines help track moving objects (like people or vehicles) across
+  frames, which is essential for loitering detection and other advanced analytics.
 
 #### Configurable parameters
 
 Each pipeline is designed to be user-friendly and customizable:
 
--   **Detection Properties:** Configurable parameters let you adjust the model settings without
-writing code. Example: The "detection-properties" element defines how the object detection
-module should behave.
--   **Detection Device:** `object_tracking_cpu`/`_gpu`/`_npu` are separate pipeline definitions,
-one per device - the caller (`sample_start.sh` or the Console UI) selects which one to launch
-against by name, rather than one pipeline taking a device parameter at runtime. See
-[Updating the Pipeline](./update-pipelines.md) for the full REST parameter reference.
+- **Detection Properties:** Configurable parameters let you adjust the model settings without
+  writing code. Example: The "detection-properties" element defines how the object detection
+  module should behave.
+- **Detection Device:** `object_tracking_cpu`/`_gpu`/`_npu` are separate pipeline definitions,
+  one per device - the caller (`sample_start.sh` or the Console UI) selects which one to launch
+  against by name, rather than one pipeline taking a device parameter at runtime. See
+  [Updating the Pipeline](./update-pipelines.md) for the full REST parameter reference.
 
 #### Messaging Interface (MQTT)
 
 To share the results of the video analysis with other parts of your system, the DL Streamer
 Pipeline Server uses a messaging interface based on Message Queuing Telemetry Transport (MQTT):
 
--   **Publisher Configuration:**
-    -   `Name: default`
-    -   `Type: mqtt`
-    -   `Endpoint: tcp://0.0.0.0:1883`
-    -   `Topics:` Each launched stream publishes its raw per-frame metadata under
+- **Publisher Configuration:**
+  - `Name: default`
+  - `Type: mqtt`
+  - `Endpoint: tcp://0.0.0.0:1883`
+  - `Topics:` Each launched stream publishes its raw per-frame metadata under
     `object_tracking/<N>` (set per-instance via `destination.metadata.topic` in the REST
     launch payload, not hardcoded; see `sample_start.sh`). The `mqtt-table-flattener` sidecar
     republishes a reshaped, threshold-filtered summary to `object_tracking/<N>/loiterstatus`
     for the Grafana table.
-    -   `Allowed Clients: *` (`*` denotes 'all', ensuring that any subscribed system can
+  - `Allowed Clients: *` (`*` denotes 'all', ensuring that any subscribed system can
     receive the data)
 
 ### DL Streamer Pipeline Server workflow
 
 1. **Capture and Decode:** Live video is captured and decoded using GStreamer.
 2. **Detection and Tracking:** The object detection pipelines analyze each frame to identify
-objects. The tracking pipelines then follow these objects over time, ensuring that moving
-objects are continuously monitored.
+   objects. The tracking pipelines then follow these objects over time, ensuring that moving
+   objects are continuously monitored.
 3. **Data Enrichment and Publishing:** Detected objects are enriched with metadata (such as
-bounding boxes, timestamps, and object types). The processed data is published via MQTT,
-making it available for dashboards.
+   bounding boxes, timestamps, and object types). The processed data is published via MQTT,
+   making it available for dashboards.
 
 ## Zone & Dwell-Time Analytics (gvaanalytics)
 
+> [!NOTE]
 > For detailed documentation on the `gvaanalytics` element, visit the
-> [DL Streamer documentation](https://github.com/open-edge-platform/dlstreamer/blob/main/docs/user-guide/elements/gvaanalytics.md).
+> [DL Streamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvaanalytics.html).
 
 Zone presence and dwell-time computation run natively inside the DL Streamer pipeline via the
 `gvaanalytics` element — no external low-code tool or custom service is required. This keeps
@@ -144,57 +146,57 @@ for example `VIRAT_S_000101.json`:
 
 ```json
 {
-    "zones": [
-        {
-            "id": "region1",
-            "type": "polygon",
-            "points": [
-                {"x": 208, "y": 390},
-                {"x": 2, "y": 489},
-                {"x": 2, "y": 296},
-                {"x": 197, "y": 237}
-            ],
-            "track-dwell-time": true,
-            "object-retention": 1.0,
-            "color": {"r": 0, "g": 255, "b": 0},
-            "thickness": 2
-        }
-    ]
+  "zones": [
+    {
+      "id": "region1",
+      "type": "polygon",
+      "points": [
+        { "x": 208, "y": 390 },
+        { "x": 2, "y": 489 },
+        { "x": 2, "y": 296 },
+        { "x": 197, "y": 237 }
+      ],
+      "track-dwell-time": true,
+      "object-retention": 1.0,
+      "color": { "r": 0, "g": 255, "b": 0 },
+      "thickness": 2
+    }
+  ]
 }
 ```
 
--   `id`: Zone identifier, reported as `zone_id` in the published metadata.
--   `type`: `"polygon"` (arbitrary number of points) or `"circle"`.
--   `track-dwell-time`: Enables dwell-time computation for this zone.
--   `object-retention`: Grace period (seconds) to keep zone state after an object leaves.
--   `color`/`thickness`: Used when rendering the zone outline on the video overlay.
+- `id`: Zone identifier, reported as `zone_id` in the published metadata.
+- `type`: `"polygon"` (arbitrary number of points) or `"circle"`.
+- `track-dwell-time`: Enables dwell-time computation for this zone.
+- `object-retention`: Grace period (seconds) to keep zone state after an object leaves.
+- `color`/`thickness`: Used when rendering the zone outline on the video overlay.
 
 A zone file can contain **any number of zones** — adding a second or third zone to a stream is
 purely a matter of adding another entry to the `zones` array in that stream's JSON file.
 
 ### Adding or editing a zone (no code changes)
 
-1.  Edit (or add zones to) the stream's JSON file under `src/dlstreamer-pipeline-server/zones/`.
-2.  Restart that stream's pipeline instance so it picks up the change (`gvaanalytics` only reads
-    its config file once, when the pipeline starts — editing the file does not hot-reload a
-    running pipeline):
-    ```bash
-    ./sample_stop.sh
-    ./sample_start.sh
-    ```
-No `config.json`, pipeline string, or Grafana dashboard changes are needed.
+1. Edit (or add zones to) the stream's JSON file under `src/dlstreamer-pipeline-server/zones/`.
+2. Restart that stream's pipeline instance so it picks up the change (`gvaanalytics` only reads
+   its config file once, when the pipeline starts — editing the file does not hot-reload a
+   running pipeline):
+   `bash
+./sample_stop.sh
+./sample_start.sh
+`
+   No `config.json`, pipeline string, or Grafana dashboard changes are needed.
 
 ### Adding a new stream
 
-1.  Add a video file under `src/dlstreamer-pipeline-server/videos/` and a matching zone-config
-    JSON file under `src/dlstreamer-pipeline-server/zones/`.
-2.  Launch it with one more REST call (see `sample_start.sh` for the pattern), passing
-    `"analytics-properties": {"config": "/home/pipeline-server/zones/<your-zone-file>.json"}`
-    in the `parameters` object, alongside a unique `destination.metadata.topic` /
-    `destination.frame.peer-id` for the new stream.
-3.  Add the new stream name to the `stream` dashboard variable in the Grafana dashboard so its
-    video panel is rendered (the MQTT status table requires no change — it already subscribes
-    to a wildcard topic covering all streams).
+1. Add a video file under `src/dlstreamer-pipeline-server/videos/` and a matching zone-config
+   JSON file under `src/dlstreamer-pipeline-server/zones/`.
+2. Launch it with one more REST call (see `sample_start.sh` for the pattern), passing
+   `"analytics-properties": {"config": "/home/pipeline-server/zones/<your-zone-file>.json"}`
+   in the `parameters` object, alongside a unique `destination.metadata.topic` /
+   `destination.frame.peer-id` for the new stream.
+3. Add the new stream name to the `stream` dashboard variable in the Grafana dashboard so its
+   video panel is rendered (the MQTT status table requires no change — it already subscribes
+   to a wildcard topic covering all streams).
 
 ### Published metadata
 
@@ -206,15 +208,22 @@ membership and dwell time into the existing MQTT payload on `object_tracking/<N>
   "objects": [
     {
       "id": 7,
-      "x": 120, "y": 240, "w": 40, "h": 90,
+      "x": 120,
+      "y": 240,
+      "w": 40,
+      "h": 90,
       "roi_type": "pedestrian",
       "zone_violations": ["region1"],
       "dwell_times": [
-        {"zone_id": "region1", "dwell_time_sec": 6.2, "first_seen_timestamp_sec": 118.4}
+        {
+          "zone_id": "region1",
+          "dwell_time_sec": 6.2,
+          "first_seen_timestamp_sec": 118.4
+        }
       ]
     }
   ],
-  "resolution": {"width": 1280, "height": 720},
+  "resolution": { "width": 1280, "height": 720 },
   "timestamp": 123456789
 }
 ```
@@ -259,10 +268,58 @@ The reused `loitering_watermark` element reads the same dwell-time metadata and 
 per-object dashboard line (`<zone_id>: <type>-<id> : <dwell_time>s`) for every tracked object
 that has zone/dwell data, regardless of its detected class name (so it works the same whether
 the launched model reports `pedestrian`, `person`, or anything else) - turning red once dwell
-time crosses the configured `loitering-threshold` (default `5.0` seconds). See [Get Started](../get-started.md) for how to tune or disable this overlay via REST parameters at
-launch time & [Getting started - Loitering Detection Console UI](../get-started-ui.md) for how to toggle
-this overlay per stream from the Console UI.
+time crosses the configured `loitering-threshold` (default `5.0` seconds).
 
+#### Tune or disable the dwell-time overlay
+
+The on-screen dwell-time dashboard text (drawn by `loitering_watermark`) is controlled by two
+REST-overridable properties, set via `loitering-watermark-properties` in the launch payload used
+by `sample_start.sh` — no code or pipeline changes needed:
+
+- `loitering-threshold`: dwell time (seconds) after which the overlay turns red. Default `5.0`.
+  To change it, edit the `"loitering-threshold"` value in the payload in `sample_start.sh` (or
+  pass a different value in your own `curl` call using the same payload shape), then restart the
+  pipelines so the new value takes effect:
+
+  ```bash
+  ./sample_stop.sh
+  ./sample_start.sh
+  ```
+
+  > [!NOTE]
+  > Pipeline parameters are only read when a pipeline starts, so editing the payload value
+  > alone does not affect an already-running pipeline — it must be restarted.
+
+- `quiet-mode`: set to `"true"` to suppress the on-screen text entirely (e.g., to rely on the
+  Grafana table only); `"false"` to re-enable it.
+  Example REST payload fragment (see `sample_start.sh` for the full launch payload):
+
+  ```json
+  {
+    "parameters": {
+      "loitering-watermark-properties": {
+        "loitering-threshold": 7.0,
+        "quiet-mode": "false"
+      }
+    }
+  }
+  ```
+
+  > [!IMPORTANT]
+  > `loitering-threshold` must be a JSON number (e.g., `7.0`), not a quoted string (`"7.0"`).
+
+  This only affects the on-screen text; zone outlines/bounding boxes and the Grafana table are
+  unaffected.
+
+  For Console-launched pipelines, select **Show dwell-time overlay on video** before starting
+  them; stop and restart an existing pipeline to change its overlay setting. The Console uses
+  its own `LOITER_THRESHOLD_S` setting in `console-addon/.env` for both its status table and
+  the overlay threshold of pipelines it launches. Stop Console pipelines before recreating the
+  `console` service, which clears its session state. After changing the setting, run
+  `docker compose up -d --force-recreate console` and launch new pipelines.
+  Changing a REST overlay property alone does
+  not change the Console's status threshold. See
+  [Use the Console UI](./use-console-ui.md#show-or-hide-the-dwell-time-overlay).
 
 ## Grafana visualization
 
@@ -280,68 +337,68 @@ can leverage Grafana in your analytics workflow.
 
 #### Data Sources
 
--   **MQTT Integration:** Directly query data from the DL Streamer Pipeline Server
-via MQTT datasource.
+- **MQTT Integration:** Directly query data from the DL Streamer Pipeline Server
+  via MQTT datasource.
 
 #### Dashboards and Panels
 
--   **Dashboards:** A collection of panels arranged to provide an overview of your system's
-performance.
--   **Panels:** Individual visualizations (graphs, tables, single-stat panels) that display
-specific data points.
+- **Dashboards:** A collection of panels arranged to provide an overview of your system's
+  performance.
+- **Panels:** Individual visualizations (graphs, tables, single-stat panels) that display
+  specific data points.
 
 ### Setting up Grafana
 
 #### Install and launch Grafana
 
--   **Installation:** Install Grafana on your local machine or server by following the official Grafana installation guide.
--   **Access:** Once installed, access Grafana via your web browser at the designated URL.
+- **Installation:** Install Grafana on your local machine or server by following the official Grafana installation guide.
+- **Access:** Once installed, access Grafana via your web browser at the designated URL.
 
 #### Add Your data source
 
--   **Step-by-Step (Example with MQTT):**
-    1.  Go to `Configuration > Data Sources`.
-    2.  Click `Add data source` and select `MQTT`.
-    3.  Enter the connection details (host, port, topic, credentials).
-    4.  Save and test the connection to ensure it works.
+- **Step-by-Step (Example with MQTT):**
+  1. Go to `Configuration > Data Sources`.
+  2. Click `Add data source` and select `MQTT`.
+  3. Enter the connection details (host, port, topic, credentials).
+  4. Save and test the connection to ensure it works.
 
 #### Create your dashboard
 
--   **Dashboard Creation:**
-    1.  Click the `+` icon and select `Dashboard`.
-    2.  Add panels by clicking `Add new panel`.
-    3.  Configure each panel with queries to fetch data from your connected MQTT data source.
-    4.  Use drag-and-drop controls to arrange panels for the best view of your metrics.
+- **Dashboard Creation:**
+  1. Click the `+` icon and select `Dashboard`.
+  2. Add panels by clicking `Add new panel`.
+  3. Configure each panel with queries to fetch data from your connected MQTT data source.
+  4. Use drag-and-drop controls to arrange panels for the best view of your metrics.
 
 ### Grafana use cases for object tracking and Loitering Detection
 
--   **Real-Time Object Detection Visualization:** Display a graph that shows the number of
-objects detected per minute to monitor activity levels.
--   **Loitering Event Monitoring:** Create a panel that highlights loitering events.
--   **Historical Trend Analysis:** Use Grafana's time-series graphs to analyze trends over
-days or weeks, helping you identify peak activity times or recurring patterns.
+- **Real-Time Object Detection Visualization:** Display a graph that shows the number of
+  objects detected per minute to monitor activity levels.
+- **Loitering Event Monitoring:** Create a panel that highlights loitering events.
+- **Historical Trend Analysis:** Use Grafana's time-series graphs to analyze trends over
+  days or weeks, helping you identify peak activity times or recurring patterns.
 
 ## End-to-End integration
 
 The system operates as follows:
 
-1.  **Video Input:** A camera captures video and sends the stream to the DL Streamer Pipeline Server.
-2.  **DL Streamer Pipeline Server Processing:** The DL Streamer Pipeline Server processes the
-video, detects and tracks objects using its AI models, and evaluates each tracked object
-against configured zone polygons via `gvaanalytics` to compute zone presence and dwell time.
-It publishes metadata about the detected objects (ID, bounding box coordinates, object type,
-timestamps, zone presence, and dwell time) to MQTT.
-3.  **MQTT Bridging (DL Streamer Pipeline Server Configuration):** The DL Streamer Pipeline Server
-is configured to relay the MQTT messages to an MQTT broker. This broker acts as a central hub
-for the data.
-4.  **Grafana Visualization:** Grafana directly consumes MQTT topics through its MQTT
-datasource to create dashboards showing real-time object counts and loitering events.
+1. **Video Input:** A camera captures video and sends the stream to the DL Streamer Pipeline Server.
+2. **DL Streamer Pipeline Server Processing:** The DL Streamer Pipeline Server processes the
+   video, detects and tracks objects using its AI models, and evaluates each tracked object
+   against configured zone polygons via `gvaanalytics` to compute zone presence and dwell time.
+   It publishes metadata about the detected objects (ID, bounding box coordinates, object type,
+   timestamps, zone presence, and dwell time) to MQTT.
+3. **MQTT Bridging (DL Streamer Pipeline Server Configuration):** The DL Streamer Pipeline Server
+   is configured to relay the MQTT messages to an MQTT broker. This broker acts as a central hub
+   for the data.
+4. **Grafana Visualization:** Grafana directly consumes MQTT topics through its MQTT
+   datasource to create dashboards showing real-time object counts and loitering events.
 
 **Data at each step:**
 
--   **DL Streamer Pipeline Server Output (MQTT):** JSON payload containing an array of detected
-objects. Each object has properties like `id`, `roi_type`, `confidence`, bounding box
-coordinates, `zone_violations`, and `dwell_times` (zone ID, dwell time, and first-seen timestamp).
+- **DL Streamer Pipeline Server Output (MQTT):** JSON payload containing an array of detected
+  objects. Each object has properties like `id`, `roi_type`, `confidence`, bounding box
+  coordinates, `zone_violations`, and `dwell_times` (zone ID, dwell time, and first-seen timestamp).
 
 ## Conclusion
 

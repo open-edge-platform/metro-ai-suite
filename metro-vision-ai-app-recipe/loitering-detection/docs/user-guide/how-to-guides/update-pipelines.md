@@ -7,7 +7,7 @@ JSON file. This guide covers where it lives, what each stage does, and how to ch
 > [!NOTE]
 > This page is about editing the pipeline *definition* itself (`config.json` - adding/removing
 > GStreamer elements, changing what is hardcoded vs REST-overridable). To use the pipeline as-is
-> - add a zone, add a new stream, pick a different model, read the published MQTT data - see
+> - i.e., add a zone, add a new stream, pick a different model, read the published MQTT data - see
 > [Customize the Application](./customize-application.md) instead; nothing there requires editing
 > this file.
 
@@ -119,6 +119,6 @@ confirmed in `dlstreamer-pipeline-server`'s own logs, where a zone/model change 
 
 ## Related
 
-- [Getting started - Loitering Detection Console UI](../get-started-ui.md) - the operator-facing side of zones/models/devices.
+- [Use the Console UI](./use-console-ui.md) - the operator-facing side of zones/models/devices.
 - `loitering-detection/sample_start.sh` - the CLI equivalent of the Console UI's `_launch`, useful
   as a second working reference for the same `parameters` schema.
