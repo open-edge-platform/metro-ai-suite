@@ -36,27 +36,40 @@ By following this guide, you will learn how to:
 2. **Set up the Application and Download Assets**:
    Choose **one** installation command:
 
-   - **Without the Console UI**: Use the sample scripts and Grafana.
+   <!--hide_directive ::::{tab-set} hide_directive-->
+   <!--hide_directive :::{tab-item} hide_directive--> **Without the Console UI**
+   <!--hide_directive :sync: grafana hide_directive-->
 
-     ```bash
-     ./install.sh loitering-detection
-     ```
+   Use the sample scripts and Grafana.
 
-   - **With the Console UI**: Add an operator interface for starting and stopping pipelines,
-     selecting models and devices, and drawing zones. Grafana remains available.
-
-     ```bash
-     ./install.sh loitering-detection-ui
-     ```
+   ```bash
+   ./install.sh loitering-detection
+   ```
 
    > [!NOTE]
-   > To select a specific host IP address, append it to your chosen command:
-   > `./install.sh loitering-detection <HOST_IP>` or
+   > To select a specific host IP address, append it to the command:
+   > `./install.sh loitering-detection <HOST_IP>`.
+   > Replace `<HOST_IP>` with your target IP address.
+
+   <!--hide_directive ::: hide_directive-->
+   <!--hide_directive :::{tab-item} hide_directive--> **With the Console UI**
+   <!--hide_directive :sync: console-ui hide_directive-->
+
+   Add an operator interface for starting and stopping pipelines, selecting models and devices, and drawing zones. Grafana remains available.
+
+   ```bash
+   ./install.sh loitering-detection-ui
+   ```
+
+   > [!NOTE]
+   > To select a specific host IP address, append it to the command:
    > `./install.sh loitering-detection-ui <HOST_IP>`.
    > Replace `<HOST_IP>` with your target IP address.
 
-   Both choices configure the same Docker Compose stack and download the required assets.
-   The `-ui` variant adds the `console` service; the plain variant does not include it.
+   <!--hide_directive
+   :::
+   ::::
+   hide_directive-->
 
 ## Run the application
 
@@ -95,40 +108,53 @@ Run all commands from the `metro-vision-ai-app-recipe` directory.
    > stops all instances, including those started in the Console UI. Do not run these scripts
    > while you want to keep Console pipelines running.
 
-#### Run the predefined samples and view Grafana
+   <!--hide_directive ::::{tab-set} hide_directive-->
+   <!--hide_directive :::{tab-item} hide_directive--> **Grafana**
+   <!--hide_directive :sync: grafana hide_directive-->
 
-1. Start the four sample pipelines (CPU is used when no device flag is supplied):
+   Run the predefined samples and view Grafana:
 
-   ```bash
-   ./sample_start.sh
-   ```
+   1. Start the four sample pipelines (CPU is used when no device flag is supplied):
 
-2. Check their status:
+      ```bash
+      ./sample_start.sh
+      ```
 
-   ```bash
-   ./sample_status.sh
-   ```
+   2. Check their status:
 
-3. Open `https://localhost/grafana` and log in with username `admin` and password `admin`.
-   You will be prompted to change the password on first login.
-4. Under **Dashboards**, open the preloaded **Video Analytics Dashboard**.
-   Expect video streams with detection overlays and loitering metrics for objects in the
-   configured zones.
+      ```bash
+      ./sample_status.sh
+      ```
 
-#### Start and view a pipeline in the Console UI
+   3. Open `https://localhost/grafana` and log in with username `admin` and password `admin`.
+      You will be prompted to change the password on first login.
 
-This workflow requires the `-ui` installation choice.
+   4. Under **Dashboards**, open the preloaded **Video Analytics Dashboard**.
+      Expect video streams with detection overlays and loitering metrics for objects in the
+      configured zones.
 
-1. Open `https://localhost/console/`.
-2. Leave **Number of pipelines** at `1`. The **Pipeline 1** card has a prefilled source,
-   model, and device; select a device supported by your hardware if necessary.
-3. Click **Start pipelines**.
-4. Expect a panel titled **Pipeline N · source · model · device** with live WebRTC video
-   and a per-object loitering table. Objects enter the table when they are inside a configured
-   zone; a detection outside all zones can still have a bounding box without a table row.
+   <!--hide_directive ::: hide_directive-->
+   <!--hide_directive :::{tab-item} hide_directive--> **Console UI**
+   <!--hide_directive :sync: console-ui hide_directive-->
 
-For comparisons, source/model selection, zone drawing, and panel interpretation, see
-[Use the Console UI](./how-to-guides/use-console-ui.md).
+   Start and view a pipeline in the Console UI
+   This workflow requires the `-ui` installation choice in point 2 of the [setup](#set-up-and-first-use).
+
+   1. Open `https://localhost/console/`.
+   2. Leave **Number of pipelines** at `1`. The **Pipeline 1** card has a prefilled source,
+      model, and device; select a device supported by your hardware if necessary.
+   3. Click **Start pipelines**.
+   4. Expect a panel titled **Pipeline N · source · model · device** with live WebRTC video
+      and a per-object loitering table. Objects enter the table when they are inside a configured
+      zone; a detection outside all zones can still have a bounding box without a table row.
+
+   For comparisons, source/model selection, zone drawing, and panel interpretation, see
+   [Use the Console UI](./how-to-guides/use-console-ui.md).
+
+   <!--hide_directive
+   :::
+   ::::
+   hide_directive-->
 
 ## Access the Application and Components
 
