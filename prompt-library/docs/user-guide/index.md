@@ -5,10 +5,10 @@ business-objective prompts that turn a plain-language goal (for example,
 "I want to detect people in my camera feeds") into a running Intel® Edge AI
 application. Each prompt states **only a business outcome**; no framework, model,
 precision, or device and hands off to the `metro-ai-app-builder` orchestrator
-skill, which asks a few business questions, discovers the right
-[open-edge-platform](https://github.com/open-edge-platform/skills) skill,
-proposes a plan, and after you confirm builds the deliverable on Intel
-hardware.
+skill, which asks a few business questions, discovers the right delegate using
+the current [Open Edge Platform skill index](https://github.com/open-edge-platform/skills/blob/main/skills-config.json)
+and its configured source repository, proposes a plan, and after you confirm
+builds the deliverable on Intel hardware.
 
 ---
 
@@ -22,13 +22,14 @@ technical decision to the orchestrator skill.
    outcome you want (for example, "detect people", "count vehicles", or "flag PPE
    violations"), or simply describe your goal in your own words.
 2. **The orchestrator takes over.** The
-   [`metro-ai-app-builder`](https://github.com/open-edge-platform/skills)
+   [`metro-ai-app-builder`](https://github.com/open-edge-platform/metro-ai-suite/tree/main/prompt-library/.github/skills/metro-ai-app-builder)
    skill runs a short **business** Q&A, what you want to achieve, your inputs,
    where it runs, and your hardware.
 3. **Skill discovery.** From your answers the orchestrator discovers the relevant
-   open-edge-platform skill(s) — vision analytics, multi-camera scene analysis,
-   conversational Q&A/RAG, video search and summarization, multimodal embeddings,
-   model download/convert, model training, or robotics.
+   delegate skill(s) — vision analytics, multi-camera scene analysis,
+   conversational Q&A/RAG, video search and multimodal preparation, model
+   download/training, manufacturing and time-series analytics, platform
+   operations, Physical AI, or UAV mission compute.
 4. **Plan and confirm.** It presents the deliverable, the skill(s) that will
    build it, and the inferred technology, and waits for your approval. Nothing is
    created before you confirm.
@@ -50,7 +51,7 @@ I want to <state the business outcome in one or two sentences>.
 
 Use the metro-ai-app-builder skill to guide this process. Install and invoke it:
 
-npx skills add open-edge-platform/skills --skill metro-ai-app-builder
+npx skills@1.5.23 add https://github.com/open-edge-platform/metro-ai-suite/tree/main/prompt-library/.github/skills/metro-ai-app-builder
 ```
 
 ---
