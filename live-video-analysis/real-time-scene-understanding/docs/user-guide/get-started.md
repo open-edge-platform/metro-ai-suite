@@ -50,11 +50,11 @@ The setup template sets these important values:
 | `PORT` | `9100` | Host port for the dashboard and REST API. Add this to `.env` to change the published host port; the container port remains `9100`. |
 | `DASHBOARD_PORT` | `9100` | Internal backend port. Compose currently fixes this to `9100`; changing the `.env.example` value does not change the published host port. |
 | `ALERT_VLM_MODEL` | `Qwen3-VL-2B-Instruct` | Model used for the alert pipeline VLM inference. |
-| `ALERT_VLM_DEVICE` | `CPU` | Device used for the alert pipeline VLM inference. |
+| `ALERT_VLM_DEVICE` | `CPU` | Device for alert VLM inference: CPU, GPU, or NPU. NPU requires a compatible model with `int4` quantization. |
 | `ALERT_VLM_INTERVAL` | `2.0` | Interval (in seconds) between alert pipeline VLM inferences. |
 | `ALERT_VLM_MAX_TOKENS` | `128` | Maximum number of tokens for the alert pipeline VLM inference. |
 | `DEEP_ANALYZER_MODEL` | `Qwen3-VL-8B-Instruct` | Model used for the deep analyzer. |
-| `DEEP_ANALYZER_DEVICE` | `GPU` | Device used for the deep analyzer. |
+| `DEEP_ANALYZER_DEVICE` | `GPU` | Device for deep analyzer inference (validated on CPU and GPU). |
 | `DEEP_ANALYZER_MAX_FRAMES` | `8` | Maximum number of frames for the deep analyzer to process. |
 | `DEEP_ANALYZER_MAX_TOKENS` | `256` | Maximum number of tokens for the deep analyzer. |
 | `DEEP_ANALYZER_DEDUP_CACHE_SIZE` | `500` | Size of the deduplication cache for the deep analyzer. |
