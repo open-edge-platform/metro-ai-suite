@@ -2,11 +2,12 @@
 
 Based on the analysis of `server_docs/docker-compose.yml`, download the following files from your server and place them in the corresponding structure.
 
-This assumes the root directory on the server matches the `${SAMPLE_APP}` variable (likely `smart-intersection` or `smart-tolling`).
+This assumes the root directory on the server matches the `${SAMPLE_APP}` variable (`smart-tolling`).
 
 ## 1. Nginx Configuration
 
-- [ ] `src/nginx/anpr.conf`
+- [ ] `src/nginx/nginx.conf`
+- [ ] `src/nginx/smart-tolling-image-server.conf`
 
 ## 2. Mosquitto (MQTT)
 
@@ -21,7 +22,8 @@ This assumes the root directory on the server matches the `${SAMPLE_APP}` variab
 
 ## 4. Grafana
 
-- [ ] `src/grafana/data/dashboards/anthem-intersection.json`
+- [ ] `src/grafana/data/dashboards/Overview.json`
+- [ ] `src/grafana/data/dashboards/Vehicle_Events_Axle_Analysis.json`
 - [ ] `src/grafana/dashboards.yml`
 - [ ] `src/grafana/datasources.yml`
 
@@ -34,21 +36,17 @@ This assumes the root directory on the server matches the `${SAMPLE_APP}` variab
 
 **Models (If changed from default):**
 
-- [ ] `src/dlstreamer-pipeline-server/models/vehicle_type_model/`
-- [ ] `src/dlstreamer-pipeline-server/models/axle_int8/`
-- [ ] `src/dlstreamer-pipeline-server/models/color_model_int8/`
+- [ ] `src/dlstreamer-pipeline-server/models/axle/`
+- [ ] `src/dlstreamer-pipeline-server/models/vehicle_type/`
+- [ ] `src/dlstreamer-pipeline-server/models/vehicle_front_rear/`
 - [ ] `src/dlstreamer-pipeline-server/models/color_int8_latest/`
-- [ ] `src/dlstreamer-pipeline-server/models/axle_int32/`
-- [ ] `src/dlstreamer-pipeline-server/models/licenseplate/`
-- [ ] `src/dlstreamer-pipeline-server/models/vehicle_0202/`
-- [ ] `src/dlstreamer-pipeline-server/models/lp_latest/`
-- [ ] `src/dlstreamer-pipeline-server/models/vehicle_model_latest/`
 - [ ] `src/dlstreamer-pipeline-server/models/licenseplate_cropped/`
+- [ ] `src/dlstreamer-pipeline-server/models/paddle_ocr_v4/`
 
 ## 6. Scenescape Manager (Web/PGServer)
 
 - [ ] `src/webserver/user_access_config.json`
-- [ ] `src/webserver/smart-intersection-ri.tar.bz2` (Database dump)
+- [ ] `src/webserver/smart-tolling.tar.bz2` (Database dump)
 
 ## 7. Scenescape Controller
 

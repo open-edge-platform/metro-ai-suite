@@ -2,14 +2,14 @@
 # collect_server_configs.sh
 # -----------------------------------------------------------------------------
 # Usage: ./collect_server_configs.sh [APP_NAME]
-# Example: ./collect_server_configs.sh smart-intersection
+# Example: ./collect_server_configs.sh smart-tolling
 #
 # This script bundles specific configuration files referenced in the
 # docker-compose.yml for documentation and local replication.
 # It skips large database dumps and media files.
 # -----------------------------------------------------------------------------
 
-APP_NAME=${1:-smart-intersection}
+APP_NAME=${1:-smart-tolling}
 OUTPUT_DIR="metro_config_bundle"
 ARCHIVE_NAME="metro_configs.tar.gz"
 
@@ -30,7 +30,8 @@ mkdir -p "$OUTPUT_DIR"
 # Defines files to collect explicitly to avoid grabbing unnecessary large files
 FILES=(
     # Nginx
-    "src/nginx/anpr.conf"
+    "src/nginx/nginx.conf"
+    "src/nginx/smart-tolling-image-server.conf"
 
     # Mosquitto
     "src/mosquitto/mosquitto-secure.conf"
@@ -42,7 +43,8 @@ FILES=(
     "src/node-red/install_package.sh"
 
     # Grafana
-    "src/grafana/data/dashboards/anthem-intersection.json"
+    "src/grafana/data/dashboards/Overview.json"
+    "src/grafana/data/dashboards/Vehicle_Events_Axle_Analysis.json"
     "src/grafana/dashboards.yml"
     "src/grafana/datasources.yml"
 

@@ -5,16 +5,15 @@ three parallel pipelines defined in `config.json`.
 
 ## Pipeline Strategy
 
-| Pipeline Name | Camera View | Primary Adapters | Key Models |
+| Pipeline Name | Camera View | Primary Adapter | Key Models |
 | :--- | :--- | :--- | :--- |
-| **`toll-front`** | Front LPR | `sscape_adapter_lpr.py` | `vehicle-detection`, `license-plate-detection`, `PP-OCRv4` |
-| **`toll-rear`** | Rear LPR | `sscape_adapter_lpr.py` | `vehicle-detection`, `license-plate-detection`, `PP-OCRv4` |
-| **`toll-side1`** | Side Profile Lane 1 | `sscape_adapter_side.py` | **`axle_int8`**, `vehicle_type_model`, `color_int8` |
-| **`toll-side2`** | Side Profile Lane 2 | `sscape_adapter_side.py` | **`axle_int8`**, `vehicle_type_model`, `color_int8` |
+| **`toll-front-l`** / **`toll-front-r`** | Front LPR (left/right lane) | `sscape_adapter_lpr_max_tracking.py` | `vehicle_front_rear`, `licenseplate_cropped`, `paddle_ocr_v4` |
+| **`toll-rear-l`** / **`toll-rear-r`** | Rear LPR (left/right lane) | `sscape_adapter_lpr_max_tracking.py` | `vehicle_front_rear`, `licenseplate_cropped`, `paddle_ocr_v4` |
+| **`toll-side-l1`** / **`toll-side-l2`** | Side Profile (lane 1/2) | `sscape_adapter_side_max_tracking.py` | `vehicle_type`, `axle`, `color_int8_latest` |
 
 ## Algorithm Logic
 
-### A. Smart Axle Counting (`sscape_adapter_side.py`)
+### A. Smart Axle Counting (`sscape_adapter_side_max_tracking.py`)
 
 Counting wheels is easy; counting *taxable* wheels is hard. Our adapter implements physics-based logic:
 

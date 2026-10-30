@@ -41,10 +41,10 @@ cd metro-vision-ai-app-recipe/
 
 ### 2. Configure the Environment
 
-Ensure the following specialized adapters are present in `src/dlstreamer-pipeline-server/user_scripts/`:
+Ensure the following specialized adapters are present in `src/dlstreamer-pipeline-server/user_scripts/gvapython/sscape/`:
 
-- `sscape_adapter_lpr.py` (Front/Rear LPR)
-- `sscape_adapter_side.py` (Axle Counting)
+- `sscape_adapter_lpr_max_tracking.py` (Front/Rear LPR)
+- `sscape_adapter_side_max_tracking.py` (Axle Counting)
 
 > [!NOTE]
 > Verify variables in `.env` match your camera RTSP endpoints.*
@@ -106,7 +106,7 @@ Open a browser and go to the following endpoints to access the application.
 - **URL**: [https://localhost](https://localhost)
 - **Log in with credentials**:
   - **Username**: `admin`
-  - **Password**: Stored in `supass`. (Check `./smart-intersection/src/secrets/supass`)
+  - **Password**: Stored in `supass`. (Check `./smart-tolling/src/secrets/supass`)
 
 > [!NOTE]
 >
@@ -133,8 +133,8 @@ Login with the following credentials:
 - **URL**: [http://localhost:8086](http://localhost:8086)
 - **Log in with credentials**:
 
-  - **Username**: `<your_influx_username>` (Check `./smart-intersection/src/secrets/influxdb2/influxdb2-admin-username`)
-  - **Password**: `<your_influx_password>` (Check `./smart-intersection/src/secrets/influxdb2/influxdb2-admin-password`)
+  - **Username**: `<your_influx_username>` (Check `./smart-tolling/src/secrets/influxdb2/influxdb2-admin-username`)
+  - **Password**: `<your_influx_password>` (Check `./smart-tolling/src/secrets/influxdb2/influxdb2-admin-password`)
 
 ### Grafana UI
 
