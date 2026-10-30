@@ -11,6 +11,10 @@ config/resolved-uuids.json
 config/models/**/*.backup
 config/models/**/*.backup-*
 
+# Models and videos downloaded on demand by setup.sh
+datasets/
+config/models/smartbuilding-*/
+
 # Docker volumes
 volumes/
 
