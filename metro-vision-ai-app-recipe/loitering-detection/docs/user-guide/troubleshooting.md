@@ -11,16 +11,22 @@ to file new tickets there (after learning about the guidelines for
 1. **Changing the Host IP Address**
 
    - If you need to use a specific Host IP address instead of the one automatically detected
-     during installation, you can explicitly provide it using the following command:
+     during installation, you can explicitly provide it using the following command. Replace `<HOST_IP>` with your desired IP address:
 
      ```bash
-     ./install.sh <application-name> <HOST_IP>
+     ./install.sh loitering-detection <HOST_IP>
      ```
 
      Example:
 
      ```bash
-     ./install.sh smart-parking 192.168.1.100
+     ./install.sh loitering-detection 192.168.1.100
+     ```
+
+   - If you use the Console UI, use `loitering-detection-ui` instead:
+
+     ```bash
+     ./install.sh loitering-detection-ui <HOST_IP>
      ```
 
 2. **Containers Not Starting**:
@@ -121,9 +127,8 @@ to file new tickets there (after learning about the guidelines for
 
 ## Troubleshooting the Console UI
 
-See [Getting started - Loitering Detection Console UI](./getting-started-ui.md) for normal
+See [Use the Console UI](./how-to-guides/use-console-ui.md) for normal
 usage; the issues below are specific to it.
-
 
 1. **Console UI not reflecting a code change**
 
@@ -138,7 +143,7 @@ usage; the issues below are specific to it.
 2. **No bounding boxes on a stream**
 
    - Detection runs on the full frame and every detected object gets a box regardless of zone
-     (see [How detection and zones interact](./getting-started-ui.md#how-detection-and-zones-interact)),
+     (see [How detection and zones interact](./how-to-guides/use-console-ui.md#how-detection-and-zones-interact)),
      so a missing box means the model did not detect that object that frame (confidence below
      the pipeline's threshold), not a zone restriction. Check the stream's raw MQTT topic to
      confirm, or try different model for better recall on some object types/angles.
@@ -202,6 +207,3 @@ usage; the issues below are specific to it.
 
      An empty `result` array means the metrics pipeline itself (`metrics-manager`'s `qmassa`)
      is not reporting for this GPU, not a Console UI bug - check `docker logs metrics-manager`.
-
-
-

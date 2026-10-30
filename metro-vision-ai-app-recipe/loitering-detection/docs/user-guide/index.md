@@ -76,7 +76,6 @@ solution faster.
 :hidden:
 
 get-started.md
-getting-started-ui.md
 how-to-guides.md
 troubleshooting.md
 Release Notes <./release-notes.md>

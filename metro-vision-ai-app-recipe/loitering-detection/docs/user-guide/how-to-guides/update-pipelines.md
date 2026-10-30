@@ -7,7 +7,7 @@ JSON file. This guide covers where it lives, what each stage does, and how to ch
 > [!NOTE]
 > This page is about editing the pipeline *definition* itself (`config.json` - adding/removing
 > GStreamer elements, changing what is hardcoded vs REST-overridable). To use the pipeline as-is
-> - add a zone, add a new stream, pick a different model, read the published MQTT data - see
+> - i.e., add a zone, add a new stream, pick a different model, read the published MQTT data - see
 > [Customize the Application](./customize-application.md) instead; nothing there requires editing
 > this file.
 
@@ -85,7 +85,7 @@ matching `config.json`'s schema:
 | Request key | Element it targets | What it sets |
 | --- | --- | --- |
 | `detection-properties` | `detection` (`gvadetect`) | `model`, `device`, `model-instance-id`, `model_proc` |
-| `analytics-properties` | `analytics` (`gvaanalytics`) | `config` (a zone file under `src/dlstreamer-pipeline-server/zones/`, see [Adding a new stream](./customize-application.md#adding-a-new-stream)), or `zones` - the file's zones, or a single custom rectangle, never both (see [Getting started - Loitering Detection Console UI](../getting-started-ui.md#changing-the-zone)) |
+| `analytics-properties` | `analytics` (`gvaanalytics`) | `config` (a zone file under `src/dlstreamer-pipeline-server/zones/`, see [Adding a new stream](./customize-application.md#adding-a-new-stream)), or `zones` - the file's zones, or a single custom shape, never both (see [Change the zone](./use-console-ui.md#change-the-zone)) |
 | `loitering-watermark-properties` | `loitering_watermark` | `quiet-mode`, `loitering-threshold` |
 
 There is **no live-update path**: changing any of these (switching model, device, or zone)
@@ -114,6 +114,6 @@ confirmed in `dlstreamer-pipeline-server`'s own logs, where a zone/model change 
 
 ## Related
 
-- [Getting started - Loitering Detection Console UI](../getting-started-ui.md) - the operator-facing side of zones/models/devices.
+- [Use the Console UI](./use-console-ui.md) - the operator-facing side of zones/models/devices.
 - `loitering-detection/sample_start.sh` - the CLI equivalent of the Console UI's `_launch`, useful
   as a second working reference for the same `parameters` schema.
