@@ -18,7 +18,8 @@ async def test_dispatcher_summarize_success(monkeypatch):
         assert result == "Summary text"
 
     class FakeVms:
-        async def summarize(self, camera_name, start_time, end_time):
+        async def summarize(self, camera_name, start_time, end_time, upload_tag=None, apply_end_buffer=False):
+            assert apply_end_buffer is False
             return {"status": 200, "message": "sum123"}
         def summary(self, summary_id):
             return {"summary": "Summary text"}
@@ -67,7 +68,8 @@ async def test_dispatcher_search_success(monkeypatch):
         assert output["status"] == 200
 
     class FakeVms:
-        async def search_embeddings(self, camera_name, start_time, end_time):
+        async def search_embeddings(self, camera_name, start_time, end_time, upload_tag=None, apply_end_buffer=False):
+            assert apply_end_buffer is False
             return {"status": 200, "result": "ok"}
 
     monkeypatch.setattr("service.dispatcher.vms_service", FakeVms())
@@ -93,3 +95,68 @@ async def test_dispatcher_unknown_action():
     from service.dispatcher import dispatch_action
     out = await dispatch_action("not-real", {"rule_id": "x"})
     assert out == {"error": "Unknown action: not-real"}
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_region_event_prefixes_upload_tag_with_broker_id(monkeypatch):
+    seen = {"upload_tag": None}
+    seen["apply_end_buffer"] = None
+
+    async def fake_save_search(rule_id, output):
+        assert rule_id == "r3"
+
+    class FakeVms:
+        async def search_embeddings(self, camera_name, start_time, end_time, upload_tag=None, apply_end_buffer=False):
+            seen["upload_tag"] = upload_tag
+            seen["apply_end_buffer"] = apply_end_buffer
+            return {"status": 200, "result": "ok"}
+
+    monkeypatch.setattr("service.dispatcher.vms_service", FakeVms())
+    monkeypatch.setattr("service.dispatcher.save_search", fake_save_search)
+
+    from service.dispatcher import dispatch_action
+    event = {
+        "camera": "si1-camera1",
+        "start_time": 5,
+        "end_time": 6,
+        "rule_id": "r3",
+        "region_id": "region-001",
+        "region_name": "SCWLK",
+        "scene_id": "scene-001",
+        "broker_id": "si1",
+    }
+    out = await dispatch_action("add to search", event)
+    assert out == {"status": 200, "result": "ok"}
+    assert seen["upload_tag"] == "si1-SCWLK"
+    assert seen["apply_end_buffer"] is True
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_region_event_preserves_existing_prefixed_upload_tag(monkeypatch):
+    seen = {"upload_tag": None}
+
+    async def fake_save_search(rule_id, output):
+        assert rule_id == "r4"
+
+    class FakeVms:
+        async def search_embeddings(self, camera_name, start_time, end_time, upload_tag=None, apply_end_buffer=False):
+            seen["upload_tag"] = upload_tag
+            return {"status": 200, "result": "ok"}
+
+    monkeypatch.setattr("service.dispatcher.vms_service", FakeVms())
+    monkeypatch.setattr("service.dispatcher.save_search", fake_save_search)
+
+    from service.dispatcher import dispatch_action
+    event = {
+        "camera": "si1-camera1",
+        "start_time": 5,
+        "end_time": 6,
+        "rule_id": "r4",
+        "region_id": "region-001",
+        "region_name": "si1-SCWLK",
+        "scene_id": "scene-001",
+        "broker_id": "si1-region",
+    }
+    out = await dispatch_action("add to search", event)
+    assert out == {"status": 200, "result": "ok"}
+    assert seen["upload_tag"] == "si1-SCWLK"

@@ -1,11 +1,71 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 import time
-from ui.config import API_BASE_URL, logger
+from ui.config import (
+    API_BASE_URL,
+    logger,
+)
 import uuid
 import hashlib
+import re
 import requests
 from typing import List, Dict, Optional, Union
+
+def fetch_scenescape_scenes() -> List[Dict[str, str]]:
+    """Fetch SceneScape scenes from backend proxy endpoint."""
+    max_attempts = 2
+    for attempt in range(max_attempts):
+        try:
+            # Backend may spend ~13s retrying SceneScape API on cold start.
+            response = requests.get(f"{API_BASE_URL}/scenes", timeout=20)
+            response.raise_for_status()
+            data = response.json()
+            rows = data if isinstance(data, list) else []
+            if rows:
+                return rows
+        except Exception as e:
+            logger.warning(f"Unable to fetch SceneScape scenes from backend: {e}")
+
+        if attempt < max_attempts - 1:
+            time.sleep(1.0)
+
+    return []
+
+
+def fetch_scenescape_regions(
+    scene_id: Optional[str] = None,
+    broker_id: Optional[str] = None,
+) -> List[Dict[str, str]]:
+    """Fetch SceneScape regions from backend proxy endpoint."""
+    max_attempts = 2
+    params = {}
+    if scene_id:
+        params["scene_id"] = scene_id
+    if broker_id:
+        params["broker_id"] = broker_id
+    if not params:
+        params = None
+
+    for attempt in range(max_attempts):
+        try:
+            # Keep timeout above backend SceneScape retry window during cold start.
+            response = requests.get(
+                f"{API_BASE_URL}/regions",
+                params=params,
+                timeout=20,
+            )
+            response.raise_for_status()
+            data = response.json()
+            rows = data if isinstance(data, list) else []
+            if rows:
+                return rows
+        except Exception as e:
+            logger.warning(f"Unable to fetch SceneScape regions from backend: {e}")
+
+        if attempt < max_attempts - 1:
+            time.sleep(1.0)
+
+    return []
 
 
 def fetch_cameras() -> Dict[str, List[str]]:
@@ -107,23 +167,74 @@ def submit_camera_watcher_mapping(enabled_list: List[str], all_cameras: List[str
 
 
 def add_rule(
-    camera: str,
+    camera: Optional[str],
     label: str,
     action: str,
     source: Optional[str] = None,
     count: Optional[int] = None,
+    region_id: Optional[str] = None,
+    region_name: Optional[str] = None,
+    scene_id: Optional[str] = None,
+    broker_id: Optional[str] = None,
+    region_thresholds: Optional[Dict[str, int]] = None,
+    event_type: Optional[str] = None,
+    duration_seconds: Optional[int] = None,
+    near_miss_distance_m: Optional[float] = None,
 ) -> Dict:
     # Normalize inputs
     normalized_action = action.lower()
     normalized_source = (source or "frigate").lower()
 
-    # Create a consistent rule ID based on camera, label, source, action, and count
-    rule_content = f"{camera}-{label}-{normalized_source}-{normalized_action}"
+    # Create a consistent rule ID based on camera, label, source, action, and count.
+    camera_key = camera or "no-camera"
+    region_key = region_id or "no-region"
+    scene_key = scene_id or "no-scene"
+    broker_key = broker_id or "no-broker"
+    rule_content = (
+        f"{camera_key}-{label}-{normalized_source}-{normalized_action}-"
+        f"{broker_key}-{scene_key}-{region_key}"
+    )
+    if region_thresholds:
+        thresholds_key = ",".join(
+            f"{k}:{region_thresholds[k]}" for k in sorted(region_thresholds.keys())
+        )
+        rule_content += f"-{thresholds_key}"
     if count is not None:
         rule_content += f"-{count}"
+    if event_type:
+        rule_content += f"-{event_type}"
+    if duration_seconds is not None:
+        rule_content += f"-{duration_seconds}"
+    if near_miss_distance_m is not None:
+        rule_content += f"-{near_miss_distance_m}"
 
     hash = hashlib.md5(rule_content.encode(), usedforsecurity=False).hexdigest()[:8]  # 8-char hash
-    rule_id = f"{camera}-{label}-{normalized_source}-{normalized_action}-{hash}"
+    is_region_event_rule = (
+        normalized_source == "scenescape"
+        and camera is None
+        and region_id is not None
+    )
+
+    def _slug(value: Optional[str], fallback: str) -> str:
+        text = (value or "").strip().lower()
+        if not text:
+            return fallback
+        # Keep IDs readable and safe for storage/display.
+        text = re.sub(r"[^a-z0-9]+", "_", text)
+        text = re.sub(r"_+", "_", text).strip("_")
+        return text or fallback
+
+    # Keep existing ID format for camera rules; use readable IDs for Region Events.
+    if is_region_event_rule:
+        display_region = _slug(region_name or region_id, "region")
+        display_event = _slug(label, "event")
+        display_action = _slug(normalized_action, "action")
+        rule_id = (
+            f"scenescape-{display_region}-{display_event}-"
+            f"{display_action}-{hash}"
+        )
+    else:
+        rule_id = f"{camera_key}-{label}-{normalized_source}-{normalized_action}-{hash}"
     # First check if rule already exists
     try:
         check_response = requests.get(f"{API_BASE_URL}/rules/{rule_id}")
@@ -139,14 +250,34 @@ def add_rule(
     # If not exists, create new rule
     payload = {
         "id": rule_id,
-        "camera": camera,
         "label": label,
         "action": normalized_action,
         "source": normalized_source,
     }
 
+    if camera:
+        payload["camera"] = camera
+
     if count is not None:
         payload["count"] = count
+
+    # Region-based rule metadata for SceneScape workflows.
+    if region_id:
+        payload["region_id"] = region_id
+    if region_name:
+        payload["region_name"] = region_name
+    if scene_id:
+        payload["scene_id"] = scene_id
+    if broker_id:
+        payload["broker_id"] = broker_id
+    if region_thresholds:
+        payload["region_thresholds"] = region_thresholds
+    if event_type:
+        payload["event_type"] = event_type
+    if duration_seconds is not None:
+        payload["duration_seconds"] = duration_seconds
+    if near_miss_distance_m is not None:
+        payload["near_miss_distance_m"] = near_miss_distance_m
 
     try:
         response = requests.post(f"{API_BASE_URL}/rules/", json=payload)
@@ -217,4 +348,3 @@ def fetch_summary_status(summary_id: str) -> str:
     except Exception as e:
         logger.error(f"Error fetching search responses: {e}")
         return str(e)
-

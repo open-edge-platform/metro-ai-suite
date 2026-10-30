@@ -3,7 +3,9 @@
 import asyncio
 import json
 import logging
+import math
 import time
+from typing import Any, Dict, List, Optional
 import aiomqtt
 from service.rule_engine import process_event
 from datetime import datetime
@@ -35,6 +37,412 @@ async def process_scenescape_objects(objects, scenescape_camera, start_time, end
             except Exception as e:
                 logger.error(f" process_event failed for {obj_type}: {e}", exc_info=True)
 
+
+def _to_float(value: Any) -> Optional[float]:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
+def _to_int(value: Any) -> int:
+    try:
+        if value is None:
+            return 0
+        return int(value)
+    except Exception:
+        return 0
+
+
+def _first_non_empty(payload: Dict[str, Any], keys: List[str]) -> Any:
+    for key in keys:
+        if key in payload and payload.get(key) not in (None, ""):
+            return payload.get(key)
+    return None
+
+
+def _extract_counts(payload: Dict[str, Any]) -> (int, int):
+    """Extract vehicle and pedestrian counts from the payload."""
+    objects = payload.get("objects", {}) if isinstance(payload, dict) else {}
+    if isinstance(objects, dict):
+        vehicles = objects.get("vehicle", [])
+        pedestrians = objects.get("pedestrian", [])
+        vehicle_count = len(vehicles) if isinstance(vehicles, list) else _to_int(vehicles)
+        pedestrian_count = len(pedestrians) if isinstance(pedestrians, list) else _to_int(pedestrians)
+    elif isinstance(objects, list):
+        vehicle_count = 0
+        pedestrian_count = 0
+        for obj in objects:
+            if not isinstance(obj, dict):
+                continue
+            obj_type = str(obj.get("type") or obj.get("category") or "").lower()
+            if obj_type == "vehicle":
+                vehicle_count += 1
+            elif obj_type == "pedestrian":
+                pedestrian_count += 1
+    else:
+        vehicle_count = 0
+        pedestrian_count = 0
+
+    counts = payload.get("counts", {})
+    if isinstance(counts, dict):
+        counted_vehicles = _to_int(counts.get("vehicle") or counts.get("vehicles"))
+        counted_pedestrians = _to_int(counts.get("pedestrian") or counts.get("pedestrians"))
+        vehicle_count = max(vehicle_count, counted_vehicles)
+        pedestrian_count = max(pedestrian_count, counted_pedestrians)
+
+    occupancy = payload.get("occupancy", {})
+    if isinstance(occupancy, dict):
+        occupancy_vehicles = _to_int(occupancy.get("vehicle") or occupancy.get("vehicles"))
+        occupancy_pedestrians = _to_int(occupancy.get("pedestrian") or occupancy.get("pedestrians"))
+        vehicle_count = max(vehicle_count, occupancy_vehicles)
+        pedestrian_count = max(pedestrian_count, occupancy_pedestrians)
+
+    return vehicle_count, pedestrian_count
+
+
+def _extract_region_ids(payload: Dict[str, Any], topic: str) -> (str, str):
+    """Extract the scene and region IDs from the payload or topic."""
+    scene_id = _first_non_empty(payload, ["scene_id", "sceneId", "scene_uid", "scene"])
+    region_id = _first_non_empty(payload, ["region_id", "regionId", "region_uid", "region"])
+
+    # Topic format in scenescape region stream includes .../region/<scene>/<region>/<event>
+    parts = topic.split("/")
+    if (not scene_id or not region_id) and len(parts) >= 6 and parts[0] == "scenescape" and parts[1] == "event" and parts[2] == "region":
+        scene_id = scene_id or parts[3]
+        region_id = region_id or parts[4]
+
+    return str(scene_id) if scene_id else "", str(region_id) if region_id else ""
+
+
+def _throttle_key(payload: Dict[str, Any], topic: str) -> str:
+    """Build a stable throttle key so unrelated entities do not suppress each other."""
+    if topic.startswith("scenescape/event/region/"):
+        scene_id, region_id = _extract_region_ids(payload, topic)
+        if scene_id or region_id:
+            return f"region:{scene_id}:{region_id}"
+        return f"region-topic:{topic}"
+
+    # Keep camera-topic throttling shared at stream level.
+    return f"topic:{topic}"
+
+
+def _extract_region_cameras_from_visibility(payload: Dict[str, Any]) -> List[str]:
+    """Extract the list of region cameras from the visibility fields in the payload."""
+    cameras: List[str] = []
+
+    def _add_visibility(value: Any) -> None:
+        if isinstance(value, str) and value and value not in cameras:
+            cameras.append(value)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, str) and item and item not in cameras:
+                    cameras.append(item)
+
+    _add_visibility(payload.get("visibility"))
+
+    for key in ["objects", "entered", "exited", "participants"]:
+        container = payload.get(key)
+        if isinstance(container, list):
+            entries = container
+        elif isinstance(container, dict):
+            entries = []
+            for value in container.values():
+                if isinstance(value, list):
+                    entries.extend(value)
+                elif isinstance(value, dict):
+                    entries.append(value)
+        else:
+            continue
+
+        for item in entries:
+            if not isinstance(item, dict):
+                continue
+            _add_visibility(item.get("visibility"))
+
+            nested_object = item.get("object")
+            if isinstance(nested_object, dict):
+                _add_visibility(nested_object.get("visibility"))
+
+    return cameras
+
+
+def _to_epoch_seconds(value: Any) -> Optional[float]:
+    """Convert a value to epoch seconds, if possible."""
+    if value is None:
+        return None
+
+    numeric_value = _to_float(value)
+    if numeric_value is not None:
+        return numeric_value
+
+    if isinstance(value, str):
+        converted = iso_to_frigate_timestamp(value)
+        return _to_float(converted)
+
+    return None
+
+
+def _extract_latest_region_entered_time(payload: Dict[str, Any], region_id: str) -> Optional[float]:
+    """Extract the latest entered time for a specific region from the payload."""
+    objects = payload.get("objects") if isinstance(payload, dict) else None
+    if not isinstance(objects, list):
+        return None
+
+    latest_entered: Optional[float] = None
+    for obj in objects:
+        if not isinstance(obj, dict):
+            continue
+
+        regions = obj.get("regions")
+        if not isinstance(regions, dict) or not regions:
+            continue
+
+        region_entries: List[Dict[str, Any]] = []
+        if region_id:
+            region_entry = regions.get(region_id)
+            if not isinstance(region_entry, dict):
+                continue
+            region_entries.append(region_entry)
+        else:
+            for region_info in regions.values():
+                if isinstance(region_info, dict):
+                    region_entries.append(region_info)
+
+        for region_info in region_entries:
+            entered_raw = _first_non_empty(region_info, ["entered", "entered_time", "entry_time"])
+            entered_ts = _to_epoch_seconds(entered_raw)
+            if entered_ts is None:
+                continue
+            if latest_entered is None or entered_ts > latest_entered:
+                latest_entered = entered_ts
+
+    return latest_entered
+
+
+# Entered-time window is biased toward the past since Frigate needs time to finalize recordings.
+REGION_CLIP_PRE_ROLL_SECONDS = 8
+REGION_CLIP_POST_ROLL_SECONDS = 2
+
+
+def _extract_clip_window(payload: Dict[str, Any], timestamp: float, region_id: str = "") -> (float, float):
+    """Determine the start and end times for a video clip based on the payload and region."""
+    latest_entered = _extract_latest_region_entered_time(payload, region_id)
+    if latest_entered is not None:
+        return (
+            latest_entered - REGION_CLIP_PRE_ROLL_SECONDS,
+            latest_entered + REGION_CLIP_POST_ROLL_SECONDS,
+        )
+
+    explicit_start = _to_float(_first_non_empty(payload, ["start_time", "startTime"]))
+    explicit_end = _to_float(_first_non_empty(payload, ["end_time", "endTime"]))
+    if explicit_start is not None and explicit_end is not None and explicit_end > explicit_start:
+        return explicit_start, explicit_end
+
+    # Keep clip extraction behavior consistent with existing scenescape handling.
+    return timestamp - 15, timestamp - 5
+
+
+def _extract_max_dwell_by_label(payload: Dict[str, Any], region_id: str) -> Dict[str, float]:
+    """Extract the maximum dwell time for each label within a specific region from the payload."""
+    max_dwell_by_label: Dict[str, float] = {}
+    objects = payload.get("objects") if isinstance(payload, dict) else None
+    if not isinstance(objects, list):
+        return max_dwell_by_label
+
+    for obj in objects:
+        if not isinstance(obj, dict):
+            continue
+
+        label_name = str(obj.get("type") or obj.get("category") or "").lower()
+        if not label_name:
+            continue
+
+        regions = obj.get("regions")
+        if not isinstance(regions, dict) or not regions:
+            continue
+
+        region_entries: List[Dict[str, Any]] = []
+        if region_id:
+            region_entry = regions.get(region_id)
+            if not isinstance(region_entry, dict):
+                continue
+            region_entries.append(region_entry)
+        else:
+            for region_info in regions.values():
+                if isinstance(region_info, dict):
+                    region_entries.append(region_info)
+
+        for region_info in region_entries:
+            dwell = _to_float(region_info.get("dwell"))
+            if dwell is None:
+                continue
+            previous_max = max_dwell_by_label.get(label_name)
+            if previous_max is None or dwell > previous_max:
+                max_dwell_by_label[label_name] = dwell
+
+    return max_dwell_by_label
+
+
+def _extract_min_vehicle_pedestrian_distance(payload: Dict[str, Any], region_id: str) -> Optional[float]:
+    """Extract the minimum distance between vehicles and pedestrians within a specific region from the payload."""
+    objects = payload.get("objects") if isinstance(payload, dict) else None
+    if not isinstance(objects, list):
+        return None
+
+    vehicles: List[Dict[str, Any]] = []
+    pedestrians: List[Dict[str, Any]] = []
+
+    for obj in objects:
+        if not isinstance(obj, dict):
+            continue
+
+        obj_type = str(obj.get("type") or obj.get("category") or "").lower()
+        if obj_type not in ("vehicle", "pedestrian"):
+            continue
+
+        translation = obj.get("translation")
+        if not isinstance(translation, list) or len(translation) < 2:
+            continue
+
+        x = _to_float(translation[0])
+        y = _to_float(translation[1])
+        if x is None or y is None:
+            continue
+
+        if region_id:
+            regions = obj.get("regions")
+            if isinstance(regions, dict) and regions and region_id not in regions:
+                continue
+
+        item = {"x": x, "y": y}
+        if obj_type == "vehicle":
+            vehicles.append(item)
+        else:
+            pedestrians.append(item)
+
+    if not vehicles or not pedestrians:
+        return None
+
+    min_distance: Optional[float] = None
+    for vehicle in vehicles:
+        for pedestrian in pedestrians:
+            distance = math.hypot(vehicle["x"] - pedestrian["x"], vehicle["y"] - pedestrian["y"])
+            if min_distance is None or distance < min_distance:
+                min_distance = distance
+
+    return min_distance
+
+
+def _derive_region_labels(
+    payload: Dict[str, Any],
+    num_vehicles: int,
+    num_pedestrians: int,
+) -> List[str]:
+    """Derive region labels based on the payload and the number of vehicles and pedestrians."""
+    derived_labels: List[str] = []
+
+    def _add_label(label_name: str) -> None:
+        if label_name and label_name not in derived_labels:
+            derived_labels.append(label_name)
+
+    entered_raw = _first_non_empty(payload, ["entered", "entered_count", "entry_count", "entries"])
+    exited_raw = _first_non_empty(payload, ["exited", "exited_count", "exit_count", "exits"])
+    entered = len(entered_raw) if isinstance(entered_raw, list) else _to_int(entered_raw)
+    exited = len(exited_raw) if isinstance(exited_raw, list) else _to_int(exited_raw)
+    has_activity = (
+        num_vehicles > 0
+        or num_pedestrians > 0
+        or entered > 0
+        or exited > 0
+        or bool(payload.get("participants"))
+    )
+    if has_activity:
+        _add_label("region_event")
+
+    return derived_labels
+
+
+async def process_scenescape_region_payload(payload, topic, broker_id=None):
+    """Process a Scenescape region payload, extracting relevant information and handling it accordingly."""
+    broker_key = ""
+    if broker_id:
+        broker_key = str(broker_id)
+        if broker_key.endswith("-region"):
+            broker_key = broker_key[: -len("-region")]
+
+    num_vehicles, num_pedestrians = _extract_counts(payload)
+
+    iso_timestamp = str(_first_non_empty(payload, ["timestamp", "event_time", "time"]) or "")
+    formatted_timestamp = iso_to_frigate_timestamp(iso_timestamp)
+    timestamp_value = _to_float(formatted_timestamp)
+    if timestamp_value is None:
+        logger.warning(f"Could not parse region-event timestamp: {iso_timestamp}")
+        return
+
+    scene_id, region_id = _extract_region_ids(payload, topic)
+    max_dwell_by_label = _extract_max_dwell_by_label(payload, region_id)
+    near_miss_min_distance_m = _extract_min_vehicle_pedestrian_distance(payload, region_id)
+    region_name = str(_first_non_empty(payload, ["region_name", "regionName", "zone_name", "name"]) or region_id)
+    scene_name = str(_first_non_empty(payload, ["scene_name", "sceneName"]) or scene_id)
+
+    raw_cameras = _extract_region_cameras_from_visibility(payload)
+    if not raw_cameras:
+        logger.info(
+            " Scenescape region payload ignored: missing visibility cameras "
+            f"(topic={topic}, region_id={region_id}, region_name={region_name})"
+        )
+        return
+
+    scenescape_cameras = [f"{broker_id}-{raw_camera}" if broker_id else str(raw_camera) for raw_camera in raw_cameras]
+
+    start_time, end_time = _extract_clip_window(payload, timestamp_value, region_id)
+    region_labels = _derive_region_labels(
+        payload,
+        num_vehicles,
+        num_pedestrians,
+    )
+
+    if not region_labels:
+        logger.info(
+            " Scenescape region payload ignored: no derived labels "
+            f"(topic={topic}, vehicles={num_vehicles}, pedestrians={num_pedestrians})"
+        )
+        return
+
+    for scenescape_camera in scenescape_cameras:
+        for derived_label in region_labels:
+            event_data = {
+                "label": derived_label,
+                "camera": scenescape_camera,
+                "start_time": start_time,
+                "end_time": end_time,
+                "num_vehicles": num_vehicles,
+                "num_pedestrians": num_pedestrians,
+                "scene_id": scene_id,
+                "scene_name": scene_name,
+                "region_id": region_id,
+                "region_name": region_name,
+                "broker_id": broker_key,
+                "max_dwell_by_label": max_dwell_by_label,
+                "near_miss_min_distance_m": near_miss_min_distance_m,
+            }
+            logger.info(f" Scenescape region event: {topic} | Derived event: {event_data}")
+            try:
+                result = await process_event(event_data, context={"source": "scenescape", "topic": topic})
+                logger.info(
+                    f" process_event completed for region event {derived_label} "
+                    f"on camera {scenescape_camera}: {result}"
+                )
+            except Exception as e:
+                logger.error(
+                    f" process_event failed for region event {derived_label} "
+                    f"on camera {scenescape_camera}: {e}",
+                    exc_info=True,
+                )
+
 # Convert ISO 8601 timestamp to float seconds since epoch
 def iso_to_frigate_timestamp(iso_timestamp: str) -> str:
     try:
@@ -42,7 +450,7 @@ def iso_to_frigate_timestamp(iso_timestamp: str) -> str:
         return f"{dt.timestamp():.6f}"
     except Exception as e:
         logger.warning(f"Failed to parse timestamp {iso_timestamp}: {e}")
-        return iso_timestamp  
+        return iso_timestamp
 
 throttle_state = {"last_processed": 0}
 
@@ -70,10 +478,19 @@ async def handle_scenescape_message(payload, topic, state=None, broker_id=None):
     if state is None:
         state = throttle_state
     interval = state.get("interval", SCENESCAPE_THROTTLE_INTERVAL)
+    throttle_map = state.setdefault("last_processed_by_key", {})
+    key = _throttle_key(payload, topic)
     now = time.time()
-    if now - state["last_processed"] < interval:
+    last_processed = throttle_map.get(key, 0)
+    if now - last_processed < interval:
         return
+    throttle_map[key] = now
+    # Keep legacy field updated for compatibility with tests/instrumentation.
     state["last_processed"] = now
+
+    if topic.startswith("scenescape/event/region/"):
+        await process_scenescape_region_payload(payload, topic, broker_id=broker_id)
+        return
 
     objects = payload.get("objects", {})
     vehicle_list = []
@@ -125,4 +542,3 @@ async def start_frigate_client():
         except aiomqtt.MqttError as e:
             logger.error(f" Frigate MQTT connection error: {e}; reconnecting in {BROKER_RECONNECT_DELAY}s")
             await asyncio.sleep(BROKER_RECONNECT_DELAY)
-
