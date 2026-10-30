@@ -154,17 +154,25 @@ def test_control_params_zone_default_empty_when_unconfigured():
 
 # ── zones config ──────────────────────────────────────────────────────────────
 
-def test_object_types_excludes_zone_type_id_when_no_zones():
-    cfg = _make_config(label_type_map={"pedestrian": "vap.pedestrian"})
-    assert cfg.object_types() == ["vap.pedestrian"]
+def test_object_categories_exclude_zone_when_no_zones():
+    cfg = _make_config(label_map={"pedestrian": "person", "person": "person"})
+    assert cfg.object_categories() == ["person"]
 
 
-def test_object_types_includes_zone_type_id_when_zones_configured():
+def test_object_categories_include_zone_when_zones_configured():
     cfg = _make_config(
-        label_type_map={"pedestrian": "vap.pedestrian"},
+        label_map={"pedestrian": "person"},
         zones={"region1": {"bounding_box": [0.0, 0.0, 0.5, 0.5]}},
     )
-    assert cfg.object_types() == ["vap.pedestrian", "vap.zone"]
+    assert cfg.object_categories() == ["person", "zone"]
+
+
+def test_deprecated_label_type_map_merges_into_label_map():
+    cfg = _make_config(
+        label_type_map={"car": "vap.vehicle", "person": "vap.person"},
+        label_map={"person": "human"},
+    )
+    assert cfg.label_map == {"car": "vap.vehicle", "person": "human"}
 
 
 def test_zones_bounding_box_normalized_to_tuple():
@@ -182,10 +190,16 @@ def test_zone_filter_enabled_defaults_false():
     assert cfg.zone_filter_enabled is False
 
 
-def test_event_bookmark_config_defaults():
+def test_event_config_defaults():
     cfg = _make_config()
+    assert cfg.events_enabled is False
     assert cfg.event_bookmark_enabled is False
     assert cfg.event_topic_suffix == "loiterstatus"
+
+
+def test_deprecated_event_bookmark_enabled_enables_events():
+    assert _make_config(event_bookmark_enabled=True).events_enabled is True
+    assert _make_config(events_enabled=True).events_enabled is True
 
 
 # ── is_reachable ──────────────────────────────────────────────────────────────
@@ -261,15 +275,69 @@ def test_build_mqtt_topic_uses_configured_prefix():
     assert shim._build_mqtt_topic("nx:abc123") == "object_tracking/nx:abc123"
 
 
+def test_milestone_camera_ref_is_single_topic_level_and_round_trips():
+    from plugin.common import camera_ref
+
+    shim = _make_shim(metadata_topic_prefix="object_tracking")
+    ref = "milestone:dev-guid/stream-guid"
+    topic = shim._build_mqtt_topic(ref)
+    assert topic == "object_tracking/milestone:dev-guid~stream-guid"
+    assert len(topic.split("/")) == 2
+    assert camera_ref.decode(topic.split("/")[-1]) == ref
+    assert camera_ref.encode("nx:abc123") == "nx:abc123"
+
+
+_DLS_PAYLOAD = json.dumps({
+    "objects": [{
+        "detection": {
+            "bounding_box": {"x_min": 0.1, "y_min": 0.2, "x_max": 0.3, "y_max": 0.4},
+            "confidence": 0.9, "label": "person",
+        },
+        "id": 7,
+    }],
+    "rtp": {"sender_ntp_unix_timestamp_ns": 1_000_000_000},
+}).encode()
+
+
+@pytest.mark.asyncio
+async def test_subscriber_decodes_milestone_topic_and_publishes_neutral_frame():
+    from analytics_app_shim.object_detection.mqtt_subscriber import MqttSubscriber
+    from plugin.base.interfaces import DetectionPublishContext
+
+    vms = MagicMock()
+    vms.publish_detections = AsyncMock(return_value=True)
+    ctx = DetectionPublishContext(app_id="ld")
+    await MqttSubscriber()._handle_message(
+        "object_tracking/milestone:dev~stream", _DLS_PAYLOAD,
+        {"milestone": vms}, timestamp_offset_ms=-100, publish_context=ctx,
+    )
+    camera_id, frame, passed_ctx = vms.publish_detections.await_args.args
+    assert camera_id == "milestone:dev/stream"
+    assert passed_ctx is ctx
+    assert frame.timestamp_ms == 900
+    assert frame.objects[0].track_id == 7
+    assert frame.objects[0].label == "person"
+
+
 # ── per-camera zone: resolution lookup + normalized->pixel translation ────────
 
 def _camera_with_resolution(resolution: str = "1280x720") -> Camera:
-    return Camera(
-        camera_id="nx:abc123",
-        name="cam",
-        vendor="nx_witness",
-        vendor_meta={"options": {"bitrateInfos": [{"encoderIndex": "primary", "resolution": resolution}]}},
-    )
+    from vms_shim.nxwitness.shim import _to_camera
+
+    # Built by the real Nx mapping, so these tests also cover bitrateInfos parsing.
+    return _to_camera({
+        "id": "{abc123}", "name": "cam", "status": "Online",
+        "options": {"bitrateInfos": [{"encoderIndex": "primary", "resolution": resolution}]},
+    })
+
+
+def test_nx_camera_resolution_from_bitrate_info():
+    from vms_shim.nxwitness.shim import _to_camera
+
+    cam = _camera_with_resolution("1920x1080")
+    assert (cam.camera_id, cam.width, cam.height) == ("nx:abc123", 1920, 1080)
+    missing = _to_camera({"id": "x", "options": {"bitrateInfos": [{"resolution": "bad"}]}})
+    assert (missing.width, missing.height) == (None, None)
 
 
 def _vms_shim_set(name: str, vms_shim) -> VmsShimSet:
@@ -287,7 +355,7 @@ def test_lookup_vms_shim_none_when_no_colon():
     assert shim._lookup_vms_shim("abc123") is None
 
 
-async def test_get_camera_resolution_parses_bitrate_info(mock_vms_shim):
+async def test_get_camera_resolution_reads_neutral_fields(mock_vms_shim):
     shim = _make_shim()
     shim._vms_shim_sets = [_vms_shim_set("nx-main", mock_vms_shim)]
     mock_vms_shim.get_camera_metadata = AsyncMock(return_value=_camera_with_resolution("1920x1080"))
@@ -295,6 +363,20 @@ async def test_get_camera_resolution_parses_bitrate_info(mock_vms_shim):
     resolution = await shim._get_camera_resolution("nx:abc123")
 
     assert resolution == (1920, 1080)
+
+
+async def test_get_camera_resolution_works_for_milestone(mock_vms_shim):
+    shim = _make_shim()
+    shim._vms_shim_sets = [_vms_shim_set("milestone", mock_vms_shim)]
+    mock_vms_shim.get_camera_metadata = AsyncMock(return_value=Camera(
+        camera_id="milestone:dev/stream", name="cam", vendor="milestone", width=1920, height=1080,
+    ))
+    assert await shim._get_camera_resolution("milestone:dev/stream") == (1920, 1080)
+
+    mock_vms_shim.get_camera_metadata.return_value = Camera(
+        camera_id="milestone:dev/stream", name="cam", vendor="milestone",
+    )
+    assert await shim._get_camera_resolution("milestone:dev/stream") is None
 
 
 async def test_get_camera_resolution_none_when_shim_missing():
@@ -383,6 +465,89 @@ async def test_start_sends_zone_payload_when_provided(mock_vms_shim):
     sent_payload = shim._api.start_run.call_args.args[2]
     zones_sent = json.loads(sent_payload["parameters"]["analytics-properties"]["zones"])
     assert zones_sent[0]["id"] == "vap_zone"
+    # Pipeline does not declare roi-properties, so no ROI is sent.
+    assert "roi-properties" not in sent_payload["parameters"]
+
+
+_ROI_ZONE = "[[0.0, 0.277778], [0.234375, 0.277778], [0.234375, 0.555556], [0.0, 0.555556]]"
+
+
+@pytest.mark.parametrize(("resolution", "roi"), [
+    ("1280x720", "0,200,300,400"),    # identical to the pipeline's gvaattachroi default
+    ("1920x1080", "0,300,450,600"),   # scaled for the AXIS stream
+])
+async def test_start_sends_scaled_roi_to_pipelines_that_declare_it(mock_vms_shim, resolution, roi):
+    shim = _make_shim()
+    shim._vms_shim_sets = [_vms_shim_set("nx-main", mock_vms_shim)]
+    mock_vms_shim.get_camera_metadata = AsyncMock(return_value=_camera_with_resolution(resolution))
+    shim._api.list_pipelines = AsyncMock(return_value=[
+        {"name": "user_defined_pipelines", "version": "vap_object_tracking_gpu",
+         "parameters": {"properties": {"analytics-properties": {}, "roi-properties": {}}}},
+        {"name": "user_defined_pipelines", "version": "object_tracking_gpu",
+         "parameters": {"properties": {"analytics-properties": {}}}},
+    ])
+    await shim.fetch_schema()
+    shim._api.start_run = AsyncMock(return_value={"instance_id": "abc123"})
+
+    for pipeline, expect_roi in (("vap_object_tracking_gpu", True), ("object_tracking_gpu", False)):
+        params = MagicMock()
+        params.model_dump.return_value = {
+            "pipeline_name": pipeline, "camera_id": "rtsp://cam/s",
+            "camera_id_ref": "nx:abc123", "zone": _ROI_ZONE, "parameters": {},
+        }
+        await shim.start(params)
+        sent = shim._api.start_run.call_args.args[2]["parameters"]
+        assert "zones" in sent["analytics-properties"]
+        assert sent.get("roi-properties") == ({"roi": roi} if expect_roi else None)
+
+
+async def test_start_sends_no_roi_without_zone(mock_vms_shim):
+    shim = _make_shim()  # no default_zone_polygon configured
+    shim._pipeline_parameters = {"vap_object_tracking_gpu": {"roi-properties"}}
+    shim._api.start_run = AsyncMock(return_value={"instance_id": "abc123"})
+    params = MagicMock()
+    params.model_dump.return_value = {
+        "pipeline_name": "vap_object_tracking_gpu", "camera_id": "rtsp://cam/s",
+        "camera_id_ref": "nx:abc123", "zone": "", "parameters": {},
+    }
+    await shim.start(params)
+    # Pipeline keeps its own default roi when no zone is given or configured.
+    assert "roi-properties" not in shim._api.start_run.call_args.args[2]["parameters"]
+
+
+async def test_start_without_zone_uses_configured_default_zone(mock_vms_shim):
+    shim = _make_shim(default_zone_polygon=[[0.0, 0.277778], [0.234375, 0.277778],
+                                            [0.234375, 0.555556], [0.0, 0.555556]])
+    shim._vms_shim_sets = [_vms_shim_set("nx-main", mock_vms_shim)]
+    mock_vms_shim.get_camera_metadata = AsyncMock(return_value=_camera_with_resolution("1920x1080"))
+    shim._pipeline_parameters = {"vap_object_tracking_gpu": {"roi-properties"}}
+    shim._api.start_run = AsyncMock(return_value={"instance_id": "abc123"})
+    params = MagicMock()
+    params.model_dump.return_value = {
+        "pipeline_name": "vap_object_tracking_gpu", "camera_id": "rtsp://cam/s",
+        "camera_id_ref": "nx:abc123", "parameters": {},  # caller sent no zone
+    }
+    await shim.start(params)
+    sent = shim._api.start_run.call_args.args[2]["parameters"]
+    assert sent["roi-properties"] == {"roi": "0,300,450,600"}
+    assert json.loads(sent["analytics-properties"]["zones"])[0]["points"][2] == {"x": 450, "y": 600}
+
+
+async def test_schema_zone_default_comes_from_config():
+    polygon = [[0.1, 0.2], [0.3, 0.2], [0.3, 0.4]]
+    shim = _make_shim(default_zone_polygon=polygon)
+    shim._api.list_pipelines = AsyncMock(return_value=[])
+    schema = await shim.fetch_schema()
+    assert json.loads(schema["properties"]["zone"]["default"]) == polygon
+
+    bare = _make_shim()
+    bare._api.list_pipelines = AsyncMock(return_value=[])
+    assert (await bare.fetch_schema())["properties"]["zone"]["default"] == ""
+
+
+def test_zone_roi_is_bounding_rectangle_of_polygon():
+    points = [{"x": 10, "y": 50}, {"x": 90, "y": 20}, {"x": 60, "y": 120}]
+    assert ObjectDetectionAnalyticsAppShim._zone_roi(points) == "10,20,90,120"
 
 
 async def test_start_for_camera_passes_zone_control():
@@ -574,3 +739,100 @@ def test_api_client_verify_uses_ca_bundle_path(monkeypatch):
     client._ensure_client()
 
     assert captured["verify"] == "/tmp/od-ca.pem"
+
+
+# ── run listing tags each active run with its camera, device and zone ───────
+
+async def test_list_runs_tags_active_runs_from_their_detail(mock_vms_shim):
+    shim = _make_shim()
+    shim._vms_shim_sets = [_vms_shim_set("milestone", mock_vms_shim)]
+    mock_vms_shim.get_camera_metadata = AsyncMock(return_value=Camera(
+        camera_id="milestone:dev/stream", name="c", vendor="milestone", width=1920, height=1080,
+    ))
+    shim._api.list_runs = AsyncMock(return_value=[
+        {"id": "r1", "state": "RUNNING"},
+        {"id": "r2", "state": "ABORTED"},
+        {"id": "r3", "state": "QUEUED"},
+    ])
+    zones = json.dumps([{"id": "vap_zone", "type": "polygon", "points": [
+        {"x": 0, "y": 300}, {"x": 450, "y": 300}, {"x": 450, "y": 600}, {"x": 0, "y": 600}]}])
+    details = {
+        # where the Pipeline Server keeps the original request
+        "r1": {"params": {"request": {
+            "destination": {"metadata": {"topic": "object_tracking/milestone:dev~stream"}},
+            "parameters": {"detection-properties": {"device": "GPU"},
+                           "analytics-properties": {"zones": zones}},
+        }}},
+        # foreign topic: not one of VAP's camera runs
+        "r3": {"request": {"destination": {"metadata": {"topic": "other/thing"}}}},
+    }
+    shim._api.get_run = AsyncMock(side_effect=lambda run_id: details.get(run_id))
+
+    by_id = {r["id"]: r for r in await shim.list_runs()}
+
+    assert by_id["r1"]["camera_id"] == "milestone:dev/stream"
+    assert by_id["r1"]["device"] == "GPU"
+    assert json.loads(by_id["r1"]["zone"]) == [[0, 0.2778], [0.2344, 0.2778], [0.2344, 0.5556], [0, 0.5556]]
+    assert "camera_id" not in by_id["r2"]          # inactive runs are not looked up
+    assert "camera_id" not in by_id["r3"]
+    assert [c.args[0] for c in shim._api.get_run.await_args_list] == ["r1", "r3"]
+
+    # Cached, including the negative result for r3
+    shim._api.get_run.reset_mock()
+    await shim.list_runs()
+    shim._api.get_run.assert_not_called()
+
+    # Runs that are no longer active are forgotten
+    shim._api.list_runs = AsyncMock(return_value=[{"id": "r1", "state": "COMPLETED"}])
+    await shim.list_runs()
+    assert shim._run_info == {}
+
+
+async def test_started_run_is_listed_with_its_zone_without_lookup(mock_vms_shim):
+    shim = _make_shim()
+    shim._vms_shim_sets = [_vms_shim_set("nx-main", mock_vms_shim)]
+    mock_vms_shim.get_camera_metadata = AsyncMock(return_value=_camera_with_resolution("1280x720"))
+    shim._api.start_run = AsyncMock(return_value={"instance_id": "r9"})
+    params = MagicMock()
+    params.model_dump.return_value = {
+        "pipeline_name": "p", "camera_id": "rtsp://cam/s", "camera_id_ref": "nx:abc123",
+        "device": "", "zone": "[[0.1, 0.1], [0.5, 0.1], [0.5, 0.5]]", "parameters": {},
+    }
+    await shim.start(params)
+    shim._api.list_runs = AsyncMock(return_value=[{"id": "r9", "state": "RUNNING"}])
+    shim._api.get_run = AsyncMock()
+
+    run = (await shim.list_runs())[0]
+    assert run["camera_id"] == "nx:abc123"
+    assert json.loads(run["zone"]) == [[0.1, 0.1], [0.5, 0.1], [0.5, 0.5]]
+    shim._api.get_run.assert_not_called()
+
+    shim._api.stop_run = AsyncMock(return_value=True)
+    await shim.stop_run("r9")
+    assert "r9" not in shim._run_info
+
+
+@pytest.mark.parametrize(("threshold", "declared", "expected"), [
+    (2.0, True, {"loitering-threshold": 2.0}),   # configured and declared: sent
+    (2.0, False, None),                          # pipeline has no such element
+    (None, True, None),                          # not configured: pipeline default
+])
+async def test_start_sends_configured_loitering_threshold(threshold, declared, expected):
+    shim = _make_shim(loitering_threshold_s=threshold)
+    shim._pipeline_parameters = {
+        "vap_object_tracking_gpu": {"loitering-watermark-properties"} if declared else set(),
+    }
+    shim._api.start_run = AsyncMock(return_value={"instance_id": "abc123"})
+    params = MagicMock()
+    params.model_dump.return_value = {
+        "pipeline_name": "vap_object_tracking_gpu", "camera_id": "rtsp://cam/s",
+        "camera_id_ref": "nx:abc123", "zone": "", "parameters": {},
+    }
+    await shim.start(params)
+    sent = shim._api.start_run.call_args.args[2]["parameters"]
+    assert sent.get("loitering-watermark-properties") == expected
+
+
+def test_loitering_threshold_must_be_positive():
+    with pytest.raises(ValueError):
+        _make_shim(loitering_threshold_s=0)

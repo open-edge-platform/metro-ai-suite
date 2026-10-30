@@ -33,9 +33,13 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
     # convention (not a VMS-invented scheme). Final topic:
     # "{metadata_topic_prefix}/{vendor}:{device_id}". Part of the pipeline-start payload.
     metadata_topic_prefix: str = "object_tracking"
-    # Maps detection labels (case-insensitive) to Nx typeIds; unmapped labels fall
-    # back to "python.detected.object". Also merged into the Nx manifest at startup.
-    # Example: {car: vap.vehicle, person: vap.person}
+    # Maps detection labels (case-insensitive) to vendor-neutral categories, e.g.
+    # {pedestrian: person, car: vehicle}. Each VMS shim maps a category to its own
+    # type (Nx typeId "vap.<category>", Milestone ONVIF class), optionally
+    # overridden per VMS instance via vendor_options. Unmapped labels stay uncategorized.
+    label_map: dict[str, str] = Field(default_factory=dict)
+    # Deprecated: use label_map. Values are used as categories; typeId-style
+    # values (e.g. "vap.vehicle") are still passed through unchanged by the Nx shim.
     label_type_map: dict[str, str] = Field(default_factory=dict)
     # Shifts the pushed metadata timestamp (ms) to compensate for pipeline latency;
     # ignored when sender_ntp_unix_timestamp_ns is present in the payload.
@@ -52,20 +56,38 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
     # x_max, y_max]; keyed by zone id, must match the DLSPS zones/<video>.json.
     # Example: {region1: {label: "Loitering Zone", bounding_box: [0, 0.28, 0.23, 0.56]}}
     zones: dict[str, dict] = Field(default_factory=dict)
-    # Nx typeId for the pushed zone marker box(es); auto-registered when zones is set.
-    zone_type_id: str = "vap.zone"
+    # Deprecated, Nx-only: prefer vendor_options.zone_type_id on the Nx VMS instance.
+    zone_type_id: str | None = None
     # Default value for the per-camera "zone" control: normalized [x,y] polygon
     # points. Empty by default; deployments set this to their own zone.
     default_zone_polygon: list[list[float]] = Field(default_factory=list)
+    # Seconds a person must stay in the zone before the pipeline marks them as
+    # loitering; sent at run start as loitering-watermark-properties.loitering-threshold.
+    # None leaves the pipeline's own default. Keep the loitering sidecar's
+    # LOITERING_THRESHOLD_SEC equal to this, since it decides when events are published.
+    loitering_threshold_s: float | None = Field(default=None, gt=0)
 
     # Subscribes to the app's dedicated status-event topic (e.g. the loitering-
-    # detection recipe's mqtt-table-flattener sidecar) and pushes an Nx bookmark
-    # for every row received - no dedup/threshold logic here, the app already
-    # decided the event occurred.
+    # detection recipe's mqtt-table-flattener sidecar) and publishes every row
+    # received as an analytics event (Nx: bookmark; Milestone: ANALYTICS_EVENT).
+    # No dedup/threshold logic here - the app already decided the event occurred.
+    events_enabled: bool = False
+    # Deprecated alias of events_enabled; either one enables events.
     event_bookmark_enabled: bool = False
     # Must match the publisher's destination topic suffix (e.g. mqtt-table-flattener's
     # DEST_TOPIC_SUFFIX env var).
     event_topic_suffix: str = "loiterstatus"
+
+    @model_validator(mode="after")
+    def _merge_deprecated_event_flag(self):
+        self.events_enabled = self.events_enabled or self.event_bookmark_enabled
+        return self
+
+    @model_validator(mode="after")
+    def _merge_deprecated_label_type_map(self):
+        # label_map wins on conflicts
+        self.label_map = {**self.label_type_map, **self.label_map}
+        return self
 
     @model_validator(mode="after")
     def _normalize_and_validate_zones(self):
@@ -112,12 +134,13 @@ class ObjectDetectionAnalyticsAppConfig(BaseModel):
     def pipeline_for_device(self, device: str) -> str:
         """Return configured pipeline name for a given device (case-insensitive)."""
         return self.pipeline.get(str(device or "").strip().upper(), "")
-    def object_types(self) -> list[str]:
-        """Object type ids this app emits (label_type_map values, plus zone_type_id if zones is set)."""
-        types = set(self.label_type_map.values())
+
+    def object_categories(self) -> list[str]:
+        """Neutral categories this app emits (label_map values, plus ``zone`` if zones is set)."""
+        categories = set(self.label_map.values())
         if self.zones:
-            types.add(self.zone_type_id)
-        return sorted(types)
+            categories.add("zone")
+        return sorted(categories)
 
     def control_params(self) -> list[dict]:
         """Per-camera control knobs (VMS-neutral): pipelineEnabled toggle + device enum."""
