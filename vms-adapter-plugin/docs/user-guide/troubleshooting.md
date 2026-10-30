@@ -128,7 +128,8 @@ docker compose restart vms-adapter-backend
 
 - Confirm the MQTT broker is running and reachable at `MQTT_HOST:MQTT_PORT`.
 - Verify that the DL Streamer Pipeline Server is publishing inference results to MQTT on the
-  expected topic (`/{vms_name}/dls_vision/{camera_id}`).
+  expected topic (`{metadata_topic_prefix}/{vms_name}:{camera_id}`, default prefix
+  `object_tracking`).
 - Check that the Nx Witness analytics integration was registered successfully: look for
   `register_analytics` in the `vms-adapter-backend` logs.
 - Verify integration credentials: if the integration was reused from a previous run, the
@@ -146,8 +147,8 @@ docker compose restart vms-adapter-backend
 
 **Checks**:
 
-- Check the MQTT topic convention: `/{vms_name}/dls_vision/{camera_id}` where `camera_id` is
-  the bare Nx device UUID (no `nx:` prefix).
+- Check the MQTT topic convention: `{metadata_topic_prefix}/{vms_name}:{camera_id}` (default
+  prefix `object_tracking`), e.g. `object_tracking/nx:abc123`.
 - Verify the `vms_name` in the topic matches the `name` field of the VMS config in `config.yaml`.
 - Inspect MQTT traffic using a tool like `mosquitto_sub`:
 

@@ -116,6 +116,19 @@ source setup.sh --clean [option]
 When the script completes, it will show the URLs to access the services. Go to these URLs so
 that the respective services can access them in a web browser.
 
+## Run the Unit Tests
+
+From the project root, sync the test dependencies defined in `tests/pyproject.toml`, then run
+the unit tests:
+
+```bash
+uv sync --project tests
+uv run --project tests pytest tests/unit -v
+```
+
+For instructions to run an individual test file or generate a coverage report, see the
+[unit test guide](../../tests/unit/README.md).
+
 ## Running Multiple Instances (Test or Development Only)
 
 For testing or development purposes, you can run multiple instances of the Smart Traffic

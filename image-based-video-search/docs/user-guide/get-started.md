@@ -358,7 +358,6 @@ By following this guide, you will learn how to:
 :hidden:
 
 get-started/system-requirements.md
-get-started/deploy-with-helm.md
 
 :::
 hide_directive-->

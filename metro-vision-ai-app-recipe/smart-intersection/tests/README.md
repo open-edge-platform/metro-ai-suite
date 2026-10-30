@@ -42,7 +42,6 @@ export SUDO_PASSWORD=your_sudo_password
 
 - Clone the repository and install prerequisites according to the following guides (for Kubernetes, also set up proxy settings if needed):
   - [Docker Guide](../docs/user-guide/get-started.md)
-  - [Kubernetes Guide](../docs/user-guide/get-started/deploy-with-helm.md)
 
 1. **Navigate to the smart-intersection directory:**
 

@@ -9,7 +9,6 @@ import subprocess
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from tests.utils.ui_utils import waiter, driver
-from tests.utils.kubernetes_utils import get_node_port, get_scenescape_kubernetes_url
 from tests.utils.utils import check_urls_access
 from .conftest import (
   SCENESCAPE_URL,
@@ -132,45 +131,17 @@ def test_login_docker(waiter):
   """Test login functionality for Docker environment."""
   login_functionality(waiter, SCENESCAPE_URL)
 
-@pytest.mark.kubernetes
-@pytest.mark.zephyr_id("NEX-T13559")
-def test_login_kubernetes(waiter):
-  """Test login functionality for Kubernetes environment."""
-  kubernetes_url = get_scenescape_kubernetes_url()
-  logger.info(f"Using Kubernetes URL: {kubernetes_url}")
-  login_functionality(waiter, kubernetes_url)
-  logger.info("Kubernetes login test completed")
-
-@pytest.mark.kubernetes
-@pytest.mark.zephyr_id("NEX-T13911")
-def test_logout_kubernetes(waiter):
-  """Test that the admin logout functionality works correctly."""
-  logout_functionality_check(waiter, get_scenescape_kubernetes_url())
-
 @pytest.mark.docker
 @pytest.mark.zephyr_id("NEX-T9390")
 def test_logout_docker(waiter):
   """Test that the admin logout functionality works correctly."""
   logout_functionality_check(waiter, SCENESCAPE_URL)
 
-@pytest.mark.kubernetes
-@pytest.mark.zephyr_id("NEX-T13912")
-def test_change_password_kubernetes(waiter):
-  """Test that the admin can change the password successfully."""
-  change_password_functionality_check(waiter, get_scenescape_kubernetes_url())
-
 @pytest.mark.docker
 @pytest.mark.zephyr_id("NEX-T9388")
 def test_change_password_docker(waiter):
   """Test that the admin can change the password successfully."""
   change_password_functionality_check(waiter, SCENESCAPE_URL)
-
-@pytest.mark.kubernetes
-@pytest.mark.zephyr_id("NEX-T10683")
-def test_web_options_availability_kubernetes(waiter):
-  """Test that the web option is available in the admin interface."""
-  kubernetes_url = get_scenescape_kubernetes_url()
-  web_options_availability_check(waiter, kubernetes_url)
 
 @pytest.mark.docker
 @pytest.mark.zephyr_id("NEX-T9374")

@@ -194,6 +194,8 @@ Prior to deployment, edit `charts/values-override.yaml` and set at least the fol
 | `global.ragChatbotMode` | RAG chatbot mode: `embedded (in-dashboard)` or `detached (browser tab)` | `embedded / detached` |
 | `global.embeddingModel.useGPU.enabled` | Enable GPU scheduling for embedding model runtime | `true / false` |
 | `global.embeddingModel.useGPU.key` | GPU resource key used to schedule embedding workload | `gpu.intel.com/i915 / gpu.intel.com/xe` |
+| `global.embeddingModel.useNPU.enabled` | Enable NPU scheduling for embedding model runtime | `true / false` |
+| `global.embeddingModel.useNPU.key` | NPU resource key used to schedule embedding workload | `npu.intel.com/accel` |
 | `live-video-captioning-rag.env.maxTokens` | Max generated tokens for RAG response | `1024` |
 | `live-video-captioning-rag.env.topK` | Number of retrieved context candidates | `1` |
 | `live-video-captioning-rag.env.scoreThreshold` | Minimum retrieval score for including RAG search results | `0.5` |

@@ -13,11 +13,6 @@ metrics currently are:
 Open [`https://<HOST_IP>/prometheus/`](https://<HOST_IP>/prometheus/) in your browser to view
 the Prometheus console.
 
-### For Helm
-
-Open [`https://<HOST_IP>:30443/prometheus/`](https://<HOST_IP>:30443/prometheus/) in your
-browser to view the Prometheus console.
-
 ### Try Out the Following Queries
 - `cpu_usage_percentage`
 - `memory_usage_bytes`

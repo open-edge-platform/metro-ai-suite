@@ -21,10 +21,10 @@ for model in "\${OMZ_MODELS[@]}"; do
   if [ ! -e "src/dlstreamer-pipeline-server/models/intel/\$model/\$model.json" ]; then
     echo "Download \$model..." && \
     mkdir -p src/dlstreamer-pipeline-server/models/intel/\${model}/FP16/ && \
-    curl -L -o "src/dlstreamer-pipeline-server/models/intel/\${model}/FP16/\${model}.xml" "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/\${model}/FP16/\${model}.xml?raw=true" && \
-    curl -L -o "src/dlstreamer-pipeline-server/models/intel/\${model}/FP16/\${model}.bin" "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/\${model}/FP16/\${model}.bin?raw=true" && \
+    curl -f -L -o "src/dlstreamer-pipeline-server/models/intel/\${model}/FP16/\${model}.xml" "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/\${model}/FP16/\${model}.xml?raw=true" && \
+    curl -f -L -o "src/dlstreamer-pipeline-server/models/intel/\${model}/FP16/\${model}.bin" "https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/\${model}/FP16/\${model}.bin?raw=true" && \
     echo "Download \$model proc file..." && \
-    curl -L -o "src/dlstreamer-pipeline-server/models/intel/\${model}/\${model}.json" "https://github.com/dlstreamer/dlstreamer/blob/master/samples/gstreamer/model_proc/intel/\${model}.json?raw=true"
+    curl -f -L -o "src/dlstreamer-pipeline-server/models/intel/\${model}/\${model}.json" "https://github.com/dlstreamer/dlstreamer/blob/master/samples/gstreamer/model_proc/intel/\${model}.json?raw=true"
 
   fi
 done
@@ -42,7 +42,14 @@ declare -A video_urls=(
 for video_name in "\${!video_urls[@]}"; do
     if [ ! -f src/dlstreamer-pipeline-server/videos/\${video_name} ]; then
         echo "Download \${video_name}..."
-        curl -L -o "src/dlstreamer-pipeline-server/videos/\${video_name}" "\${video_urls[\$video_name]}"
+        curl -f -L -o "src/dlstreamer-pipeline-server/videos/\${video_name}" "\${video_urls[\$video_name]}"
+    fi
+done
+
+for video_name in "\${!video_urls[@]}"; do
+    if [ ! -f "src/dlstreamer-pipeline-server/videos/\${video_name}" ]; then
+        echo "Error: Failed to download \${video_name}"
+        exit 1
     fi
 done
 
@@ -71,10 +78,12 @@ EOF
 ##############################################################################
 if [ -f ../docker-compose.yml ]; then
   awk '
-    /^  node-red:/ { skip=1; next }
-    skip && /^  [^ ]/ { skip=0 }
-    skip && /^[^ ]/ { skip=0 }
-    !skip { print }
+    /^  node-red:/ { skip_svc=1; next }
+    skip_svc && /^  [a-zA-Z0-9_-]+:/ { skip_svc=0 }
+    skip_svc && /^[^ ]/ { skip_svc=0 }
+    /^secrets:/ { skip_sec=1; next }
+    skip_sec && /^[^ ]/ { skip_sec=0 }
+    !skip_svc && !skip_sec { print }
   ' ../docker-compose.yml > ../docker-compose.yml.tmp && mv ../docker-compose.yml.tmp ../docker-compose.yml
   sed -i '/^      - node-red$/d' ../docker-compose.yml
   sed -i '/^  node-red-node-modules:$/d' ../docker-compose.yml

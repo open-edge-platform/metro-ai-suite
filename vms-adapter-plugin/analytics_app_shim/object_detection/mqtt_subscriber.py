@@ -6,20 +6,33 @@
 Subscribes to the MQTT broker and routes incoming DL Streamer inference
 metadata to the appropriate VMS shim for analytics push.
 
-Topic convention: ``/{vms_name}/{analytics_app_id}/{camera_id}``
-Example:         ``/nx-main/dls_vision/abc123-device-uuid``
+Topic convention: ``{metadata_topic_prefix}/{vendor_prefix}:{camera_id}``
+Example:         ``object_tracking/nx:abc123-device-uuid``
+
+The prefix matches the LD app's OWN existing topic convention (see
+loitering-detection's sample_start.sh: ``"${SOURCE_TOPIC_PREFIX:-object_tracking}/$x"``)
+rather than a VMS-invented scheme, so the recipe's mqtt-table-flattener needs no
+reconfiguration to also see VMS-driven streams.
 
 On each message:
-1. Parse vms_name, analytics_app_id, camera_id from topic.
-2. Look up the VMS shim by vms_name.
+1. Parse vendor_prefix, camera_id from the trailing topic segment.
+2. Look up the VMS shim by vendor_prefix.
 3. Translate DLS metadata to Nx object-push format.
 4. Call ``vms_shim.push_analytics_objects(device_id, objects, timestamp_ms)``.
+
+When ``event_bookmark_enabled``, also subscribes to the app's own dedicated
+status-event topic (e.g. published by the loitering-detection recipe's
+mqtt-table-flattener sidecar once a track's dwell time exceeds its threshold):
+``{metadata_topic_prefix}/{vendor_prefix}:{camera_id}/{event_topic_suffix}``.
+Each row there is pushed as an Nx bookmark — the plugin never re-derives
+the app's own decision itself.
 """
 
 from __future__ import annotations
 
 import asyncio
 import ssl
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -50,16 +63,20 @@ class MqttSubscriber:
         mqtt_host: str,
         mqtt_port: int,
         vms_shim_sets: list[VmsShimSet],
-        analytics_app_id: str = "dls_vision",
         label_type_map: dict[str, str] | None = None,
         timestamp_offset_ms: int = 0,
         tls_context: ssl.SSLContext | None = None,
+        zone_filter_enabled: bool = False,
+        zones: dict[str, dict] | None = None,
+        zone_type_id: str = "vap.zone",
+        metadata_topic_prefix: str = "object_tracking",
+        event_bookmark_enabled: bool = False,
+        event_topic_suffix: str = "loiterstatus",
     ) -> None:
         """Subscribe to MQTT and dispatch messages until cancelled.
 
-        Topic wildcard: ``+/{analytics_app_id}/+`` (matches ``/{vms_name}/{analytics_app_id}/{camera_id}``)
-        Leading slash is optional — both ``/nx-main/dls_vision/device`` and ``nx-main/dls_vision/device`` are
-        handled by stripping the leading slash before splitting.
+        Topic wildcard: ``{metadata_topic_prefix}/+`` (matches
+        ``{metadata_topic_prefix}/{vendor_prefix}:{camera_id}``).
         """
         try:
             import aiomqtt  # type: ignore[import]
@@ -74,30 +91,42 @@ class MqttSubscriber:
         shim_map: dict[str, Any] = {ss.name: ss.vms_shim for ss in vms_shim_sets}
         _label_map: dict[str, str] = {k.lower(): v for k, v in (label_type_map or {}).items()}
 
-        # Wildcard: single-level + matches any vms_name; trailing + matches any camera_id
-        topic_filter = f"+/{analytics_app_id}/+"
+        topic_filter = f"{metadata_topic_prefix}/+"
+        event_topic_filter = f"{metadata_topic_prefix}/+/{event_topic_suffix}"
 
         logger.info(
             "mqtt_subscriber_starting",
             host=mqtt_host,
             port=mqtt_port,
             topic_filter=topic_filter,
+            event_topic_filter=event_topic_filter if event_bookmark_enabled else None,
         )
 
         while True:
             try:
                 async with aiomqtt.Client(mqtt_host, port=mqtt_port, tls_context=tls_context) as client:
                     await client.subscribe(topic_filter)
+                    if event_bookmark_enabled:
+                        await client.subscribe(event_topic_filter)
                     logger.info("mqtt_subscriber_subscribed", topic_filter=topic_filter)
                     async for message in client.messages:
-                        await self._handle_message(
-                            str(message.topic),
-                            message.payload,
-                            shim_map,
-                            analytics_app_id,
-                            _label_map,
-                            timestamp_offset_ms,
-                        )
+                        topic = str(message.topic)
+                        parts = topic.lstrip("/").split("/")
+                        if event_bookmark_enabled and len(parts) == 3 and parts[-1] == event_topic_suffix:  # noqa: PLR2004
+                            await self._handle_status_event_message(
+                                topic, message.payload, shim_map,
+                            )
+                        else:
+                            await self._handle_message(
+                                topic,
+                                message.payload,
+                                shim_map,
+                                _label_map,
+                                timestamp_offset_ms,
+                                zone_filter_enabled,
+                                zones,
+                                zone_type_id,
+                            )
             except asyncio.CancelledError:
                 logger.info("mqtt_subscriber_stopped")
                 return
@@ -109,30 +138,36 @@ class MqttSubscriber:
                 )
                 await asyncio.sleep(5)
 
+    @staticmethod
+    def _lookup_shim(shim_map: dict[str, Any], vms_name: str) -> Any | None:
+        """Exact match first (e.g. "nx-main"), then prefix match (e.g. "nx" -> "nx-main")."""
+        return shim_map.get(vms_name) or next(
+            (v for k, v in shim_map.items() if k.startswith(vms_name)), None
+        )
+
     async def _handle_message(
         self,
         topic: str,
         payload: bytes,
         shim_map: dict[str, Any],
-        analytics_app_id: str,
         label_type_map: dict[str, str] | None = None,
         timestamp_offset_ms: int = 0,
+        zone_filter_enabled: bool = False,
+        zones: dict[str, dict] | None = None,
+        zone_type_id: str = "vap.zone",
     ) -> None:
         """Parse topic, translate payload, and dispatch to VMS shim."""
         import json
 
-        # Normalise: strip optional leading slash, split into parts
+        # "{prefix}/{vendor}:{camera_id}" -> 2 segments; trailing segment holds vendor:camera_id
         parts = topic.lstrip("/").split("/")
-        if len(parts) != 3:  # noqa: PLR2004
+        if len(parts) != 2 or ":" not in parts[-1]:  # noqa: PLR2004
             logger.warning("mqtt_unexpected_topic_format", topic=topic)
             return
 
-        vms_name, _, camera_id = parts
+        vms_name, camera_id = parts[-1].split(":", 1)
 
-        # Exact match first (e.g. "nx-main"), then prefix match (e.g. "nx" → "nx-main")
-        shim = shim_map.get(vms_name) or next(
-            (v for k, v in shim_map.items() if k.startswith(vms_name)), None
-        )
+        shim = self._lookup_shim(shim_map, vms_name)
         if shim is None:
             logger.warning(
                 "mqtt_unknown_vms",
@@ -149,13 +184,19 @@ class MqttSubscriber:
         # accommodate DLS envelope {"metadata": {...}, "blob": ""} as well as just {},
         # as seen in DLS pipelines with appsink based destination vs gvametapublish based destination
         metadata = data.get("metadata", data)
-        objects, timestamp_ms = translate_dls_metadata(metadata, label_type_map, timestamp_offset_ms)
+        objects, timestamp_ms = translate_dls_metadata(
+            metadata,
+            label_type_map,
+            timestamp_offset_ms,
+            zone_filter_enabled=zone_filter_enabled,
+            zones=zones,
+            zone_type_id=zone_type_id,
+        )
         if not objects:
             logger.debug("mqtt_no_objects_in_frame", topic=topic)
             return
 
-        # device_id = camera_id without vendor prefix (e.g. "nx:abc" → "abc")
-        device_id = camera_id.split(":", 1)[-1] if ":" in camera_id else camera_id
+        device_id = camera_id
 
         ok = await shim.push_analytics_objects(device_id, objects, timestamp_ms)
         if not ok:
@@ -173,3 +214,49 @@ class MqttSubscriber:
                 objects_count=len(objects),
                 timestamp_ms=timestamp_ms,
             )
+
+    async def _handle_status_event_message(
+        self,
+        topic: str,
+        payload: bytes,
+        shim_map: dict[str, Any],
+    ) -> None:
+        """Push an Nx bookmark for every row on the app's own status-event topic.
+
+        Pure pass-through: no dedup/cooldown/threshold logic here - the app
+        already decided this event occurred (that's why the row exists at all),
+        so every message received is bookmarked as-is.
+        """
+        import json
+
+        # "{prefix}/{vendor}:{camera_id}/{suffix}" -> 3 segments; middle segment holds vendor:camera_id
+        parts = topic.lstrip("/").split("/")
+        if len(parts) != 3 or ":" not in parts[1]:  # noqa: PLR2004
+            logger.warning("mqtt_unexpected_event_topic_format", topic=topic)
+            return
+        vms_name, device_id = parts[1].split(":", 1)
+
+        shim = self._lookup_shim(shim_map, vms_name)
+        if shim is None or not hasattr(shim, "set_bookmark"):
+            return
+
+        try:
+            row = json.loads(payload)
+        except (json.JSONDecodeError, ValueError) as exc:
+            logger.warning("mqtt_event_payload_parse_failed", topic=topic, error=str(exc))
+            return
+
+        track_id = row.get("Track ID")
+        if track_id is None:
+            return
+
+        label = (
+            f"{row.get('Type') or 'Object'} {track_id} loitering "
+            f"{row.get('Dwell Time (s)', '?')}s in zone {row.get('Zone', '?')}"
+        )
+        camera_id = f"{vms_name}:{device_id}"
+        try:
+            ok = await shim.set_bookmark(camera_id, datetime.now(tz=timezone.utc), label)
+            logger.info("event_bookmark_pushed", camera_id=camera_id, track_id=track_id, result=str(ok))
+        except Exception as exc:  # noqa: BLE001 — non-fatal, keep subscriber running
+            logger.warning("event_bookmark_failed", camera_id=camera_id, track_id=track_id, error=str(exc))

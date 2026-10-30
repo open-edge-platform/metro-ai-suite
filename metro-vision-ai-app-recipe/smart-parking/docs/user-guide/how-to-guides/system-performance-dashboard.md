@@ -9,11 +9,6 @@ The **System Performance Dashboard** in Grafana visualizes real-time system hard
 Open [`https://<HOST_IP>/grafana/`](https://<HOST_IP>/grafana/) in your browser and log in
 with the default credentials (`admin` / `admin`).
 
-### For Helm
-
-Open [`https://<HOST_IP>:30443/grafana/`](https://<HOST_IP>:30443/grafana/) in your browser
-and log in with the default credentials (`admin` / `admin`).
-
 ### Navigate to the Dashboard
 
 1. Click **Dashboards** in the left sidebar.

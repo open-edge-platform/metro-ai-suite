@@ -73,9 +73,9 @@ module.exports = {
     /** To password protect the Node-RED editor and admin API, the following
      * property can be used. See https://nodered.org/docs/security.html for details.
      *
-     * Credentials are generated per deployment (see generate_secrets.sh / Helm
-     * app-secrets.yaml). Read from env vars (Helm) with a fallback to the
-     * Compose secret file (readable by every process in the container,
+     * Credentials are generated per deployment (see generate_secrets.sh).
+     * Read from env vars with a fallback to the Compose secret file
+     * (readable by every process in the container,
      * including the image's own HEALTHCHECK, unlike a shell-exported var).
      * The password is hashed here with the bcryptjs dependency Node-RED
      * already bundles, so no external hashing tool is needed at

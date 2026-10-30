@@ -21,33 +21,3 @@ file under `volumes` section as shown below:
 
 After the above changes to docker compose file, follow from step 3 till end of the section as mentioned in the
 [Get Started](./get-started.md#set-up-and-first-use) guide.
-
-## Helm deployment
-
-Follow step 1 mentioned in this [document](./get-started/deploy-with-helm.md#steps-to-deploy) if not already done.
-
-### Update values.yaml
-
-In [`values.yaml`](https://github.com/open-edge-platform/metro-ai-suite/blob/main/image-based-video-search/chart/values.yaml) file, change value of `pipeline` config present under
-`dlstreamerpipelineserver` section as shown below:
-
-```sh
-dlstreamerpipelineserver:
-  # key: dlstreamerpipelineserver.repository
-  repository:
-    # key: dlstreamerpipelineserver.repository.image
-    image: docker.io/intel/dlstreamer-pipeline-server
-    # key: dlstreamerpipelineserver.repository.tag
-    tag: 2026.2.0-ubuntu24
-  # key: dlstreamerpipelineserver.replicas
-  replicas: 1
-  # key: dlstreamerpipelineserver.nodeSelector
-  nodeSelector: {}
-  # key: dlstreamerpipelineserver.pipeline
-  pipeline: config.gpu.json       #### Changed value from config.cpu.json to config.gpu.json
-```
-
-### Start the application
-
-After above changes to `values.yaml` file, follow from step 2 as mentioned in the
-[Helm Deployment Guide](./get-started/deploy-with-helm.md#steps-to-deploy).

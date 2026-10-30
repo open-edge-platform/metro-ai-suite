@@ -70,6 +70,7 @@ You can use the following commands to run conversion for the desired target devi
 - For NPU, use `int4` quantization:
 
     ```bash
+    # Before download running the command, make sure to pin the `OVMS_RELEASE_TAG` in `.env` to `v2025.4.1`
     ./model_download_scripts/download_models.sh \
       --model OpenGVLab/InternVL2-1B \
       --type vlm \
@@ -102,22 +103,26 @@ Each VLM output directory is placed under its target device path so the UI can a
 
 ### VLM Models Validated
 
-The following VLM models are validated:
+The following VLM models are validated in Live Video Captioning.
 
-| Model Name | Supported Hardware Devices | OVMS Release TAG Version |
-| --- | --- | --- |
-| OpenGVLab/InternVL2-1B | CPU, GPU, NPU | v2026.1 |
-| OpenGVLab/InternVL2-2B | CPU, GPU, NPU | v2026.1 |
-| openbmb/MiniCPM-V-2_6  | CPU, GPU, NPU | v2026.1 |
-| Qwen/Qwen2-VL-2B-Instruct | CPU, GPU, NPU | v2025.4.1 |
+| Model Name | CPU/GPU Path | NPU Path | Status |
+| --- | --- | --- | --- |
+| OpenGVLab/InternVL2-1B | Pre-converted artifacts available on OpenVINO HuggingFace | OVMS model conversion required | Supported |
+| OpenGVLab/InternVL2-2B | Pre-converted artifacts available on OpenVINO HuggingFace | OVMS model conversion required | Supported |
+| openbmb/MiniCPM-V-2_6  | Pre-converted artifacts available on OpenVINO HuggingFace | OVMS model conversion required | Supported |
 
 > [!NOTE]
 >
+> - CPU/GPU deployments are generally more stable when pre-converted
+>   artifacts are available.
+> - NPU deployments require model conversion and are therefore sensitive
+>   to OVMS/OpenVINO toolchain and Python package ecosystem changes.
+> - Previously successful conversion workflows may require revalidation after dependency or OVMS updates.
 > - `OVMS_RELEASE_TAG` in `.env` controls the OVMS image version used by the
->   model download/conversion flow. Refer to the validated-model table above,
->   or consult the official OpenVINO documentation for supported models and
+>   model download/conversion flow and its dependencies packages installation.
+>   Consult the official OpenVINO documentation for supported models and
 >   their corresponding OVMS versions. Using a different tag can change the
->   bundled `transformers`/OpenVINO toolchain and may cause conversion failures.
+>   bundled OpenVINO toolchain and may cause conversion failures.
 > - If you want to use newer Hugging Face models, you may need a newer
 >   OVMS/OpenVINO stack for conversion, which means updating `OVMS_RELEASE_TAG`.
 > - Runtime compatibility also matters. Live Video Captioning runs models with
@@ -127,8 +132,8 @@ The following VLM models are validated:
 >   [compose.yaml](https://github.com/open-edge-platform/metro-ai-suite/blob/main/live-video-analysis/live-video-captioning/compose.yaml)
 >   or Helm chart [values.yaml](https://github.com/open-edge-platform/metro-ai-suite/blob/main/live-video-analysis/live-video-captioning/charts/subcharts/dlstreamer-pipeline-server/values.yaml).
 >   Weekly images may include stability issues.
->   As of the time of writing, the latest stable DL Streamer release is
->   `2026.1.0`, built on top of `OpenVINO v2026.1`.
+>   This guide is written for the current stable DL Streamer release and its
+>   matching stable OpenVINO release.
 
 ## Optional: Download an Object-Detection Model
 

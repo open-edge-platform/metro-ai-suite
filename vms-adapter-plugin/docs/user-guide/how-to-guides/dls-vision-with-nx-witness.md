@@ -36,7 +36,7 @@ with Nx Witness as the VMS. At the end of this tutorial, you will have:
    DL Streamer Pipeline Server, specifying the camera RTSP URL as source and an MQTT topic as
    destination.
 2. `dls_vision`'s DL Streamer Pipeline Server processes the RTSP stream, runs detection, and
-   publishes inference metadata to the MQTT broker on topic `nx/dls_vision/{device_uuid}`.
+   publishes inference metadata to the MQTT broker on topic `object_tracking/nx:{device_uuid}`.
 3. VAP's `MqttSubscriber` receives the MQTT messages, translates DL Streamer GStreamer Video
    Analytics (GVA) JSON to Nx analytics object format, and calls
    `NxWitnessVmsShim.push_analytics_objects()`.
@@ -532,6 +532,7 @@ You will see:
 | --------------------------------------- | -------- | -------------------------------------------- |
 | **Enable Loitering Detection Pipeline** | Checkbox | Starts or stops the pipeline for this camera |
 | **Device**                              | Dropdown | Inference device: `CPU`, `GPU`, or `NPU`     |
+| **Loitering Zone**                      | Text     | Normalized `[[x,y],...]` polygon (0-1 range) defining the loitering zone for this camera; defaults to the pipeline's own zone. VAP translates it to pixel coordinates using this camera's actual resolution (queried from Nx) before sending it to the Pipeline Server. |
 
 ![VAP Analytics Integration settings panel showing the Enable Pipeline checkbox and Device dropdown](../_assets/VAP_Analytics_Integration_LD_pipeline_enable_UI.png "vap analytics integration settings panel showing the enable pipeline checkbox and device dropdown")
 
@@ -553,7 +554,7 @@ Expected output:
 ```text
 [info] {'source': {'uri': '<rtsp_url>', 'type': 'uri', 'properties': {'protocols': 'tcp',
         'add-reference-timestamp-meta': True, 'latency': 100}},
-  'destination': {'metadata': {'type': 'mqtt', 'topic': 'nx/dls_vision/<device-uuid>'}},
+  'destination': {'metadata': {'type': 'mqtt', 'topic': 'object_tracking/nx:<device-uuid>'}},
         'parameters': {'detection-properties': {'device': 'GPU'}}}
 [info]  od_run_started  pipeline=user_defined_pipelines/object_tracking_gpu run_id=<hex-instance-id>
 [info]  nx_pipeline_started app_id=dls_vision device_id=<device-uuid> run_id=<hex-instance-id>
@@ -634,8 +635,10 @@ When VAP starts a pipeline run, it executes the following:
 
 1. Resolves the selected `camera_id` (`nx:<uuid>`) to an RTSP URL using
    `NxWitnessVmsShim.get_live_stream_url()`.
-2. Builds an MQTT publish topic: `nx/dls_vision/<device-uuid>` (the topic where `dls_vision`
-   publishes, and VAP subscribes).
+2. Builds an MQTT publish topic: `object_tracking/nx:<device-uuid>` (the topic where `dls_vision`
+   publishes, and VAP subscribes). The prefix (`object_tracking` by default) is configurable via
+   `metadata_topic_prefix` and must match the Loitering Detection recipe's own
+   `SOURCE_TOPIC_PREFIX`.
 3. Sends `POST /pipelines/user_defined_pipelines/object_tracking_gpu` to the DL Streamer
    Pipeline Server with the payload:
 
@@ -653,13 +656,15 @@ When VAP starts a pipeline run, it executes the following:
      "destination": {
        "metadata": {
          "type": "mqtt",
-         "topic": "nx/dls_vision/<device-uuid>"
+         "topic": "object_tracking/nx:<device-uuid>"
        }
      },
      "parameters": {
        "detection-properties": {
-         "model": "<model-path>",
          "device": "<selected-device>"
+       },
+       "analytics-properties": {
+         "zones": "<pixel-polygon JSON, only if a Loitering Zone was entered in Nx>"
        }
      }
    }
@@ -668,7 +673,7 @@ When VAP starts a pipeline run, it executes the following:
 4. The Pipeline Server starts the GStreamer pipeline, consuming the RTSP stream and publishing
    inference results to the MQTT broker.
 5. VAP's `MqttSubscriber` (running as a background task since startup) receives messages on
-   the wildcard topic `+/dls_vision/+`.
+   the wildcard topic `{metadata_topic_prefix}/+` (default `object_tracking/+`).
 
 ## Part 7 — Observe Detection Overlays in Nx Witness
 
@@ -747,8 +752,9 @@ Nx.
    docker compose logs vms-adapter-backend | grep "mqtt_pushed_objects\|mqtt_no_objects\|mqtt_push_failed"
    ```
 
-2. Confirm the MQTT topic matches. VAP subscribes to `+/dls_vision/+`. `dls_vision` publishes to
-   the topic VAP sends in the pipeline start payload (`nx/dls_vision/<device-uuid>`). Both must
+2. Confirm the MQTT topic matches. VAP subscribes to `{metadata_topic_prefix}/+` (default
+   `object_tracking/+`). `dls_vision` publishes to the same topic VAP sends in the pipeline
+   start payload (`object_tracking/nx:<device-uuid>`). Both must
    match.
 
 3. Verify MQTT connectivity from the VAP side:

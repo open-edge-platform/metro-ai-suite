@@ -102,7 +102,7 @@ jobs:
           name: shellcheck-report
           path: shellcheck_report.txt
 
-  trivy-config-helm-scan:
+  trivy-config-scan:
     outputs:
       high_findings: ${{ steps.collect-trivy-high.outputs.has_high }}
     permissions:
@@ -126,44 +126,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y trivy
 
-      - name: Package Smart Intersection chart for Trivy
-        run: |
-          mkdir -p /tmp/trivy-chart/smart-intersection
-          cp -a metro-vision-ai-app-recipe/smart-intersection/chart/. /tmp/trivy-chart/smart-intersection/
-          tar -czf /tmp/trivy-smart-intersection-1.20.0.tgz -C /tmp/trivy-chart smart-intersection
-
       - name: Trivy config scan
         run: |
-          project_status=0
-          chart_status=0
-
           trivy config \
             --skip-version-check \
-            --skip-dirs metro-vision-ai-app-recipe/smart-intersection/chart \
-            --helm-set-string supass=trivy-scan-placeholder,pgpass=trivy-scan-placeholder \
             --severity HIGH,CRITICAL \
             --exit-code 1 \
             --format json \
-            --output trivy-project-report.json \
-            metro-vision-ai-app-recipe || project_status=$?
-
-          trivy config \
-            --skip-version-check \
-            --helm-set-string supass=trivy-scan-placeholder,pgpass=trivy-scan-placeholder \
-            --severity HIGH,CRITICAL \
-            --exit-code 1 \
-            --format json \
-            --output trivy-smart-intersection-report.json \
-            /tmp/trivy-smart-intersection-1.20.0.tgz || chart_status=$?
-
-          jq -s '.[0] as $project | .[1] as $chart | $project | .Results = (($project.Results // []) + ($chart.Results // []))' \
-            trivy-project-report.json trivy-smart-intersection-report.json > trivy-config-report.json
-
-          scan_status=$project_status
-          if [ "$chart_status" -gt "$scan_status" ]; then
-            scan_status=$chart_status
-          fi
-          exit "$scan_status"
+            --output trivy-config-report.json \
+            metro-vision-ai-app-recipe
       - name: Summarize Trivy config findings
         if: always()
         run: |
@@ -341,7 +312,7 @@ jobs:
     name: Verify Scan Status
     runs-on: ubuntu-24.04
     if: always()
-    needs: [virus-scan, shellcheck, bandit, trivy-config-helm-scan, sanity]
+    needs: [virus-scan, shellcheck, bandit, trivy-config-scan, sanity]
     steps:
       - name: Generate scan status
         env:
@@ -352,8 +323,8 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
-          names=("virus-scan" "shellcheck" "bandit" "trivy-config-helm-scan" "sanity")
-          statuses=("${{ needs.virus-scan.result }}" "${{ needs.shellcheck.result }}" "${{ needs.bandit.result }}" "${{ needs.trivy-config-helm-scan.result }}" "${{ needs.sanity.result }}")
+          names=("virus-scan" "shellcheck" "bandit" "trivy-config-scan" "sanity")
+          statuses=("${{ needs.virus-scan.result }}" "${{ needs.shellcheck.result }}" "${{ needs.bandit.result }}" "${{ needs.trivy-config-scan.result }}" "${{ needs.sanity.result }}")
           passed=0
           failed=0
           skipped=0
@@ -392,8 +363,8 @@ jobs:
   comment-high-findings:
     name: Comment on HIGH findings
     runs-on: ubuntu-24.04
-    needs: [bandit, trivy-config-helm-scan]
-    if: always() && github.event_name == 'pull_request' && (needs.bandit.outputs.high_findings == 'true' || needs.trivy-config-helm-scan.outputs.high_findings == 'true')
+    needs: [bandit, trivy-config-scan]
+    if: always() && github.event_name == 'pull_request' && (needs.bandit.outputs.high_findings == 'true' || needs.trivy-config-scan.outputs.high_findings == 'true')
     permissions:
       actions: read
       pull-requests: write
@@ -403,7 +374,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BANDIT_HIGH: ${{ needs.bandit.outputs.high_findings }}
-          TRIVY_HIGH: ${{ needs.trivy-config-helm-scan.outputs.high_findings }}
+          TRIVY_HIGH: ${{ needs.trivy-config-scan.outputs.high_findings }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           marker="<!-- metro-vision-high-security-findings -->"
@@ -414,7 +385,7 @@ jobs:
             body+=$'\n'"| Bandit scan | [Open job]($bandit_job) |"
           fi
           if [ "$TRIVY_HIGH" = "true" ]; then
-            trivy_job=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --paginate --jq '.jobs[] | select(.name | contains("trivy-config-helm-scan")) | .html_url' | head -n 1)
+            trivy_job=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --paginate --jq '.jobs[] | select(.name | contains("trivy-config-scan")) | .html_url' | head -n 1)
             trivy_job=${trivy_job:-$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID}
             body+=$'\n'"| Trivy config scan | [Open job]($trivy_job) |"
           fi

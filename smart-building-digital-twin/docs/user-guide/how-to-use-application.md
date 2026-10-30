@@ -3,8 +3,8 @@
 ## Project Structure
 
 ```text
-config/          Model files, and pipeline and tracker configuration
-datasets/        Looping video files per scene (Git LFS)
+config/          Pipeline and tracker configuration; models are downloaded by `setup.sh`
+datasets/        Looping video files per scene (downloaded by `setup.sh`)
 scenes/          Scene zip bundles and sensor event data
 scripts/
   narrator.py        Converts MQTT tracks to rolling scene narrative and alerts

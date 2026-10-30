@@ -139,8 +139,7 @@ objects outside those polygons are detected/tracked but produce no zone/dwell me
 
 ### Zone configuration files
 
-Each stream has its own zone-config JSON file under `src/dlstreamer-pipeline-server/zones/`
-(mirrored under `helm-chart/config/dlstreamer-pipeline-server/zones/` for Helm deployments),
+Each stream has its own zone-config JSON file under `src/dlstreamer-pipeline-server/zones/`,
 for example `VIRAT_S_000101.json`:
 
 ```json
@@ -248,8 +247,7 @@ JSON array (like `objects` above) into multiple rows on its own. A small sidecar
   `pip install` at runtime, so it works in air-gapped deployments too.
 - The topic suffix and threshold are not hardcoded: they come from `SOURCE_TOPIC_PREFIX`,
   `DEST_TOPIC_SUFFIX`, and `LOITERING_THRESHOLD_SEC` — static entries in the root `.env`
-  (Compose) or `mqtt_table_flattener.sourceTopicPrefix`/`destTopicSuffix`/`loiteringThresholdSec`
-  in `helm-chart/values.yaml` (Helm). These `.env` vars are loitering-detection-specific and
+  file. These `.env` vars are loitering-detection-specific and
   unused by smart-parking/smart-intersection, so they have no effect on those apps.
 
 The Grafana dashboard's status table subscribes to `object_tracking/+/loiterstatus` and needs no

@@ -107,9 +107,9 @@ instead of `localhost` for external access:
 > [!NOTE]
 >
 > - All services are accessed through the nginx reverse proxy at `https://localhost` with appropriate paths.
-> - For passwords stored in files (e.g., `supass` or `influxdb2-admin-token`), refer to the respective secret files in your deployment under ./src/secrets (Docker) or chart/files/secrets (Helm).
+> - For passwords stored in files (e.g., `supass` or `influxdb2-admin-token`), refer to the respective secret files in your deployment under ./src/secrets.
 > - Since the application uses HTTPS with self-signed certificates, your browser may display a certificate warning. For the best experience, use **Google Chrome** and accept the certificate.
-> - Scenescape supports uploading GLB 3D base map files. The upload limit is configurable via `NGINX_CLIENT_MAX_BODY_SIZE` in the `.env` file (Docker Compose) or `nginx.clientMaxBodySize` in `chart/values.yaml` (Helm).
+> - Scenescape supports uploading GLB 3D base map files. The upload limit is configurable via `NGINX_CLIENT_MAX_BODY_SIZE` in the `.env` file.
 
 - **URL**: [https://localhost](https://localhost)
 - **Log in with credentials**:
@@ -178,13 +178,6 @@ instead of `localhost` for external access:
 
 To deploy the Smart Intersection application with Intel Trusted Compute for hardware-isolated workloads, refer to the [Deploy with Trusted Compute](./deploy-with-trusted-compute.md) guide.
 
-## Other Deployment Options
-
-Choose one of the following methods to deploy the Smart Intersection Sample Application:
-
-- **[Deploy Using Helm](./get-started/deploy-with-helm.md)**: Use Helm to deploy the
-  application to a Kubernetes cluster for scalable and production-ready deployments.
-
 ## Security Enablement
 
 With AI systems handling sensitive city data and making autonomous decisions, robust security
@@ -205,8 +198,6 @@ applications.
 :hidden:
 
 get-started/system-requirements.md
-get-started/deploy-with-helm.md
-get-started/deploy-with-trusted-compute-helm.md
 deploy-with-trusted-compute.md
 
 :::
