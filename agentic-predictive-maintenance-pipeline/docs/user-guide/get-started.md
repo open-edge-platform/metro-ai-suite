@@ -57,7 +57,11 @@ agentic-predictive-maintenance-pipeline/
 > [!NOTE]
 > Each use case ships with its own `.env_<use-case>` file already populated
 > with working defaults at `apps/<use-case>/.env_<use-case>` — you do not need to create
-> it yourself; `setup.sh` reads it from that location automatically.
+> it yourself; `setup.sh` reads it from that location automatically. The folder name may
+> differ from the use-case name: `setup.sh` locates the use case by its
+> `apps/*/.env_<use-case>` file (for example, `--use-case gas-detection` resolves to
+> `apps/gas-detection-multimodal/.env_gas-detection`). Steps 3–6 below show the
+> gas-detection alternative wherever it differs.
 
 ## Step 1 — Clone the Repository
 
@@ -106,7 +110,7 @@ The Deep Learning Streamer (DL Streamer) pipeline needs a video file to run. Use
 pipeline-defect dataset and build a sample video automatically:
 
 ```bash
-pip install opencv-python ffmpeg
+python3 -m pip install opencv-python ffmpeg imageio-ffmpeg
 ```
 
 ```bash
@@ -129,6 +133,15 @@ This script:
 > Skip this step if you have your own video, or if you plan to run in
 > `LLM_MODE=fallback` where no video or DL Streamer inference is required.
 
+**Gas detection (alternative use case)**: prepare the publicly available gas-detection dataset instead.
+This also generates `frame_manifest.json`, which maps video frames to their paired sensor rows.
+
+```bash
+python scripts/download_and_prep_data.py \
+    "<gas-detection-dataset-url>" \
+    --use-case gas-detection
+```
+
 > **Disclaimer**: By running this script you acknowledge that you are solely responsible for the
 > rights, permissions, and licenses associated with the dataset at the provided URL.
 
@@ -143,6 +156,8 @@ model configured via `LLM_MODEL_NAME`/`LLM_DEVICE`/`LLM_WEIGHT_FORMAT`:
 ```bash
 source ./scripts/download_llm_model.sh --use-case pipeline-defect-detection
 ```
+
+For gas detection, use `--use-case gas-detection` instead.
 
 This script starts `apm-model-download`, submits a download and conversion request for the Hugging Face
 model to OpenVINO model server's Intermediate Representation (IR) format, waits for the job to complete, and
@@ -167,6 +182,10 @@ source ./setup.sh --use-case pipeline-defect-detection
 ```bash
 LLM_MODE=fallback source ./setup.sh --use-case pipeline-defect-detection
 ```
+
+**Gas detection**: replace the use-case name with `gas-detection` in either command, for example
+`source ./setup.sh --use-case gas-detection`. Its settings are in
+`apps/gas-detection-multimodal/.env_gas-detection`.
 
 The setup script validates your environment, sources the use-case `.env` file, and starts all
 required services via the Docker Compose tool.
@@ -204,6 +223,23 @@ Navigate to `http://localhost:8080` in your browser. The dashboard displays:
 - Generated maintenance tickets with priority, description, and recommended action.
 - An **Ask & Analyze** page for questions grounded in completed analysis, stored detections, or
   both.
+
+### Run Gas Detection
+
+The gas-detection use case fuses image and sensor classification. The dashboard's
+**Run Pipeline** button uses the video detection path, so trigger gas-detection runs through
+the API:
+
+```bash
+curl -X POST http://localhost:8080/api/detection/run-multimodal \
+     -H "Content-Type: application/json" \
+     -d '{"device":"CPU","config_path":"/app/configs/gas_detection.docker.json"}'
+curl http://localhost:8080/api/detection/status/<run_id>
+curl "http://localhost:8080/api/storage/detections?limit=10"
+```
+
+Agent runs and tickets then appear in the dashboard. Per-modality confidence is not yet shown
+in the UI.
 
 ### Use Ask & Analyze
 
@@ -282,11 +318,18 @@ Prompt sections that are delimited by `[SECTION_NAME]` headers, define the LLM b
 
 ```
 [SYSTEM]    — shared system role for all agents
+[ROUTER]    — severity classification and agent selection (used only when AGENT_MODE=routing)
 [POLICY]    — instructions for the Policy Agent
 [ANALYSIS]  — instructions for the Analysis Agent
 [EVIDENCE]  — instructions for the Evidence Agent
 [TICKETING] — instructions for the Ticketing Agent
 ```
+
+`docker/compose.agents.yaml` sets `AGENT_MODE: sequential`, so every batch runs all four agents
+in order and the `[ROUTER]` section is not used. With `AGENT_MODE=routing`, the router classifies
+batch severity (LOW, MEDIUM, HIGH, CRITICAL) and runs only the agents it selects, for example
+`policy` and `ticketing` for LOW. Keep the `[ROUTER]` section in each use-case prompt file,
+and adjust its severity rules to your defect classes.
 
 ## Create a New Use Case
 
