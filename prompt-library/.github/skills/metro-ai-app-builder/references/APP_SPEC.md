@@ -5,10 +5,10 @@ SPDX-License-Identifier: Apache-2.0
 
 # App spec — the four optional technical axes
 
-The `metro-ai-app-builder` questionnaire (Step 1) asks one outcome-focused set of
-questions **plus** four **optional, technical axes**. Each axis is its own
-distinct question; each accepts either an explicit value **or** `auto` (defer —
-you decide from the other answers + the catalog). This file defines the
+The `metro-ai-app-builder` questionnaire (Step 1) asks four outcome-focused
+questions with one optional technical-preferences field. The four axes below
+are independent settings, not mandatory questions; omitted values mean `auto`
+(you decide from the other answers + the catalog). This file defines the
 vocabularies, the `auto` semantics, and how each axis feeds routing (Step 2) and
 the delegate hand-off (Steps 3–5).
 
@@ -16,7 +16,7 @@ the delegate hand-off (Steps 3–5).
 > Prompts in `prompts/*.yaml` remain business-only; these axes live here and in
 > the skill body, never in a prompt.
 
-## Axis 1 — Packaging type (Q4)
+## Axis 1 — Packaging type
 
 What shape should the deliverable take?
 
@@ -28,7 +28,7 @@ What shape should the deliverable take?
 | `port` | Migrate/convert an existing app or pipeline to the Intel stack. | `dlstreamer-coding-agent` (e.g. DeepStream → DL Streamer). |
 | `auto` *(default)* | You pick the packaging from the outcome, camera coverage, and scale answers. | — |
 
-## Axis 2 — API recipe (Q8)
+## Axis 2 — API recipe
 
 Which media + analytics API stack? **This is a routing answer** — it selects the
 delegate skill / code path. See [`API_RECIPES.md`](API_RECIPES.md) for the full
@@ -46,7 +46,7 @@ per-recipe detail. Summary:
 > recipe. A user who asks for "a DL Streamer pipeline/app" wants
 > `dlstreamer-coding-agent`.
 
-## Axis 3 — Target hardware (Q6)
+## Axis 3 — Target hardware
 
 Which Intel device runs inference?
 
@@ -63,7 +63,7 @@ Notes:
 - You **may** surface multi-vendor alternatives as *suggestions only*; the built
   deliverable targets Intel.
 
-## Axis 4 — Models & videos (Q9)
+## Axis 4 — Models & videos
 
 A specific model and/or video source, or `auto`.
 
@@ -81,7 +81,7 @@ A specific model and/or video source, or `auto`.
 
 ## Putting it together
 
-1. Ask the axes as **distinct** questions (Step 1); accept `auto` on any.
+1. Accept explicit axes through optional preferences; omitted values mean `auto`.
 2. Resolve every `auto` axis from the other answers + the catalog.
 3. Let **API recipe** (then packaging) drive the primary delegate (Step 2 /
    [`API_RECIPES.md`](API_RECIPES.md)); map **target HW** and **models & videos**
