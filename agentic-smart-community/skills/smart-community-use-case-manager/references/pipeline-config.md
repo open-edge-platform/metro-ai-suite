@@ -42,7 +42,7 @@ Never infer this from `monitors.yaml` alone.
 **P1a — pick the model.** `models[]` is the selectable set; each entry carries
 `name`, `description`, `class_names`, `labels_source`, and `input_shape`.
 
-- **One model available** → use it silently. Do not ask.
+- **One model available** → use it and state its name in the M3 summary. Do not ask.
 - **Several available** → name every one with its `description`, `input_shape`
   and class count, then **end the turn** and wait for the user's pick. Do not
   show class names until a model is chosen: the list depends on it. Mention
@@ -207,9 +207,12 @@ defaults into overrides. Preserve zero and false, and replace class arrays.
 
 Display all requested values in the binding config and result, with their
 source. An inactive prefilter can store numeric parameters; report them inactive
-without implicitly enabling it. Resolve ROI dependencies explicitly. Without a
-stream, save monitor_defaults and report saved for future binding. On binding,
-merge preferences before explicit parameters; do not ask users to repeat supplied
-switches or classes. Existing pipeline-only edits use update-use-case.md instead
-of repeating M1–M4. Event edits without explicit parameters never change prefilter.
+without implicitly enabling it. Resolve ROI dependencies explicitly.
+Prefilter-only updates require an existing monitor. New binding retains M1–M4,
+including explicit P1/P2 and target-class selection after the question turns,
+even if they appeared in the initial request. Explicit numeric parameters are
+preserved in the approved config. Existing prefilter-only edits follow
+update-use-case.md without repeating M1–M4. ROI edits and full pipeline
+replacement retain those gates. Event edits without explicit parameters never
+change prefilter.
 Global defaults and restore-default override removal are outside this flow.

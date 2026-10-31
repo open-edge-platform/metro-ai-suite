@@ -30,21 +30,31 @@ test("main Skill stays slim and links every conditional reference", async () => 
     "references/delete-use-case.md",
     "references/final-report.md",
     "references/curl-fallback.md",
+    "references/update-use-case.md",
   ]) {
     assert.match(skill, new RegExp(relativePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     await access(join(skillDir, relativePath));
   }
 });
 
-test("schema stays internal and business approval preserves mode invariants", async () => {
+test("mode matrix and two confirmation gates preserve workflow invariants", async () => {
   const skill = await readSkillFile("SKILL.md");
   assert.match(skill, /Report-only \| none \| factual narrative; multiple findings allowed \| none/);
   assert.match(skill, /Base alerting \| `severity, event, desc` \| one primary EVENT \| `defaultRuleEvaluator`/);
-  assert.match(skill, /base \+ internally derived extensions/);
+  assert.match(skill, /Extended alerting \| base \+ user-confirmed extensions[\s\S]*?`evaluate_rules\.py`/);
   assert.match(skill, /Any extended schema \*\*must\*\* have `evaluate_rules\.py`/);
-  assert.match(skill, /Never ask Q2, field names\/types\/required flags or user schema approval/);
-  assert.match(skill, /existing event changes must use[\s\S]*?get\/update, never full registration/);
-  assert.match(skill, /explicit final approval after the proposed design was displayed/);
+  assert.match(skill, /Extended fields without `evaluate_rules\.py` are rejected/);
+  assert.match(skill, /The initial request never answers Q1 or Q2/);
+  assert.match(skill, /the only permitted tool call is reading this[\s\S]*?main `SKILL\.md` file itself/);
+  assert.match(skill, /Do not read[\s\S]*?reference, other skill, config, existing artifact, workspace file, or[\s\S]*?memory/);
+  assert.match(skill, /Do not call memory, search, shell, MCP, `smart_community_\*`, or any[\s\S]*?other tool/);
+  assert.match(skill, /End the assistant turn immediately after the questions/);
+  assert.match(skill, /Do not draft a[\s\S]*?call any tool, write memory/);
+  assert.match(skill, /Unlock the remaining workflow only from a later user message/);
+  assert.match(skill, /There is no fallback that bypasses this gate/);
+  assert.match(skill, /This is a mandatory second cross-turn gate/);
+  assert.match(skill, /The Q1\/Q2 reply[\s\S]*?cannot approve a design that had not yet been displayed/);
+  assert.match(skill, /explicit final approval[\s\S]*?after the proposed design was displayed/);
 });
 
 test("authoring reference keeps output modes and final approval aligned", async () => {
@@ -68,11 +78,15 @@ test("authoring reference keeps output modes and final approval aligned", async 
   assert.doesNotMatch(authoring, /never requires another\s+approval turn/i);
 });
 
-test("existing modifications use one difference confirmation and preserve creation gates", async () => {
+test("incremental exceptions preserve release full registration and monitor scopes", async () => {
   const skill = await readSkillFile("SKILL.md");
   const update = await readSkillFile("references/update-use-case.md");
-  assert.match(skill, /This flow takes precedence over new-case Q1\/Q2/);
+  assert.match(skill, /Explicit creation, recreation after deletion, full overwrite, source rebinds,/);
+  assert.match(skill, /ROI edits and full pipeline replacement retain the release workflows/);
+  assert.match(skill, /Refine\/overwrite existing \| Read `inspect-existing.md` → confirm changes → register with overwrite/);
+  assert.match(update, /not new creation,[\s\S]*?recreation after deletion, explicit full overwrite/);
   assert.match(update, /ONE explicit confirmation/);
   assert.match(update, /expected_revision and candidate_hash/);
-  assert.match(update, /No dedicated prompt\/rule generation or VLM CRUD/);
+  assert.match(update, /Never fall back to generate_task, register/);
+  assert.doesNotMatch(skill, /steps\.artifacts\.evaluate_rules_py=written\|unchanged/);
 });
