@@ -127,16 +127,17 @@ services:
     volumes:
       - ./${SAMPLE_APP}/src/grafana/data/dashboards/anthem-intersection.json:/tmp/anthem-intersection.json
       - ./${SAMPLE_APP}/src/grafana/data/dashboards/Vehicle_Events.json:/tmp/Vehicle_Events.json
+      - ./${SAMPLE_APP}/src/grafana/data/dashboards/prometheus.json:/tmp/prometheus.json
       - ./${SAMPLE_APP}/src/grafana/dashboards.yml:/tmp/dashboards.yml
       - ./${SAMPLE_APP}/src/grafana/datasources.yml:/tmp/datasources.yml
       - grafana-storage-smart-corridor:/var/lib/grafana
     environment:
       http_proxy: ${http_proxy}
       https_proxy: ${https_proxy}
-      no_proxy: ${no_proxy},.scenescape.intel.com,influxdb2
+      no_proxy: ${no_proxy},.scenescape.intel.com,influxdb2,prometheus
       HTTP_PROXY: ${http_proxy}
       HTTPS_PROXY: ${https_proxy}
-      NO_PROXY: ${no_proxy},.scenescape.intel.com,influxdb2
+      NO_PROXY: ${no_proxy},.scenescape.intel.com,influxdb2,prometheus
       GF_SERVER_ROOT_URL: https://localhost/grafana/
       GF_SERVER_SERVE_FROM_SUB_PATH: true
       GF_PANELS_DISABLE_SANITIZE_HTML: true
@@ -156,6 +157,7 @@ services:
         "mkdir -p /var/lib/grafana/dashboards && \
         cp /tmp/anthem-intersection.json /var/lib/grafana/dashboards/anthem-intersection.json && \
         cp /tmp/Vehicle_Events.json /var/lib/grafana/dashboards/Vehicle_Events.json && \
+        cp /tmp/prometheus.json /var/lib/grafana/dashboards/prometheus.json && \
         mkdir -p /etc/grafana/provisioning/dashboards && \
         cp /tmp/dashboards.yml /etc/grafana/provisioning/dashboards/main.yml && \
         mkdir -p /etc/grafana/provisioning/datasources && \
@@ -444,6 +446,36 @@ services:
       - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:v3.12.0
+    container_name: prometheus
+    environment:
+      - HTTP_PROXY=${http_proxy}
+      - HTTPS_PROXY=${https_proxy}
+      - NO_PROXY=$no_proxy,localhost,127.0.0.1,metrics-manager
+    volumes:
+      - ./${SAMPLE_APP}/configs/open_telemetry/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data-smart-corridor:/prometheus
+    command: >
+      --config.file=/etc/prometheus/prometheus.yml
+      --storage.tsdb.path=/prometheus
+    networks:
+      - scenescape
+    restart: unless-stopped
+
+  metrics-manager:
+    image: intel/metrics-manager:2026.2.0
+    container_name: metrics-manager
+    privileged: true
+    volumes:
+      - /sys:/sys
+      - /dev:/dev
+      - ./${SAMPLE_APP}/configs/supervisord/qmmd.conf:/etc/supervisor/conf.d/qmmd.conf:ro
+      - ./${SAMPLE_APP}/configs/metrics-manager/custom-metrics/hw_info.py:/app/custom-metrics/hw_info.py:ro
+    restart: unless-stopped
+    networks:
+      - scenescape
+
 networks:
   scenescape:
 
@@ -511,3 +543,4 @@ volumes:
   sample-data-smart-corridor:
   node-red-node-modules-smart-corridor:
   smart_corridor_images:
+  prometheus-data-smart-corridor:
