@@ -172,7 +172,7 @@ usage; the issues below are specific to it.
      ```
 
      Any result reported as `HTML document` instead of a video/model format confirms this - every
-     device fails identically on corrupted input, so this is not a DEVICE-specific problem. Re-run 
+     device fails identically on corrupted input, so this is not a DEVICE-specific problem. Re-run
      `install.sh` to redownload, then restart the pipeline server so it
      drops any model-instance-id it already marked broken from the earlier corrupted file:
 
@@ -203,38 +203,5 @@ usage; the issues below are specific to it.
      An empty `result` array means the metrics pipeline itself (`metrics-manager`'s `qmassa`)
      is not reporting for this GPU, not a Console UI bug - check `docker logs metrics-manager`.
 
-## Troubleshooting Helm Deployments
 
-1. Deploying with Intel® GPU K8S Extension on Open Edge Platform
-
-   If you're deploying a GPU based pipeline (example: with VA-API elements like `vapostproc`,
-   `vah264dec`, etc., and/or with `device=GPU` in `gvadetect` in `config.json`) with Intel® GPU
-   k8s Extension on Open Edge Platform, ensure to set the below details in the file
-   `helm/values.yaml` appropriately in order to utilize the underlying GPU.
-
-   ```sh
-   gpu:
-     enabled: true
-     type: "gpu.intel.com/i915"
-     count: 1
-   ```
-
-2. **`dlstreamer-pipeline-server` pod shows `CreateContainerError`**
-
-  - **Issue**: The `dlstreamer-pipeline-server` pod fails to start and shows `CreateContainerError`. This issue is seen only on environments using the `docker://` container runtime.
-  - **Check Container Runtime**: Run the following command to check which container runtime is being used:
-
-    ```bash
-    kubectl get nodes -o wide
-    ```
-
-    Inspect the `CONTAINER-RUNTIME` column to check if the node is using the `docker://` runtime.
-
-  - **Fix**: Run the following command to configure the Intel GPU device plugin for container runtime compatibility:
-
-    ```bash
-    kubectl patch ds intel-gpu-plugin -n intel-device-plugins --type='json' \
-      -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "-bypath=none"}]'
-    ```
-    Restart the Helm deployment once this fix is implemented.
 

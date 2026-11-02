@@ -11,10 +11,6 @@ DL Streamer Pipeline Server supports gathering metrics over Open Telemetry. The 
 
 Open [`https://<HOST_IP>/prometheus/`](https://<HOST_IP>/prometheus/) in your browser to view the prometheus console
 
-### For Helm
-
-Open [`https://<HOST_IP>:30443/prometheus/`](https://<HOST_IP>:30443/prometheus/) in your browser to view the prometheus console
-
 ### Try Out the Following Queries
 - `cpu_usage_percentage`
 - `memory_usage_bytes`

@@ -10,7 +10,7 @@
 ## Clone the Repository
 
 > [!NOTE]
-> Ensure you have the Git LFS extension (for handling model and video files) installed before
+> Ensure you have the Git LFS extension (for handling scene bundles) installed before
 > cloning the repository.
 
 Clone the repository:

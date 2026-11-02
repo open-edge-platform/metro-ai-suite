@@ -51,6 +51,5 @@ It integrates MQTT and Grafana to provide a robust and flexible solution for rea
 
 - [Get Started](./docs/user-guide/get-started.md): Follow step-by-step instructions to set up the application.
 - [System Requirements](./docs/user-guide/get-started/system-requirements.md): Check the hardware and software requirements for deploying the application.
-- [Deploy with Helm](./docs/user-guide/get-started/deploy-with-helm.md): How to deploy the application using Helm on a Kubernetes cluster.
 - [Customize the Application](./docs/user-guide/how-to-guides/customize-application.md)
 - [Support and Troubleshooting](./docs/user-guide/troubleshooting.md): Find solutions to common issues and troubleshooting steps.

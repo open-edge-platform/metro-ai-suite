@@ -3,6 +3,7 @@
 import asyncio
 import requests
 import os
+import time
 import tempfile
 import subprocess
 import aiofiles
@@ -25,6 +26,11 @@ logging.basicConfig(
 
 frigate_service = FrigateService()
 summarization_service = SummarizationService()
+FRIGATE_CLIP_END_BUFFER_SECONDS = 2.0
+FRIGATE_CLIP_MAX_WAIT_SECONDS = 5.0
+FRIGATE_CLIP_EMPTY_RETRIES = 3
+FRIGATE_CLIP_RETRY_DELAY_SECONDS = 5.0
+FRIGATE_CLIP_RETRY_WINDOW_SECONDS = 60.0
 
 
 class VmsService:
@@ -35,55 +41,167 @@ class VmsService:
         self.vss_search_url: str = VSS_SEARCH_URL
         logger.info("VmsService initialized.")
 
+    def _build_camera_candidates(self, camera_name: str, available_cameras: list[str]) -> list[str]:
+        """Build an ordered candidate list for clip retrieval camera names."""
+        candidates: list[str] = []
+
+        def _add(name: Optional[str]):
+            if not name:
+                return
+            cleaned = str(name).strip()
+            if cleaned and cleaned not in candidates:
+                candidates.append(cleaned)
+
+        # Region-stream synthetic names never exist in Frigate, so derive the real
+        # camera name first and skip the guaranteed-to-fail synthetic lookup.
+        derived_real_name: Optional[str] = None
+        if camera_name.endswith("-region-region"):
+            base = camera_name[: -len("-region-region")]
+            derived_real_name = f"{base}-camera1"
+        elif camera_name.endswith("-region"):
+            base = camera_name[: -len("-region")]
+            derived_real_name = f"{base}-camera1"
+        elif "-region-" in camera_name:
+            derived_real_name = camera_name.replace("-region-", "-", 1)
+
+        if derived_real_name:
+            _add(derived_real_name)
+        else:
+            _add(camera_name)
+
+        if available_cameras and derived_real_name:
+            # Prefer cameras sharing the same SI prefix (e.g. si1-*).
+            base_prefix = camera_name.split("-region")[0].split("-")[0]
+            matched_prefix_camera = False
+            for cam in available_cameras:
+                if cam.startswith(f"{base_prefix}-"):
+                    _add(cam)
+                    matched_prefix_camera = True
+
+            # Only broaden to all cameras when we cannot identify any matching
+            # prefix camera. This prevents cross-broker fallback (e.g. si2 -> si1)
+            # when multiple SI brokers are configured.
+            if not matched_prefix_camera:
+                for cam in available_cameras:
+                    _add(cam)
+
+        return candidates
+
     async def upload_video_to_summarizer(
-        self, camera_name: str, start_time: float, end_time: float, is_search: bool
+        self,
+        camera_name: str,
+        start_time: float,
+        end_time: float,
+        is_search: bool,
+        upload_tag: Optional[str] = None,
+        apply_end_buffer: bool = False,
     ) -> dict:
         """Fetches clip from Frigate, writes to temp file, uploads it, and returns videoId."""
+        available_cameras: list[str] = []
         try:
-            stream_response = await asyncio.to_thread(
-                self.frigate_service.get_clip_from_timestamps,
-                camera_name,
-                start_time,
-                end_time,
-                download=True,
-            )
-            logger.info("Clip retrieved from Frigate.")
+            camera_map = await asyncio.to_thread(self.frigate_service.get_camera_names)
+            available_cameras = sorted(list((camera_map or {}).keys()))
         except Exception as e:
-            logger.error(f"Failed to get clip: {e}")
-            return {
-                "status": 500,
-                "message": "Failed to retrieve video clip from camera",
-            }
+            logger.debug(f"Could not fetch Frigate camera list for fallback resolution: {e}")
 
-        # Write stream to temp file while checking size
-        temp_file_size = 0
-        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-        logger.info(f"Temporary file created at: {tmp_path}")
+        camera_candidates = self._build_camera_candidates(camera_name, available_cameras)
+        logger.info(
+            f"Clip retrieval camera candidates for requested camera '{camera_name}': {camera_candidates}"
+        )
 
-        try:
-            async with aiofiles.open(tmp_path, "wb") as f:
-                async for chunk in stream_response.body_iterator:
-                    await f.write(chunk)
-                    temp_file_size += len(chunk)
-
-            # Check if video is too small (likely empty)
-            if temp_file_size <= 100:
-                logger.warning(
-                    f"No video found for given timestamps (file size: {temp_file_size} bytes)"
+        retrieval_start_time = float(start_time)
+        retrieval_end_time = float(end_time)
+        if apply_end_buffer:
+            # Wait for the window to pass rather than shrinking it: clamping the end time
+            # can cut off the window before the event itself when processed near-real-time.
+            ready_at = retrieval_end_time + FRIGATE_CLIP_END_BUFFER_SECONDS
+            wait_seconds = min(ready_at - time.time(), FRIGATE_CLIP_MAX_WAIT_SECONDS)
+            if wait_seconds > 0:
+                logger.info(
+                    f"Delaying clip retrieval by {wait_seconds:.2f}s so Frigate can finalize "
+                    f"the recording (start={retrieval_start_time}, end={retrieval_end_time})."
                 )
-                os.remove(tmp_path)
-                return {
-                    "status": 404,
-                    "message": "No video footage available for the selected time range. Please try different timestamps.",
-                }
+                await asyncio.sleep(wait_seconds)
 
-            logger.info(
-                f"Stream written to temporary file. Size: {temp_file_size} bytes"
-            )
-        except Exception as e:
-            logger.error(f"Failed to process video stream: {e}")
-            return {"status": 500, "message": "Failed to process video stream"}
+        tmp_path = ""
+        temp_file_size = 0
+        selected_camera = None
+
+        # Frigate may not have finalized the recording for an event that just ended,
+        # so an empty clip is retried briefly, but only for recent windows.
+        is_recent_window = (time.time() - retrieval_end_time) < FRIGATE_CLIP_RETRY_WINDOW_SECONDS
+        max_attempts = 1 + (FRIGATE_CLIP_EMPTY_RETRIES if is_recent_window else 0)
+
+        for attempt in range(max_attempts):
+            if attempt:
+                logger.info(
+                    f"Clip was empty; retrying retrieval in {FRIGATE_CLIP_RETRY_DELAY_SECONDS:.1f}s "
+                    f"(attempt {attempt + 1}/{max_attempts})."
+                )
+                await asyncio.sleep(FRIGATE_CLIP_RETRY_DELAY_SECONDS)
+
+            for candidate_camera in camera_candidates:
+                try:
+                    stream_response = await asyncio.to_thread(
+                        self.frigate_service.get_clip_from_timestamps,
+                        candidate_camera,
+                        retrieval_start_time,
+                        retrieval_end_time,
+                        download=True,
+                    )
+                    logger.info(f"Clip retrieved from Frigate for camera '{candidate_camera}'.")
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to get clip for camera '{candidate_camera}' "
+                        f"(start={retrieval_start_time}, end={retrieval_end_time}): {e}"
+                    )
+                    continue
+
+                temp_file_size = 0
+                with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_file:
+                    tmp_path = tmp_file.name
+                logger.info(f"Temporary file created at: {tmp_path}")
+
+                try:
+                    async with aiofiles.open(tmp_path, "wb") as f:
+                        async for chunk in stream_response.body_iterator:
+                            await f.write(chunk)
+                            temp_file_size += len(chunk)
+                except Exception as e:
+                    logger.error(f"Failed to process video stream for camera '{candidate_camera}': {e}")
+                    try:
+                        if tmp_path and os.path.exists(tmp_path):
+                            os.remove(tmp_path)
+                    except Exception:
+                        pass
+                    return {"status": 500, "message": "Failed to process video stream"}
+
+                # Check if video is too small (likely empty)
+                if temp_file_size <= 100:
+                    logger.warning(
+                        f"No video found for camera '{candidate_camera}' and given timestamps (file size: {temp_file_size} bytes)"
+                    )
+                    try:
+                        os.remove(tmp_path)
+                    except Exception:
+                        pass
+                    tmp_path = ""
+                    continue
+
+                selected_camera = candidate_camera
+                logger.info(
+                    f"Stream written to temporary file for camera '{selected_camera}'. Size: {temp_file_size} bytes"
+                )
+                break
+
+            if selected_camera:
+                break
+
+        if not selected_camera:
+            return {
+                "status": 404,
+                "message": "No video footage available for the selected time range. Please try different timestamps.",
+            }
 
         # Upload file
         try:
@@ -92,14 +210,14 @@ class VmsService:
                     self.summarization_service.video_upload,
                     tmp_path,
                     self.vss_search_url,
-                    camera_name,
+                    upload_tag or selected_camera,
                 )
             else:
                 upload_result = await asyncio.to_thread(
                     self.summarization_service.video_upload,
                     tmp_path,
                     self.vss_summary_url,
-                    camera_name,
+                    upload_tag or selected_camera,
                 )
 
             if not upload_result or "videoId" not in upload_result:
@@ -122,7 +240,12 @@ class VmsService:
                 logger.warning(f"Failed to remove temporary file: {e}")
 
     async def summarize(
-        self, camera_name: str, start_time: float, end_time: float
+        self,
+        camera_name: str,
+        start_time: float,
+        end_time: float,
+        upload_tag: Optional[str] = None,
+        apply_end_buffer: bool = False,
     ) -> dict:
         logger.info(
             f"Starting summarization for camera: {camera_name}, "
@@ -130,7 +253,12 @@ class VmsService:
         )
 
         upload_resp = await self.upload_video_to_summarizer(
-            camera_name, start_time, end_time, False
+            camera_name,
+            start_time,
+            end_time,
+            False,
+            upload_tag=upload_tag,
+            apply_end_buffer=apply_end_buffer,
         )
         if upload_resp["status"] != 200:
             return upload_resp
@@ -202,7 +330,12 @@ class VmsService:
         return {"summary": video_summary}
 
     async def search_embeddings(
-        self, camera_name: str, start_time: float, end_time: float
+        self,
+        camera_name: str,
+        start_time: float,
+        end_time: float,
+        upload_tag: Optional[str] = None,
+        apply_end_buffer: bool = False,
     ) -> dict:
         """
         Uploads video from the specified camera and time range,
@@ -217,7 +350,12 @@ class VmsService:
 
         try:
             upload_resp = await self.upload_video_to_summarizer(
-                camera_name, start_time, end_time, True
+                camera_name,
+                start_time,
+                end_time,
+                True,
+                upload_tag=upload_tag,
+                apply_end_buffer=apply_end_buffer,
             )
             if upload_resp["status"] != 200:
                 return upload_resp

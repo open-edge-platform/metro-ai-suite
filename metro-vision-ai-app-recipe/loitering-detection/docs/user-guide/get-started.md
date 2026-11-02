@@ -190,13 +190,6 @@ unaffected.
   docker compose down
   ```
 
-## Other Deployment Options
-
-Choose one of the following methods to deploy the Loitering Detection Sample Application:
-
-- [Deploy Using Helm](./get-started/deploy-with-helm.md): Use Helm to deploy the
-  application to a Kubernetes cluster for scalable and production-ready deployments.
-
 ## Next Steps
 
 - [Customize the Application](./how-to-guides/customize-application.md)
@@ -252,7 +245,6 @@ Choose one of the following methods to deploy the Loitering Detection Sample App
 :hidden:
 
 get-started/system-requirements.md
-get-started/deploy-with-helm.md
 
 :::
 hide_directive-->

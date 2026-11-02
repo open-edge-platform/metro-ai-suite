@@ -107,6 +107,8 @@ Downloaded VLM models are stored under per-device directories in `ov_models/`.
 
 Set `ALERT_VLM_MODEL`, `ALERT_VLM_DEVICE`, `DEEP_ANALYZER_MODEL`, and `DEEP_ANALYZER_DEVICE` in `.env` to the full model IDs and corresponding devices. For example, use `Qwen/Qwen3-VL-2B-Instruct` for the alert model and `Qwen/Qwen3-VL-8B-Instruct` for the deep analyzer. The alert model is used for frame-level filtering; the deep-analyzer model must support video input.
 
+For validated inference, use CPU or GPU for the Deep Analyzer; the Alert VLM supports CPU, GPU, or NPU. Alert VLM NPU support depends on the model and host, and requires `int4` quantization.
+
 The application loads each VLM from the device-specific directory that matches its model and device settings in `.env`.
 
 Example:

@@ -308,7 +308,7 @@ Open a browser and go to the following endpoints to access the application. Use 
 > [!NOTE]
 >
 > - All services are accessed through the nginx reverse proxy at `https://localhost` with appropriate paths.
-> - For passwords stored in files (e.g., `supass` or `influxdb2-admin-token`), refer to the respective secret files in your deployment under ./src/secrets (Docker) or chart/files/secrets (Helm).
+> - For passwords stored in files (e.g., `supass` or `influxdb2-admin-token`), refer to the respective secret files in your deployment under ./src/secrets.
 > - Since the application uses HTTPS with self-signed certificates, your browser may display a certificate warning. For the best experience, use **Google Chrome** and accept the certificate.
 
 - **URL**: [https://localhost](https://localhost)
@@ -388,12 +388,6 @@ sudo ./tools/intel-igpu-vfio-bind.sh unbind
 ### Uninstall Trusted Compute (Optional)
 
 To uninstall Trusted Compute from the host, refer to the [Trusted Compute documentation](https://github.com/open-edge-platform/trusted-compute/blob/main/docs/trusted_compute_baremetal.md).
-
-## Other Deployment Options
-
-For Kubernetes-based deployments with Trusted Compute:
-
-- **[Deploy with Helm and Trusted Compute](./get-started/deploy-with-trusted-compute-helm.md)**: Use Helm to deploy the application with Trusted Compute to a Kubernetes cluster for scalable and production-ready deployments with hardware isolation.
 
 ## Learn More
 
