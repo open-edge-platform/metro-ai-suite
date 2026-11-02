@@ -112,7 +112,7 @@ The Zone card has no manual coordinate entry - check **Draw zone on video**, pic
 **Rectangle (drag)** or **Polygon (click points)**, then draw directly on a running pipeline's
 video. The shape previews there until you apply it with either **Apply to this pipeline**
 (appears on the pipeline you drew on) or the card's **Apply zone to live pipelines** (every live
-pipeline). Either way it replaces that pipeline's zones entirely with the shape you drew, under
+pipeline). In both cases, it replaces that pipeline's zones entirely with the shape you drew, under
 the id `OperatorZone` - `gvaanalytics` evaluates one zone set or the other, never both. Starting
 a new pipeline without drawing anything first keeps the deployment's own zone file exactly as
 configured.

@@ -55,7 +55,7 @@ By following this guide, you will learn how to:
    <!--hide_directive :::{tab-item} hide_directive--> **With the Console UI**
    <!--hide_directive :sync: console-ui hide_directive-->
 
-   Add an operator interface for starting and stopping pipelines, selecting models and devices, and drawing zones. Grafana remains available.
+   Add an operator interface for starting and stopping pipelines, selecting models and devices, and drawing zones. **Grafana remains available**.
 
    ```bash
    ./install.sh loitering-detection-ui
@@ -158,7 +158,8 @@ Run all commands from the `metro-vision-ai-app-recipe` directory.
 
 ## Access the Application and Components
 
-Console pipelines have their own video panels; for details see [Use the Console UI](./how-to-guides/use-console-ui.md).
+Console pipelines have their own video panels (Grafana remains available); for details see
+[Use the Console UI](./how-to-guides/use-console-ui.md).
 
 ### Nginx Dashboard
 
@@ -217,7 +218,6 @@ docker compose down
 
 - [Use the Console UI](./how-to-guides/use-console-ui.md): Compare models, change sources and devices, and draw zones.
 - [Customize the Application](./how-to-guides/customize-application.md): Configure file-based zones, streams, and Grafana data.
-- [Tune or disable the dwell-time overlay](./how-to-guides/customize-application.md#video-overlay): Set overlay properties at pipeline launch.
 - [Update the Pipeline](./how-to-guides/update-pipelines.md): Edit pipeline definitions and REST-overridable properties.
 - [All How-to Guides](./how-to-guides.md): Explore device, telemetry, offline packaging, and benchmarking guides.
 
