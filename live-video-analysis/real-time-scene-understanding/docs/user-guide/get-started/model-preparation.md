@@ -109,8 +109,6 @@ Set `ALERT_VLM_MODEL`, `ALERT_VLM_DEVICE`, `DEEP_ANALYZER_MODEL`, and `DEEP_ANAL
 
 For validated inference, use CPU or GPU for the Deep Analyzer; the Alert VLM supports CPU, GPU, or NPU. Alert VLM NPU support depends on the model and host, and requires `int4` quantization.
 
-For validated inference, use CPU or GPU for the Deep Analyzer; the Alert VLM supports CPU, GPU, or NPU. Alert VLM NPU support depends on the model and host, and requires `int4` quantization.
-
 The application loads each VLM from the device-specific directory that matches its model and device settings in `.env`.
 
 Example:
