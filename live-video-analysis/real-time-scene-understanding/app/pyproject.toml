@@ -18,7 +18,7 @@ dependencies = [
     "av==18.1.0",
 
     # VLM inference on decoded frames
-    "openvino-genai==2026.2.1.0",
+    "openvino-genai==2026.4.1.0",
     "numpy>=2.0,<3.0",
 
     # SeaweedFS object storage (S3-compatible)
