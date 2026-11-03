@@ -1,4 +1,7 @@
-FROM docker.io/library/node:26.7.0
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+FROM docker.io/library/node:26.7.0 AS base
 
 USER root
 
@@ -12,11 +15,9 @@ RUN apt-get update \
 # Set the working directory inside the container
 WORKDIR /usr/src/app
 
-# Upgrade npm to latest package version
-RUN npm install -g npm@latest
-
-# Patch npm's own bundled vulnerable deps by installing into a temp dir and copying in-place
-RUN tmpdir=$(mktemp -d) && \
+# Upgrade npm and patch its bundled dependencies without retaining the download cache.
+RUN npm install -g npm@latest && \
+    tmpdir=$(mktemp -d) && \
     cd "$tmpdir" && \
     echo '{}' > package.json && \
     npm install --no-fund --no-audit --ignore-scripts \
@@ -25,13 +26,17 @@ RUN tmpdir=$(mktemp -d) && \
     rm -rf "$npm_pkg_dir/brace-expansion" && cp -r node_modules/brace-expansion "$npm_pkg_dir/" && \
     rm -rf "$npm_pkg_dir/ip-address"     && cp -r node_modules/ip-address "$npm_pkg_dir/" && \
     rm -rf "$npm_pkg_dir/tar"            && cp -r node_modules/tar "$npm_pkg_dir/" && \
-    rm -rf "$tmpdir"
+    cd /usr/src/app && \
+    rm -rf "$tmpdir" && \
+    npm cache clean --force
+
+FROM base AS build
 
 # Copy package.json and package-lock.json to the working directory
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci
 
 # Copy the rest of the application code to the working directory
 COPY . .
@@ -39,11 +44,10 @@ COPY . .
 # Build the Vue.js application
 RUN npm run build
 
-# REMOVE build-time dependencies
-RUN rm -rf node_modules
+FROM base AS runtime
 
 # Install serve globally *before* switching user
-RUN npm install -g serve
+RUN npm install -g serve && npm cache clean --force
 
 # Expose the port the app runs on
 EXPOSE 3000
@@ -51,9 +55,9 @@ EXPOSE 3000
 # Add non root user
 ARG USER=intelmicroserviceuser
 ARG UID=1999
-RUN useradd -ms /bin/bash ${USER} -o -u $UID && \
-    chown ${USER}:${USER} -R /usr/src/app /root
-RUN mkdir -p /home/${USER}/ && chown -R ${USER}:${USER} /home/${USER}
+RUN useradd -ms /bin/bash "${USER}" -o -u "${UID}" && \
+    chown "${USER}:${USER}" /usr/src/app
+COPY --from=build --chown=${USER}:${USER} /usr/src/app/dist ./dist
 USER ${USER}
 
 # Serve built static files

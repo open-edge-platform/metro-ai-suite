@@ -34,6 +34,7 @@ import structlog
 from pydantic import BaseModel, create_model
 
 from plugin.base.interfaces import IAnalyticsAppShim
+from plugin.common import camera_ref
 from plugin.core.models.domain import AnalysisResult, MetadataEvent
 from .config import ObjectDetectionAnalyticsAppConfig
 from .api_client import ObjectDetectionApiClient
@@ -43,6 +44,15 @@ if TYPE_CHECKING:
     from plugin.core.pipeline.orchestrator import Orchestrator
 
 logger = structlog.get_logger(__name__)
+
+# Pipeline parameter that sets the gvaattachroi element's properties. Sent only
+# to pipelines that declare it, so pipelines without an ROI element are unaffected.
+_ROI_PARAMETER = "roi-properties"
+# Pipeline parameter that sets the loitering_watermark element's properties;
+# likewise sent only to pipelines that declare it.
+_WATERMARK_PARAMETER = "loitering-watermark-properties"
+# Pipeline Server states in which a run still occupies its camera.
+_ACTIVE_RUN_STATES = frozenset({"QUEUED", "RUNNING"})
 
 
 def _make_tls_context(cfg) -> ssl.SSLContext | None:
@@ -69,8 +79,12 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
         # Maps pipeline version (user-facing name) → pipeline root (URL path segment)
         # e.g. "dls_vision_pipeline" → "user_defined_pipelines"
         self._pipeline_root_map: dict[str, str] = {}
+        # Pipeline version → names of the parameters it declares (e.g. "roi-properties")
+        self._pipeline_parameters: dict[str, set[str]] = {}
         # Tracks active runs: run_id (= instance_id hex) → run metadata
         self._runs: dict[str, dict[str, Any]] = {}
+        # run_id → {"camera_id", "device", "zone"} of active runs, for run listings
+        self._run_info: dict[str, dict[str, Any]] = {}
         # Needed to look up the originating VMS shim for camera-resolution lookups
         # when translating a user-entered normalized zone to pixel coordinates.
         self._vms_shim_sets: list[VmsShimSet] = []
@@ -93,14 +107,15 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
                 mqtt_host=self._config.mqtt_host,
                 mqtt_port=self._config.mqtt_port,
                 vms_shim_sets=orchestrator.vms_shim_sets,
-                label_type_map=self._config.label_type_map,
+                label_map=self._config.label_map,
+                app_id=self.app_id,
                 timestamp_offset_ms=self._config.metadata_timestamp_offset_ms,
                 tls_context=_make_tls_context(self._config),
                 zone_filter_enabled=self._config.zone_filter_enabled,
                 zones=self._config.zones,
                 zone_type_id=self._config.zone_type_id,
                 metadata_topic_prefix=self._config.metadata_topic_prefix,
-                event_bookmark_enabled=self._config.event_bookmark_enabled,
+                events_enabled=self._config.events_enabled,
                 event_topic_suffix=self._config.event_topic_suffix,
             ),
             name=f"mqtt-subscriber-{self.app_id}",
@@ -133,6 +148,7 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
         pipelines = await self._api.list_pipelines()
 
         self._pipeline_root_map = {}
+        self._pipeline_parameters = {}
         for p in pipelines:
             if not isinstance(p, dict):
                 continue
@@ -140,6 +156,8 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
             version = p.get("version", "")
             if version:
                 self._pipeline_root_map[version] = root
+                properties = (p.get("parameters") or {}).get("properties") or {}
+                self._pipeline_parameters[version] = set(properties)
 
         device_options = self._config.configured_pipeline_devices()
 
@@ -168,6 +186,9 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
                         "Normalized zone polygon as [[x,y],...] points, each 0-1 "
                         "(fraction of frame width/height)"
                     ),
+                    # default_zone_polygon from config.yaml; empty when not configured.
+                    "default": json.dumps(self._config.default_zone_polygon)
+                    if self._config.default_zone_polygon else "",
                 },
             },
         }
@@ -197,7 +218,7 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
         ``vendor:device_id`` segment to find the right VMS shim.
         """
         ref = camera_id_ref or "vap:unknown"
-        return f"{self._config.metadata_topic_prefix}/{ref}"
+        return f"{self._config.metadata_topic_prefix}/{camera_ref.encode(ref)}"
 
     def _lookup_vms_shim(self, camera_id_ref: str) -> Any | None:
         """Exact match first, then prefix match, mirroring MqttSubscriber._lookup_shim."""
@@ -210,10 +231,11 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
         )
 
     async def _get_camera_resolution(self, camera_id_ref: str) -> tuple[int, int] | None:
-        """Best-effort camera pixel resolution via the VMS's own camera metadata.
+        """Camera pixel resolution, as reported by the camera's VMS shim.
 
-        Nx exposes it as ``vendor_meta.options.bitrateInfos[].resolution`` (e.g.
-        "1280x720"). Returns None if the VMS/camera doesn't expose it.
+        Each VMS shim fills ``Camera.width``/``height`` from its own data (Nx
+        bitrate info, Milestone AI Bridge ``videoResolution``). Returns None if
+        the VMS/camera doesn't report it.
         """
         shim = self._lookup_vms_shim(camera_id_ref)
         if shim is None:
@@ -223,22 +245,12 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
         except Exception as exc:  # noqa: BLE001 — best-effort, never fatal
             logger.warning("od_camera_resolution_lookup_failed", camera_id_ref=camera_id_ref, error=str(exc))
             return None
-        if camera is None:
+        if camera is None or not camera.width or not camera.height:
             return None
-        bitrate_infos = (camera.vendor_meta.get("options") or {}).get("bitrateInfos") or []
-        for info in bitrate_infos:
-            resolution = info.get("resolution", "")
-            if "x" not in resolution:
-                continue
-            width_str, _, height_str = resolution.partition("x")
-            try:
-                return int(width_str), int(height_str)
-            except ValueError:
-                continue
-        return None
+        return camera.width, camera.height
 
-    async def _build_zone_payload(self, zone_raw: str, camera_id_ref: str) -> str | None:
-        """Convert a user-entered normalized zone polygon to the pixel JSON DLSPS expects.
+    async def _zone_pixel_points(self, zone_raw: str, camera_id_ref: str) -> list[dict[str, int]] | None:
+        """Convert a user-entered normalized zone polygon to pixel points for the camera.
 
         ``zone_raw`` is a JSON string of [[x,y],...] points, each normalized 0-1.
         Returns None (logging why) if the input is malformed or the camera's
@@ -266,7 +278,11 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
                 return None
             x, y = point
             pixel_points.append({"x": round(float(x) * frame_w), "y": round(float(y) * frame_h)})
+        return pixel_points
 
+    @staticmethod
+    def _zone_json(pixel_points: list[dict[str, int]]) -> str:
+        """gvaanalytics ``zones`` JSON for one polygon zone."""
         zone = {
             "id": "vap_zone",
             "type": "polygon",
@@ -275,6 +291,18 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
             "object-retention": 1.0,
         }
         return json.dumps([zone])
+
+    @staticmethod
+    def _zone_roi(pixel_points: list[dict[str, int]]) -> str:
+        """gvaattachroi ``roi``: the zone's bounding rectangle, ``x1,y1,x2,y2`` in pixels."""
+        xs = [p["x"] for p in pixel_points]
+        ys = [p["y"] for p in pixel_points]
+        return f"{min(xs)},{min(ys)},{max(xs)},{max(ys)}"
+
+    async def _build_zone_payload(self, zone_raw: str, camera_id_ref: str) -> str | None:
+        """Convert a user-entered normalized zone polygon to the pixel JSON DLSPS expects."""
+        pixel_points = await self._zone_pixel_points(zone_raw, camera_id_ref)
+        return self._zone_json(pixel_points) if pixel_points else None
 
     async def is_reachable(self) -> bool:
         return await self._api.is_reachable()
@@ -313,17 +341,36 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
             extra_params = {"detection-properties": {"device": device}}
 
         zone_raw = str(data.get("zone", "") or "").strip()
-        if zone_raw:
-            zones_json = await self._build_zone_payload(zone_raw, camera_id_ref)
-            if zones_json:
-                extra_params = dict(extra_params)
-                extra_params["analytics-properties"] = {
-                    **extra_params.get("analytics-properties", {}),
-                    "zones": zones_json,
-                }
+        if not zone_raw and self._config.default_zone_polygon:
+            # Callers that send no zone (API, embedded camera page) get the
+            # configured one; the pipeline's own ROI default is resolution-specific.
+            zone_raw = json.dumps(self._config.default_zone_polygon)
+        zone_points = await self._zone_pixel_points(zone_raw, camera_id_ref) if zone_raw else None
+        if zone_points:
+            extra_params = dict(extra_params)
+            extra_params["analytics-properties"] = {
+                **extra_params.get("analytics-properties", {}),
+                "zones": self._zone_json(zone_points),
+            }
 
         if not pipeline_name:
             raise ValueError("pipeline_name is required")
+
+        # Pipelines with an ROI element get the same region as the zone, scaled to
+        # this camera, so detection (roi-list) and loitering analytics agree.
+        if zone_points and _ROI_PARAMETER in self._pipeline_parameters.get(pipeline_name, set()):
+            extra_params[_ROI_PARAMETER] = {
+                **extra_params.get(_ROI_PARAMETER, {}),
+                "roi": self._zone_roi(zone_points),
+            }
+
+        threshold = self._config.loitering_threshold_s
+        if threshold and _WATERMARK_PARAMETER in self._pipeline_parameters.get(pipeline_name, set()):
+            extra_params = dict(extra_params)
+            extra_params[_WATERMARK_PARAMETER] = {
+                **extra_params.get(_WATERMARK_PARAMETER, {}),
+                "loitering-threshold": threshold,
+            }
 
         pipeline_root = self._pipeline_root_map.get(pipeline_name, "user_defined_pipelines")
 
@@ -376,6 +423,12 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
             "pipeline_root": pipeline_root,
             "stream_url": stream_url,
         }
+        if camera_id_ref:
+            self._run_info[run_id] = {
+                "camera_id": camera_id_ref,
+                "device": (extra_params.get("detection-properties") or {}).get("device"),
+                "zone": json.dumps(json.loads(zone_raw)) if zone_points else None,
+            }
 
         logger.info("od_run_started", run_id=run_id, pipeline=f"{pipeline_root}/{pipeline_name}")
         return {
@@ -387,13 +440,75 @@ class ObjectDetectionAnalyticsAppShim(IAnalyticsAppShim):
     # ── IAnalyticsAppShim — run management ─────────────────────────────────────────
 
     async def list_runs(self) -> list[dict[str, Any]]:
-        return await self._api.list_runs()
+        """Pipeline Server run statuses; active runs are tagged with what they run.
+
+        Adds ``camera_id``, and when known ``device`` and ``zone`` (normalized
+        ``[[x,y],...]`` JSON, as accepted by ``start``). These are read from the
+        run itself (MQTT topic and parameters), so they are also known for runs
+        started before a VAP restart. Results are cached per run.
+        """
+        runs = await self._api.list_runs()
+        active: set[str] = set()
+        for run in runs:
+            run_id = str(run.get("id") or "")
+            if not run_id or run.get("state") not in _ACTIVE_RUN_STATES:
+                continue
+            active.add(run_id)
+            info = self._run_info.get(run_id)
+            if info is None:
+                # Cached even when empty (not a VAP camera run), so it is looked up once.
+                info = await self._run_info_from_detail(await self._api.get_run(run_id)) or {}
+                self._run_info[run_id] = info
+            for key, value in info.items():
+                if value:
+                    run[key] = value
+        for run_id in set(self._run_info) - active:
+            del self._run_info[run_id]
+        return runs
+
+    async def _run_info_from_detail(self, detail: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Camera, device and normalized zone of a run, from its Pipeline Server detail."""
+        if not isinstance(detail, dict):
+            return None
+        requests = [r for r in ((detail.get("params") or {}).get("request"), detail.get("request")) if r]
+
+        camera_id = None
+        for request in requests:
+            topic = ((request.get("destination") or {}).get("metadata") or {}).get("topic")
+            if isinstance(topic, str):
+                prefix, _, ref = topic.partition("/")
+                if prefix == self._config.metadata_topic_prefix and ":" in ref and "/" not in ref:
+                    camera_id = camera_ref.decode(ref)
+                    break
+        if not camera_id:
+            return None
+
+        parameters = next((r.get("parameters") for r in requests if r.get("parameters")), {}) or {}
+        return {
+            "camera_id": camera_id,
+            "device": (parameters.get("detection-properties") or {}).get("device"),
+            "zone": await self._normalized_zone(parameters, camera_id),
+        }
+
+    async def _normalized_zone(self, parameters: dict[str, Any], camera_id: str) -> str | None:
+        """The run's pixel zone converted back to normalized ``[[x,y],...]`` JSON."""
+        try:
+            zones = json.loads((parameters.get("analytics-properties") or {}).get("zones") or "[]")
+            points = zones[0]["points"]
+            resolution = await self._get_camera_resolution(camera_id)
+            if not resolution:
+                return None
+            width, height = resolution
+            return json.dumps([[round(p["x"] / width, 4), round(p["y"] / height, 4)] for p in points])
+        except (ValueError, TypeError, KeyError, IndexError):
+            return None
 
     async def stop_run(self, run_id: str) -> bool:
         """Stop a pipeline instance by its hex UUID run_id."""
         ok = await self._api.stop_run(run_id)
         if ok:
             self._runs.pop(run_id, None)
+            self._run_info.pop(run_id, None)
         return ok
 
     # ── VMS-driven pipeline control ─────────────────────────────────────────────

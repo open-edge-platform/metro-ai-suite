@@ -1,5 +1,30 @@
 #!/bin/bash -e
 
+APP_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+MODEL_PATH="${APP_DIR}/src/dlstreamer-pipeline-server/models/public/yolo11s/INT8/yolo11s.xml"
+
+if [ ! -e "${MODEL_PATH}" ]; then
+    echo
+    echo "The Smart Parking sample uses the YOLOv11s model for object detection."
+    echo "This model is provided by Ultralytics and is subject to its license:"
+    echo "  https://github.com/ultralytics/ultralytics/blob/main/LICENSE"
+    echo "Disclaimer: by downloading and using this model, you confirm that you accept the"
+    echo "license terms and agree to comply with any applicable model-use and privacy requirements."
+    while true; do
+        read -r -p "Proceed with the YOLOv11s model download and usage? [y/N]: " answer
+        case "${answer:-N}" in
+            [Yy]|[Yy][Ee][Ss])
+                echo "Continuing with the YOLOv11s model download..."
+                break
+                ;;
+            *)
+                echo "YOLOv11s model download cancelled. Exiting install.sh."
+                exit 1
+                ;;
+        esac
+    done
+fi
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 MODE="${2:-def}"
 
@@ -96,7 +121,8 @@ docker run --rm -t --user "$(id -u):$(id -g)" \
 
 docker run --rm --user=root \
   -e http_proxy -e https_proxy -e no_proxy \
-  -v "$(dirname "$(readlink -f "$0")"):/opt/project" \
+  -e YOLOV11S_DOWNLOAD_CONFIRMED=1 \
+  -v "${APP_DIR}:/opt/project" \
    intel/dlstreamer:2026.2.0-ubuntu24 bash -c "$(cat <<EOF
 
 cd /opt/project
@@ -114,6 +140,11 @@ mkdir -p src/dlstreamer-pipeline-server/models/public
 export MODELS_PATH=/opt/project/src/dlstreamer-pipeline-server/models
 chmod +x /home/dlstreamer/dlstreamer/samples/download_public_models.sh
 if [ ! -e "src/dlstreamer-pipeline-server/models/public/yolo11s/INT8/yolo11s.xml" ]; then
+    if [ "\${YOLOV11S_DOWNLOAD_CONFIRMED:-0}" != "1" ]; then
+        echo "YOLOv11s model download requires explicit confirmation."
+        exit 1
+    fi
+
     for attempt in {1..3}; do
         echo "Attempt $attempt: Running model download and quantization..."
         if /home/dlstreamer/dlstreamer/samples/download_public_models.sh yolo11s coco128; then
@@ -139,7 +170,14 @@ declare -A video_urls=(
 for video_name in "\${!video_urls[@]}"; do
     if [ ! -f src/dlstreamer-pipeline-server/videos/\${video_name} ]; then
         echo "Download \${video_name}..."
-        curl -L -o "src/dlstreamer-pipeline-server/videos/\${video_name}" "\${video_urls[\$video_name]}" 
+        curl -f -L -o "src/dlstreamer-pipeline-server/videos/\${video_name}" "\${video_urls[\$video_name]}"
+    fi
+done
+
+for video_name in "\${!video_urls[@]}"; do
+    if [ ! -f "src/dlstreamer-pipeline-server/videos/\${video_name}" ]; then
+        echo "Error: Failed to download \${video_name}"
+        exit 1
     fi
 done
 

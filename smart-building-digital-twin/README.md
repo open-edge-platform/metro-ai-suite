@@ -50,7 +50,7 @@ An AI analytics web dashboard shows simulated building activity, alerts, camera 
 - For Panther Lake `xe` GPU telemetry, install `xpu-smi` on the host before running `./setup.sh`
 - Host install example on Ubuntu OS version 24.04 when the Intel graphics repository or PPA is already configured: `sudo apt install xpu-smi`
 - If the GPU name still appears as a raw Peripheral Component Interconnect (PCI) ID after host package install, refresh the host PCI ID database with `sudo update-pciids`
-- Install the Git Large File Storage (LFS) extension **before** cloning, for video file storage:
+- Install the Git Large File Storage (LFS) extension **before** cloning, for scene bundle storage:
 
   ```bash
   # Ubuntu/Debian
@@ -74,7 +74,7 @@ Scenescape images are pulled automatically from Docker Hub by `./setup.sh` — n
 
 ## Setup
 
-Clone the repository (Git LFS extension is required for video and model files):
+Clone the repository (Git LFS extension is required for scene bundles):
 
 ```bash
 git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
@@ -103,8 +103,8 @@ After setup:
 ## Project Structure
 
 ```text
-config/          Model files, and pipeline and tracker configuration
-datasets/        Looping video files per scene (Git LFS)
+config/          Pipeline and tracker configuration; models are downloaded by `setup.sh`
+datasets/        Looping video files per scene (downloaded by `setup.sh`)
 scenes/          Scene zip bundles and sensor event data
 scripts/
   narrator.py        Converts MQTT tracks to rolling scene narrative and alerts

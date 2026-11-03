@@ -1,12 +1,18 @@
 # Fast detection event updates
 
-Customer goal: simple event edits must finish faster than full registration.
 Keep the existing mode, schema metadata, task name and monitor bindings. This
 flow overrides creation questions and monitor gates for unchanged bindings.
-Schema is internal: never ask users for column names, types or required flags.
+This exception applies only to active targets and local edits, not new creation,
+recreation after deletion, explicit full overwrite, mode/schema redesign,
+source rebinds, ROI edits or full pipeline replacement. Those retain the release
+flows in SKILL.md. Never treat a failed get or backup directory as permission to
+create. Reuse the approved schema; do not ask users for column names, types or
+required flags during incremental updates.
 
 1. Read `smart_community_use_case_register action=get,use_case=<name>` once for
-   the complete entry, prompt/rules, bound monitors and revision.
+   the complete entry, prompt/rules, bound monitors and revision. State is under
+   `snapshot.entry`, `snapshot.prompt_text`, `snapshot.evaluate_rules_content`
+   and `snapshot.bound_monitors`; revision is top-level.
 2. Resolve the requested additions, removals or local condition edits from the
    existing prompt. Preserve all unaffected events and evidence requirements.
    Maintain final `detection_events` identifiers internally (infer original
@@ -48,10 +54,16 @@ semantics. Event-only changes never restart analytics or alter prefilter.
 
 Read effective monitor status and identify the scope; clarify multiple cameras
 only when unspecified. Extract every explicit supported field: enabled,
-model (a registry name from prefilter_options, never a path), target_classes,
-min_confidence, min_frames_hit, detect_fps, device, long_side. Normalize explicit 65% confidence to 0.65. Preserve false and zero.
+target_classes, min_confidence, min_frames_hit, detect_fps, device, model,
+long_side. Normalize explicit 65% confidence to 0.65. Preserve false and zero.
 No dedicated prompt/rule generation or VLM CRUD. Unsupported IoU/NMS fields
-must not be silently mapped or ignored. Consult pipeline-config.md for bounds.
+must not be silently mapped or ignored. Validate confidence in 0..1, min_frames_hit as integer >=1, detect_fps >0,
+long_side as integer >=0, and enabled as boolean. Validate classes against the
+selected model and device against server constraints. Select `model` from
+`prefilter_options`; never pass `model_path` in a pipeline patch. Disabling
+prefilter while ROI remains enabled is a dependency conflict: report it and
+resolve the separate ROI change through the original monitor gates; never
+silently change ROI.
 
 Preview monitor_ctl action=update_pipeline,dry_run=true,monitor_id=<existing>,
 pipeline_config={prefilter:{<explicit delta>}},persist=true. Unspecified values
@@ -61,9 +73,8 @@ Validation happens before stopping. Python briefly restarts only the affected
 analysis pipeline; bindings remain. Identical values do not restart it.
 
 Disabled prefilter may save numeric preferences without enabling detection;
-state that they are inactive. Do not implicitly enable or alter ROI. No stream
-yet: save monitor_defaults for future binding and report saved, not running.
+state that they are inactive. Do not implicitly enable or alter ROI. No existing
+monitor: report that this monitor update cannot proceed; new binding retains
+the release gates, not implicit creation or saved binding preferences.
 For mixed event/parameter requests show both changes in one confirmation,
 commit separately and report each result; the operations are not atomic together.
-Measure complete active conversation time using the performance helper; mocked
-unit-test timings cannot establish customer-facing speed improvements.

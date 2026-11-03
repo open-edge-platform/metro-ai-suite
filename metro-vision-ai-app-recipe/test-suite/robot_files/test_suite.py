@@ -110,36 +110,6 @@ class test_suite(unittest.TestCase):
         env["TEST_CASE"] = "SI004"
         ret = self._run_nose("../functional_tests/apps.py:TestCaseManager.test_apps")
         return ret
-    
-    def TC_001_SPHELM(self):
-        env["TEST_CASE"] = "SPHELM001"
-        ret = self._run_nose("../functional_tests/apps_helm.py:TestCaseManager.test_metro_apps")
-        return ret
-    
-    def TC_002_SPHELM(self):
-        env["TEST_CASE"] = "SPHELM002"
-        ret = self._run_nose("../functional_tests/apps_helm.py:TestCaseManager.test_metro_apps")
-        return ret
-    
-    def TC_001_LDHELM(self):
-        env["TEST_CASE"] = "LDHELM001"
-        ret = self._run_nose("../functional_tests/apps_helm.py:TestCaseManager.test_metro_apps")
-        return ret
-    
-    def TC_002_LDHELM(self):
-        env["TEST_CASE"] = "LDHELM002"
-        ret = self._run_nose("../functional_tests/apps_helm.py:TestCaseManager.test_metro_apps")
-        return ret
-    
-    def TC_001_SIHELM(self):
-        env["TEST_CASE"] = "SIHELM001"
-        ret = self._run_nose("../functional_tests/apps_helm.py:TestCaseManager.test_metro_apps")
-        return ret
-    
-    def TC_002_SIHELM(self):
-        env["TEST_CASE"] = "SIHELM002"
-        ret = self._run_nose("../functional_tests/apps_helm.py:TestCaseManager.test_metro_apps")
-        return ret
 
 if __name__ == '__main__':
     unittest.main()

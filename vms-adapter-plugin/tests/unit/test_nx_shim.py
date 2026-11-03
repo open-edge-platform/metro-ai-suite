@@ -274,3 +274,96 @@ async def test_integration_client_uses_ca_bundle_when_tls_verify_enabled(monkeyp
 
     assert ok is True
     assert captured["verify"] == "/tmp/nx-ca.pem"
+
+
+@pytest.mark.asyncio
+async def test_publish_event_creates_bookmark_with_truncated_text(nx_config):
+    from datetime import datetime, timezone
+
+    from plugin.core.models.domain import AnalyticsEvent
+    from plugin.core.models.domain import CommandResult
+
+    shim = NxWitnessVmsShim(nx_config)
+    ts = datetime.now(tz=timezone.utc)
+    shim.set_bookmark = AsyncMock(return_value=CommandResult(
+        command_id="c", camera_id="nx:cam1", command_type="set_bookmark", status="accepted",
+    ))
+    event = AnalyticsEvent(text="x" * 600, timestamp=ts, app_id="live_captioning")
+
+    assert await shim.publish_event("nx:cam1", event) is True
+    shim.set_bookmark.assert_awaited_once_with("nx:cam1", ts, "x" * 500)
+
+    shim.set_bookmark.return_value = CommandResult(
+        command_id="c", camera_id="nx:cam1", command_type="set_bookmark", status="unsupported",
+    )
+    assert await shim.publish_event("nx:cam1", event) is False
+
+
+def test_metadata_duration_covers_latency_plus_margin(nx_config):
+    shim = NxWitnessVmsShim(nx_config)
+    # 700 ms behind live -> 700 + 500 margin
+    assert shim._metadata_duration_ms(timestamp_ms=1_000, now_ms=1_700) == 1_200
+    # fresh metadata still gets the 100 ms floor
+    assert shim._metadata_duration_ms(timestamp_ms=1_000, now_ms=1_000) == 500
+    assert shim._metadata_duration_ms(timestamp_ms=1_000, now_ms=1_050) == 550
+
+
+def test_metadata_duration_clamps_future_and_bogus_timestamps(nx_config):
+    shim = NxWitnessVmsShim(nx_config)
+    # timestamp ahead of wall clock (clock skew) -> treated as zero latency
+    assert shim._metadata_duration_ms(timestamp_ms=5_000, now_ms=1_000) == 500
+    # hours-old timestamp -> capped
+    assert shim._metadata_duration_ms(timestamp_ms=0, now_ms=3_600_000) == 10_000
+
+
+def test_metadata_duration_honours_vendor_options():
+    cfg = VmsInstanceConfig(
+        name="nx-test", vendor="nx_witness", base_url="https://localhost:7001",
+        auth=VmsAuthConfig(username="admin", password="pw", auth_type="digest"),
+        vendor_options={
+            "metadata_min_duration_ms": 250,
+            "metadata_latency_margin_ms": 0,
+            "metadata_max_duration_ms": 2_000,
+        },
+    )
+    shim = NxWitnessVmsShim(cfg)
+    assert shim._metadata_duration_ms(timestamp_ms=1_000, now_ms=1_000) == 250
+    assert shim._metadata_duration_ms(timestamp_ms=1_000, now_ms=1_800) == 800
+    assert shim._metadata_duration_ms(timestamp_ms=1_000, now_ms=9_000) == 2_000
+
+
+def test_metadata_duration_falls_back_on_invalid_vendor_option():
+    cfg = VmsInstanceConfig(
+        name="nx-test", vendor="nx_witness", base_url="https://localhost:7001",
+        auth=VmsAuthConfig(username="admin", password="pw", auth_type="digest"),
+        vendor_options={"metadata_latency_margin_ms": "not-a-number"},
+    )
+    shim = NxWitnessVmsShim(cfg)
+    assert shim._metadata_duration_ms(timestamp_ms=1_000, now_ms=1_300) == 800
+
+
+@pytest.mark.asyncio
+async def test_publish_detections_pushes_adaptive_duration(nx_config):
+    from plugin.base.interfaces import DetectionPublishContext
+    from plugin.core.models.domain import DetectionFrame, DetectionObject
+
+    shim = NxWitnessVmsShim(nx_config)
+    shim._metadata_duration_ms = lambda ts, now_ms=None: 1_234  # type: ignore[method-assign]
+    shim.push_analytics_objects = AsyncMock(return_value=True)
+    frame = DetectionFrame(
+        timestamp_ms=42,
+        objects=[DetectionObject(
+            track_id=1, label="pedestrian", category="pedestrian", confidence=0.9,
+            x_min=0.1, y_min=0.1, x_max=0.2, y_max=0.3,
+        )],
+        zones=[],
+    )
+
+    assert await shim.publish_detections(
+        "nx:cam1", frame, DetectionPublishContext(app_id="dls_vision"),
+    ) is True
+    shim.push_analytics_objects.assert_awaited_once()
+    args, kwargs = shim.push_analytics_objects.await_args
+    assert args[0] == "cam1"
+    assert args[2] == 42
+    assert kwargs["duration_ms"] == 1_234

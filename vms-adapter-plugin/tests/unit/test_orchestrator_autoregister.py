@@ -141,3 +141,25 @@ async def test_credentials_not_set_on_mismatch_db_missing():
 
     set_creds.assert_not_called()
 
+
+
+async def test_settings_poll_started_on_restart_with_existing_registration():
+    """DB ✅ + Nx ✅ → Nx UI settings poll must still start (regression: early return skipped it)."""
+    nx_record = {"username": "dls_vision_user", "password": "", "request_id": "req-1"}
+    db_record = _make_db_record(username="dls_vision_user", password="secret123")
+    shim = _make_shim(nx_record=nx_record)
+    shim._start_settings_poll = MagicMock()
+
+    await _run_on_startup(shim, db_record, nx_record)
+
+    shim._start_settings_poll.assert_called_once()
+    assert isinstance(shim._start_settings_poll.call_args.args[0], Orchestrator)
+
+
+async def test_settings_poll_started_on_fresh_registration():
+    shim = _make_shim(nx_record=None)
+    shim._start_settings_poll = MagicMock()
+
+    await _run_on_startup(shim, db_record=None, nx_record=None)
+
+    shim._start_settings_poll.assert_called_once()

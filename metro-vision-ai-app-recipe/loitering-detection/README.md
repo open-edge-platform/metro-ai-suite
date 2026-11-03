@@ -5,7 +5,6 @@
 > For more information, refer to
 > [Intended Use](https://docs.openedgeplatform.intel.com/dev/OEP-articles/notes-on-usage.html#intended-use)
 
-
 Loitering Detection leverages advanced AI algorithms for monitoring and analyzing real-time
 video feeds to demonstrate the efficiency of Intel hardware in AI systems for detecting
 individuals lingering in specified areas and recognizing their activity.
@@ -25,7 +24,6 @@ extend its functionalities to meet their specific needs.
   real-time monitoring, and insightful data visualization.
 - **User-Friendly:** Simplifies configuration and operation through prebuilt scripts and
   configuration files.
-
 
 ## How It Works
 
@@ -51,6 +49,5 @@ It integrates MQTT and Grafana to provide a robust and flexible solution for rea
 
 - [Get Started](./docs/user-guide/get-started.md): Follow step-by-step instructions to set up the application.
 - [System Requirements](./docs/user-guide/get-started/system-requirements.md): Check the hardware and software requirements for deploying the application.
-- [Deploy with Helm](./docs/user-guide/get-started/deploy-with-helm.md): How to deploy the application using Helm on a Kubernetes cluster.
 - [Customize the Application](./docs/user-guide/how-to-guides/customize-application.md)
 - [Support and Troubleshooting](./docs/user-guide/troubleshooting.md): Find solutions to common issues and troubleshooting steps.

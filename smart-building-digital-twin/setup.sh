@@ -409,6 +409,30 @@ fi
 
 success "Found ${#SCENES[@]} scene(s)"
 
+# Download videos on demand from edge-ai-resources
+RESOURCES_BASE_URL="${RESOURCES_BASE_URL:-https://github.com/open-edge-platform/edge-ai-resources/raw/a02ffce3da072432f3d06fc073a8eed1d220ec62}"
+SCENE_CAMERA_COUNT="${SCENE_CAMERA_COUNT:-7}"
+
+# A Git LFS pointer is a tiny text file, not a playable video
+is_valid_video() {
+    [ -f "$1" ] && [ "$(stat -c %s "$1")" -gt 1048576 ]
+}
+
+for scene in "${SCENES[@]}"; do
+    scene_lower=$(echo "$scene" | tr '[:upper:]' '[:lower:]')
+    mkdir -p "datasets/$scene_lower"
+    for i in $(seq 1 "$SCENE_CAMERA_COUNT"); do
+        video="datasets/$scene_lower/cam-$i.ts"
+        if is_valid_video "$video"; then
+            continue
+        fi
+        info "Downloading $video..."
+        curl -fL --retry 3 -s "$RESOURCES_BASE_URL/videos/cam-$i.ts" -o "$video.tmp" \
+            && mv "$video.tmp" "$video" \
+            || { rm -f "$video.tmp"; error "Failed to download $video from $RESOURCES_BASE_URL"; }
+    done
+done
+
 # Validate scenes against datasets
 info "Validating scene/dataset consistency..."
 for scene in "${SCENES[@]}"; do
@@ -584,6 +608,24 @@ echo ""
 PRIMARY_DATASET=$(echo "${SCENES[0]}" | tr '[:upper:]' '[:lower:]')
 MODEL_NAME="${MODEL_NAME:-$(read_env_var "MODEL_NAME")}"
 MODEL_NAME="${MODEL_NAME:-smartbuilding-int8}"
+
+# Download the detection model on demand from edge-ai-resources
+case "$MODEL_NAME" in
+    smartbuilding-int8) MODEL_PRECISION="INT8" ;;
+    smartbuilding-fp16) MODEL_PRECISION="FP16" ;;
+    *) MODEL_PRECISION="" ;;
+esac
+if [ -n "$MODEL_PRECISION" ] && { [ ! -f "config/models/$MODEL_NAME/model.xml" ] || [ ! -s "config/models/$MODEL_NAME/model.bin" ] || [ "$(stat -c %s "config/models/$MODEL_NAME/model.bin")" -lt 102400 ]; }; then
+    info "Downloading model $MODEL_NAME..."
+    mkdir -p config/models
+    model_zip="$(mktemp --suffix=.zip)"
+    curl -fL --retry 3 -s "$RESOURCES_BASE_URL/models/$MODEL_PRECISION/$MODEL_NAME.zip" -o "$model_zip" \
+        || { rm -f "$model_zip"; error "Failed to download model $MODEL_NAME from $RESOURCES_BASE_URL"; }
+    python3 -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' "$model_zip" config/models \
+        || { rm -f "$model_zip"; error "Failed to extract model $MODEL_NAME"; }
+    rm -f "$model_zip"
+    success "Model $MODEL_NAME ready"
+fi
 
 # Upsert helper for .env key-value pairs
 upsert_env_var() {

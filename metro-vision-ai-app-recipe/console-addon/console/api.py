@@ -43,7 +43,7 @@ def api_models():
 @app.route("/api/pipelines")
 def api_pipelines():
     try:
-        r = requests.get(f"{PIPELINE_SERVER_URL}/pipelines/status", timeout=5)
+        r = requests.get(f"{PIPELINE_SERVER_URL}/pipelines/status", timeout=15)
         r.raise_for_status()
         return jsonify(r.json())
     except (requests.RequestException, ValueError) as exc:
@@ -120,7 +120,7 @@ def api_events():
     # surfaced as a count only, not a guess at who started them.
     external_count = 0
     try:
-        r = requests.get(f"{PIPELINE_SERVER_URL}/pipelines/status", timeout=5)
+        r = requests.get(f"{PIPELINE_SERVER_URL}/pipelines/status", timeout=15)
         r.raise_for_status()
         data = r.json()
         items = data if isinstance(data, list) else data.get("pipelines", []) if isinstance(data, dict) else []
@@ -155,7 +155,7 @@ def api_metrics():
 def api_health():
     pipeline_reachable = False
     try:
-        r = requests.get(f"{PIPELINE_SERVER_URL}/pipelines/status", timeout=3)
+        r = requests.get(f"{PIPELINE_SERVER_URL}/pipelines/status", timeout=15)
         pipeline_reachable = r.ok
     except requests.RequestException:
         pass

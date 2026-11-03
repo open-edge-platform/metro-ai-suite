@@ -35,6 +35,8 @@ package = false
 # Force transitive dep pulled in by gradio to a patched, CVE-free version.
 constraint-dependencies = [
     "pillow>=12.3.0",
+    "brotli>=1.2.1",
+    "certifi>=2026.10.19",
 ]
 
 [tool.pytest.ini_options]

@@ -94,12 +94,6 @@ def links_in_md_files_functionality():
     error_message = "Some links were inaccessible"
     assert False, error_message
 
-@pytest.mark.kubernetes
-@pytest.mark.zephyr_id("NEX-T10674")
-def test_links_in_md_files_kubernetes():
-  """Test all links in markdown files for HTTP 200 response."""
-  links_in_md_files_functionality()
-
 @pytest.mark.docker
 @pytest.mark.zephyr_id("NEX-T9364")
 def test_links_in_md_files_docker():

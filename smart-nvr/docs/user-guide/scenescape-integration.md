@@ -52,6 +52,12 @@ export VSS_PORT=<vss_port>                        # optional, default 12345
 source setup.sh start
 ```
 
+When running in single-node SceneScape mode, `start` resolves SceneScape API
+credentials from `smart-intersection/src/secrets/browser.auth` and writes them
+into the `si1` entry in
+[brokers.yaml](../../resources/broker-config/brokers.yaml) as
+`scenescape_api_user` and `scenescape_api_password`.
+
 ### Verify
 
 ```bash
@@ -96,9 +102,9 @@ docker logs nvr-event-router | grep -i "scenescape\|subscribed"
 When Intel® Scenescape is enabled (`NVR_SCENESCAPE=true`):
 
 - Source dropdown shows only **"scenescape"** (Frigate source is not available in this mode)
-- **Count** field is visible and editable
-- Minimum count threshold for rule triggering can be configured (e.g., 5, 10, 15)
-- Rules table includes a "Count" column for tracking thresholds
+- **Select Topic** supports **camera** and **region**
+- When **Topic = camera**, the **Count** field is visible and editable, and the rules table includes a **Count** column for threshold tracking
+- When **Topic = region**, topic-specific controls are shown (for example **Scene**, **Region**, and **Event Type**), and options change based on Event Type (such as count, dwell time, or near-miss)
 - Count validation enforces non-negative integers
 
 ## Auto-Route Events Configuration
@@ -107,23 +113,54 @@ When Intel® Scenescape is enabled (`NVR_SCENESCAPE=true`):
 
 1. Navigate to the **Auto-Route Events** tab
 2. **Source** is pre-set to "scenescape"
-3. **Set Count:** Define the minimum detection threshold (e.g., 5)
-4. **Select Camera:** Choose the target camera
-5. **Choose Detection Label:** Select the object type ("vehicle" or "pedestrian")
-6. **Select Action:** Choose "Summarize" or "Add to Search"
-7. Click **Add Rule**
+3. Select **Topic**:
+   - **camera** for camera-based count thresholds
+   - **region** for scene/region event rules
+4. Configure fields based on the selected topic:
+   - **If Topic = camera**:
+     - **Select Camera**
+     - **Set Count** (minimum threshold, for example 5)
+     - **Choose Detection Label** ("vehicle" or "pedestrian")
+   - **If Topic = region**:
+     - **Select Scene**
+     - **Select Region**
+     - **Select Event Type** ("count", "dwell_time", or "near_miss")
+     - For **count**, configure label selection and thresholds.
+     - For **dwell_time**, configure a single label and duration in seconds.
+     - For **near_miss**, configure near-miss distance.
+5. **Select Action:** Choose "Summarize" or "Add to Search"
+6. Click **Add Rule**
 
 ### Rule Behavior Example
 
+**Camera topic example**
+
 ```text
 Source: scenescape
+Topic: camera
 Camera: camera1
 Count: 5
 Label: vehicle
 Action: Summarize
 ```
 
-This rule triggers video summarization when 5 or more vehicles are detected in camera1.
+This camera rule triggers video summarization when 5 or more vehicles are detected on camera1.
+
+**Region topic example**
+
+```text
+Source: scenescape
+Topic: region
+Scene: Intersection-1
+Region: crosswalk-west
+Event Type: count
+Labels: vehicle,pedestrian
+Vehicle Count: 3
+Pedestrian Count: 2
+Action: Search
+```
+
+This region rule triggers a search when both thresholds are met in the selected region (at least 3 vehicles and 2 pedestrians).
 
 ## Troubleshooting
 
@@ -138,6 +175,30 @@ source setup.sh restart
 ```
 
 After restarting, perform a hard refresh in the browser (`Ctrl+Shift+R` or `Cmd+Shift+R`).
+
+**Region topic rules not triggering after upgrading from older Smart NVR deployments**
+
+Smart NVR stores broker/rule state in a persistent Redis Docker volume (`redis_data` in Compose).
+If you previously ran an older Smart NVR version, stale Redis data can conflict with newer
+region-topic subscription behavior. Reset the Redis volume and redeploy:
+
+```bash
+# 1) Stop Smart NVR services
+source setup.sh stop
+
+# 2) Remove the Redis persistent volume from prior runs
+# Most common default volume name:
+docker volume rm docker_redis_data
+
+# If your Compose project name is different, list and remove the matching volume:
+docker volume ls --format '{{.Name}}' | grep '_redis_data$'
+docker volume rm <your_project>_redis_data
+
+# 3) Start services again
+source setup.sh start
+```
+
+After restart, recreate your Auto-Route rules from the UI.
 
 **No Scenescape events received**
 

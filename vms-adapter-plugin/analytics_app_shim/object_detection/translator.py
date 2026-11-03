@@ -1,154 +1,77 @@
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""DL Streamer metadata → Nx analytics object push payload translator.
+"""DL Streamer inference metadata → vendor-neutral :class:`DetectionFrame`.
 
-Converts the inference metadata published by DL Streamer Pipeline Server
-to MQTT into the list of Nx object-push dicts expected by
-``POST /rest/v4/analytics/engines/{engineId}/deviceAgents/{deviceId}/metadata/object``.
+This is the only place the DL Streamer MQTT payload is parsed. VMS shims turn
+the resulting frame into their own wire format (Nx JSON, ONVIF XML, ...).
 
 Sample DLS payload shape (see sample_app_metadata.json):
 {
   "objects": [
     {
       "detection": {
-        "bounding_box": {"x_min": 0.87, "x_max": 0.99, "y_min": 0.16, "y_max": 0.31},
-        "confidence": 0.745,
-        "label": "car",
-        "label_id": 2
+        "bounding_box": {"x_min": 0.1, "y_min": 0.2, "x_max": 0.3, "y_max": 0.4},
+        "confidence": 0.87,
+        "label": "pedestrian"
       },
-      "id": 1,
-      "region_id": 1,
-      "roi_type": "car",
-      "dwell_times": [{"zone_id": "region1", "dwell_time_sec": 3.1, "first_seen_timestamp_sec": 0.0}],
+      "id": 4,
       "zone_violations": ["region1"],
-      ...
+      "dwell_times": [{"zone_id": "region1", "dwell_time_sec": 3.2}]
     }
   ],
   "rtp": {"sender_ntp_unix_timestamp_ns": 1777350580751188754},
   "timestamp": 66611537331
 }
 
-``dwell_times``/``zone_violations`` are emitted by newer pipelines that use the
-``gvaanalytics`` element (zone/tripwire dwell-time analytics) instead of the
-older ``gvaattachroi`` ROI-crop + fake-artifact-object approach: detection now
-runs full-frame, and zone membership/dwell time is computed natively per
-object instead of being inferred here from a fake ROI object.
+``dwell_times``/``zone_violations`` are emitted by pipelines that use the
+``gvaanalytics`` element (zone/tripwire dwell-time analytics): detection runs
+full-frame, and zone membership/dwell time is computed per object.
 """
 
 from __future__ import annotations
 
 import time
-import uuid
 from typing import Any
 
-
-_TYPE_DEFAULT = "python.detected.object"
-
-
-def _label_to_type_id(label: str, label_type_map: dict[str, str]) -> str:
-    """Resolve a detection label to a registered Nx typeId.
-
-    Looks up ``label`` (case-insensitively) in ``label_type_map``.
-    Falls back to ``python.detected.object`` for unrecognised labels.
-    """
-    return label_type_map.get(label.lower(), _TYPE_DEFAULT)
+from plugin.core.models.domain import DetectionFrame, DetectionObject, DetectionZone
 
 
-def _zone_marker_objects(
-    zones: dict[str, dict[str, Any]] | None,
-    zone_type_id: str,
-) -> list[dict[str, Any]]:
-    """Build persistent Nx-push objects that draw each configured zone as a box.
-
-    Newer DLStreamer pipelines compute zones via ``gvaanalytics`` (zone id +
-    polygon live only in the pipeline server's own zone config file) instead of
-    the old ``gvaattachroi`` fake detection object, so there is nothing left in
-    the MQTT metadata to visualize the zone region. These marker objects stand
-    in for that, using a stable per-zone trackId so Nx keeps the same box
-    (rather than spawning a new track) across pushes.
-    """
-    markers: list[dict[str, Any]] = []
-    for zone_id, zone_cfg in (zones or {}).items():
-        x_min, y_min, x_max, y_max = zone_cfg["bounding_box"]
-        width = max(0.0, x_max - x_min)
-        height = max(0.0, y_max - y_min)
-        label = zone_cfg.get("label") or f"Zone {zone_id}"
-        track_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"vap-zone:{zone_id}"))
-        markers.append(
-            {
-                "trackId": track_id,
-                "typeId": zone_type_id,
-                "boundingBox": f"{x_min:.4f},{y_min:.4f},{width:.4f}x{height:.4f}",
-                "confidence": 1.0,
-                "attributes": [
-                    {"type": "String", "name": "label", "value": label, "confidence": 1.0},
-                ],
-            }
-        )
-    return markers
-
-
-def translate_dls_metadata(
+def parse_dls_frame(
     payload: dict[str, Any],
-    label_type_map: dict[str, str] | None = None,
     timestamp_offset_ms: int = 0,
     zone_filter_enabled: bool = False,
     zones: dict[str, dict[str, Any]] | None = None,
-    zone_type_id: str = "vap.zone",
-) -> tuple[list[dict[str, Any]], int]:
-    """Convert a DL Streamer inference metadata payload to Nx push format.
+    label_map: dict[str, str] | None = None,
+) -> DetectionFrame:
+    """Parse a DL Streamer metadata payload into a neutral frame.
 
     Args:
-        payload: Raw DL Streamer MQTT metadata dict.
-        label_type_map: Optional mapping of detection label (lower-cased) to Nx
-            typeId.  Labels absent from the map resolve to
-            ``python.detected.object``.  Typically comes from
-            ``ObjectDetectionAnalyticsAppConfig.label_type_map``.
-        timestamp_offset_ms: Milliseconds added to the computed timestamp before
-            pushing.  Use a negative value (e.g. ``-300``) to compensate for
-            inference pipeline latency and align metadata with the video frame
-            in Nx.  Configured via
-            ``ObjectDetectionAnalyticsAppConfig.metadata_timestamp_offset_ms``.
-        zone_filter_enabled: When True, drop objects that aren't currently
-            inside a monitored zone (no ``zone_violations``/``dwell_times``
-            entry). Pipelines built around ``gvaanalytics`` run detection
-            full-frame, so without this the Nx overlay shows every detected
-            object instead of only the ones inside the loitering zone.
-        zones: Static zone geometry (id -> {bounding_box, label}) drawn as a
-            persistent marker box per zone, since nothing in the per-frame
-            metadata carries zone geometry anymore.
-        zone_type_id: Nx typeId used for the pushed zone marker box(es).
+        payload: Raw DL Streamer MQTT metadata dict (envelope already unwrapped).
+        timestamp_offset_ms: Added to the frame timestamp to compensate for
+            inference latency (negative values move metadata earlier).
+        zone_filter_enabled: Drop objects not currently inside a monitored zone
+            (no ``zone_violations``/``dwell_times`` entry).
+        label_map: Detection label (case-insensitive) -> neutral category.
+        zones: Static zone geometry (id -> {bounding_box, label}); carried on
+            the frame because per-frame metadata no longer includes it.
 
-    Returns a tuple of:
-    - list of Nx object dicts (may be empty if no valid detections and no
-      configured zones)
-    - timestamp_ms to use for the metadata push
-
-    The timestamp is taken from ``rtp.sender_ntp_unix_timestamp_ns`` (converted
-    to milliseconds) when present, so the metadata aligns with the video frame
-    in Nx.  Falls back to local wall-clock time when the field is absent.
-    ``timestamp_offset_ms`` is applied in both cases.
-
-    The ``typeId`` of each object is resolved from the detection label via
-    ``label_type_map``, falling back to ``python.detected.object`` for
-    unrecognised labels.
+    The timestamp comes from ``rtp.sender_ntp_unix_timestamp_ns`` when present
+    so metadata aligns with the video frame, else local wall-clock time.
+    Objects missing any bounding-box edge, or with no label (attached ROIs
+    from ``gvaattachroi``, not detections), are skipped.
     """
-    _map = {k.lower(): v for k, v in (label_type_map or {}).items()}
+    categories = {k.lower(): v for k, v in (label_map or {}).items()}
     rtp = payload.get("rtp") or {}
     ntp_ns = rtp.get("sender_ntp_unix_timestamp_ns", 0)
     timestamp_ms = (ntp_ns // 1_000_000 if ntp_ns else int(time.time() * 1000)) + timestamp_offset_ms
 
-    objects: list[dict[str, Any]] = []
+    objects: list[DetectionObject] = []
     for obj in payload.get("objects", []):
         detection = obj.get("detection") or {}
         bbox = detection.get("bounding_box") or {}
-
-        x_min = bbox.get("x_min")
-        y_min = bbox.get("y_min")
-        x_max = bbox.get("x_max")
-        y_max = bbox.get("y_max")
-        if None in (x_min, y_min, x_max, y_max):
+        edges = (bbox.get("x_min"), bbox.get("y_min"), bbox.get("x_max"), bbox.get("y_max"))
+        if None in edges:
             continue
 
         dwell_times = obj.get("dwell_times") or []
@@ -156,60 +79,46 @@ def translate_dls_metadata(
             d.get("zone_id") for d in dwell_times if d.get("zone_id")
         ]
         zone_ids = sorted({z for z in zone_ids if z})
-
         if zone_filter_enabled and not zone_ids:
             continue
 
-        width = max(0.0, x_max - x_min)
-        height = max(0.0, y_max - y_min)
-        # Nx bounding box format: "x,y,widthxheight" (all normalized 0–1)
-        bounding_box = f"{x_min:.4f},{y_min:.4f},{width:.4f}x{height:.4f}"
+        track_id = obj.get("id")
+        region_id = obj.get("region_id") or None
 
-        confidence = float(detection.get("confidence", 0.0))
-        label = detection.get("label") or obj.get("roi_type") or "unknown"
+        # Dwell is passed through from the pipeline; whether it counts as
+        # "loitering" is decided upstream, not re-derived here.
+        dwell_s = max(d.get("dwell_time_sec", 0.0) for d in dwell_times) if dwell_times else None
 
-        # Prefer the gvatrack-assigned stable "id"; fall back to the older
-        # region_id seed, then a random UUID when neither is present.
-        obj_id = obj.get("id")
-        region_id = obj.get("region_id")
-        if obj_id is not None:
-            track_id = str(uuid.UUID(int=int(obj_id)))
-        elif region_id:
-            track_id = str(uuid.UUID(int=region_id))
-        else:
-            track_id = str(uuid.uuid4())
-
-        type_id = _label_to_type_id(label, _map)
-
-        attributes = [
-            {"type": "String", "name": "label", "value": label, "confidence": confidence},
-        ]
-        if obj_id is not None:
-            attributes.append(
-                {"type": "String", "name": "id", "value": str(obj_id), "confidence": confidence}
-            )
-        if dwell_times:
-            # Pure pass-through of the pipeline's own dwell computation - whether this
-            # counts as "loitering" is decided upstream (gvaanalytics/loitering_watermark
-            # threshold); not re-derived here to avoid duplicating that logic.
-            max_dwell = max(d.get("dwell_time_sec", 0.0) for d in dwell_times)
-            attributes.append(
-                {"type": "String", "name": "zone_id", "value": ",".join(zone_ids), "confidence": confidence}
-            )
-            attributes.append(
-                {"type": "String", "name": "dwell_time_sec", "value": f"{max_dwell:.1f}", "confidence": confidence}
-            )
-
+        label = detection.get("label") or obj.get("roi_type")
+        if not label:
+            # A region with no label is an attached ROI (gvaattachroi), not a
+            # detection; the configured zone overlay already shows that region.
+            continue
         objects.append(
-            {
-                "trackId": track_id,
-                "typeId": type_id,
-                "boundingBox": bounding_box,
-                "confidence": confidence,
-                "attributes": attributes,
-            }
+            DetectionObject(
+                track_id=int(track_id) if track_id is not None else None,
+                region_id=int(region_id) if region_id is not None else None,
+                label=label,
+                category=categories.get(label.lower()),
+                confidence=float(detection.get("confidence", 0.0)),
+                x_min=edges[0],
+                y_min=edges[1],
+                x_max=edges[2],
+                y_max=edges[3],
+                zone_ids=zone_ids,
+                dwell_s=dwell_s,
+            )
         )
 
-    objects.extend(_zone_marker_objects(zones, zone_type_id))
-
-    return objects, timestamp_ms
+    zone_models = [
+        DetectionZone(
+            zone_id=str(zone_id),
+            label=zone_cfg.get("label") or f"Zone {zone_id}",
+            x_min=zone_cfg["bounding_box"][0],
+            y_min=zone_cfg["bounding_box"][1],
+            x_max=zone_cfg["bounding_box"][2],
+            y_max=zone_cfg["bounding_box"][3],
+        )
+        for zone_id, zone_cfg in (zones or {}).items()
+    ]
+    return DetectionFrame(timestamp_ms=timestamp_ms, objects=objects, zones=zone_models)

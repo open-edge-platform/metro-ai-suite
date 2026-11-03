@@ -32,7 +32,8 @@ are delivered differently depending on which surface you use:
 - **Nx Witness desktop client (recommended, dashboard-free).** An operator enables the pipeline and
   sets the inference device and prompt in **Camera Settings → Integrations → VAP Analytics
   Integration**. VAP's `NxWitnessVmsShim` polls the Nx device-agent settings every 5 seconds and
-  reconciles the pipeline. Captions are pushed back as **bookmarks** on the camera's Nx timeline.
+  reconciles the pipeline. Captions are pushed back as **bookmarks** on the camera's Nx timeline (on Milestone they
+  become analytics events). The LVC shim emits a neutral `AnalyticsEvent`; each VMS shim renders it.
 - **Provider dashboard (optional).** An operator posts a run explicitly to the generic Analytics
   App API, and captions are streamed to the dashboard as an SSE-proxied overlay on a WebRTC player.
 
@@ -90,9 +91,9 @@ DL Streamer Pipeline Server (dls_vision)
     └─► inference results → MQTT broker  topic: {metadata_topic_prefix}/{vms_name}:{camera_id}
     ▼
 MqttSubscriber (VAP background task)
-    │  translate_dls_metadata() — DLS JSON → Nx analytics object format
+    │  parse_dls_frame() — DLS JSON → vendor-neutral DetectionFrame
     ▼
-NxWitnessVmsShim.push_analytics_objects()
+NxWitnessVmsShim.publish_detections()  (frame_to_nx → Nx analytics objects)
     │  POST /rest/v4/analytics/engines/{engine_id}/deviceAgents/{device_id}/metadata/object
     ▼
 Nx Witness VMS
@@ -168,12 +169,16 @@ MQTT broker:
 - **Metadata topic** — `{metadata_topic_prefix}/{vms_name}:{camera_id}` (default prefix
   `object_tracking`, matching the Loitering Detection app's own `SOURCE_TOPIC_PREFIX`). Carries
   per-frame DL Streamer GVA JSON metadata (detections, and zone/dwell-time info when present).
-  Each message is translated by `translate_dls_metadata()` into Nx analytics object format and
-  pushed to Nx Witness via `NxWitnessVmsShim.push_analytics_objects()`.
+  Each message is parsed by `parse_dls_frame()` into a vendor-neutral `DetectionFrame`; the Nx shim
+  converts it to Nx analytics object format (`frame_to_nx()`) and pushes it via
+  `NxWitnessVmsShim.publish_detections()`.
 - **Event topic** — `{metadata_topic_prefix}/{vms_name}:{camera_id}/{event_topic_suffix}`
-  (default suffix `loiterstatus`; subscribed only when `event_bookmark_enabled` is `true`).
-  Carries rows for person IDs whose dwell time exceeds the loitering threshold, published by the
-  Loitering Detection app. Each row is pushed to Nx as a bookmark.
+  (default suffix `loiterstatus`; subscribed only when `events_enabled` is `true`, or the
+  deprecated `event_bookmark_enabled`). Carries rows for person IDs whose dwell time exceeds the
+  loitering threshold, published by the Loitering Detection app. Each row becomes a vendor-neutral
+  `AnalyticsEvent` (with the loiterer's latest box from the metadata topic, when known) published
+  via `publish_event()`: Nx stores it as a bookmark; Milestone sends an `ANALYTICS_EVENT` named
+  "Loitering detected" (class `VAP event`) to the app's `{app_id}-events` topic.
 
 ### React Analytics Provider Dashboard (`ui/`)
 
