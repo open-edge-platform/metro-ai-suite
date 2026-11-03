@@ -37,10 +37,10 @@ By following this guide, you will learn how to:
    Choose **one** installation command:
 
    <!--hide_directive ::::{tab-set} hide_directive-->
-   <!--hide_directive :::{tab-item} hide_directive--> **Without the Console UI**
-   <!--hide_directive :sync: grafana hide_directive-->
+   <!--hide_directive :::{tab-item} hide_directive--> **CLI mode**
+   <!--hide_directive :sync: cli hide_directive-->
 
-   Use the sample scripts and Grafana.
+   Use the sample scripts and access the application through Grafana:
 
    ```bash
    ./install.sh loitering-detection
@@ -52,10 +52,12 @@ By following this guide, you will learn how to:
    > Replace `<HOST_IP>` with your target IP address.
 
    <!--hide_directive ::: hide_directive-->
-   <!--hide_directive :::{tab-item} hide_directive--> **With the Console UI**
+   <!--hide_directive :::{tab-item} hide_directive--> **Console UI mode**
    <!--hide_directive :sync: console-ui hide_directive-->
 
-   Add an operator interface for starting and stopping pipelines, selecting models and devices, and drawing zones. **Grafana remains available**.
+   This is the same installation as CLI mode, but it adds an optional operator interface for
+   starting and stopping pipelines, selecting models and devices, and drawing zones. With this
+   installation mode **it is best to use the Console UI**, but Grafana remains available.
 
    ```bash
    ./install.sh loitering-detection-ui
@@ -109,8 +111,8 @@ Run all commands from the `metro-vision-ai-app-recipe` directory.
    > while you want to keep Console pipelines running.
 
    <!--hide_directive ::::{tab-set} hide_directive-->
-   <!--hide_directive :::{tab-item} hide_directive--> **Grafana**
-   <!--hide_directive :sync: grafana hide_directive-->
+   <!--hide_directive :::{tab-item} hide_directive--> **CLI mode**
+   <!--hide_directive :sync: cli hide_directive-->
 
    Run the predefined samples and view Grafana:
 
@@ -134,11 +136,11 @@ Run all commands from the `metro-vision-ai-app-recipe` directory.
       configured zones.
 
    <!--hide_directive ::: hide_directive-->
-   <!--hide_directive :::{tab-item} hide_directive--> **Console UI**
+   <!--hide_directive :::{tab-item} hide_directive--> **Console UI mode**
    <!--hide_directive :sync: console-ui hide_directive-->
 
-   Start and view a pipeline in the Console UI
-   This workflow requires the `-ui` installation choice in point 2 of the [setup](#set-up-and-first-use).
+      This workflow requires the `-ui` installation choice in point 2 of the [setup](#set-up-and-first-use).
+      Start and view a pipeline in the Console UI:
 
    1. Open `https://localhost/console/`.
    2. Leave **Number of pipelines** at `1`. The **Pipeline 1** card has a prefilled source,
@@ -158,8 +160,9 @@ Run all commands from the `metro-vision-ai-app-recipe` directory.
 
 ## Access the Application and Components
 
-Console pipelines have their own video panels (Grafana remains available); for details see
-[Use the Console UI](./how-to-guides/use-console-ui.md).
+> [!NOTE]
+> Console pipelines have their own video panels (Grafana remains available, see below on how
+  to access it); for details on how to use the Console UI see [Use the Console UI](./how-to-guides/use-console-ui.md).
 
 ### Nginx Dashboard
 
