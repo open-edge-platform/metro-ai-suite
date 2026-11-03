@@ -28,7 +28,7 @@ def _reconcile_sessions():
     indistinguishable from a live stream of an idle scene.
     """
     try:
-        r = requests.get(f"{PIPELINE_SERVER_URL}/pipelines/status", timeout=5)
+        r = requests.get(f"{PIPELINE_SERVER_URL}/pipelines/status", timeout=15)
         r.raise_for_status()
         data = r.json()
     except (requests.RequestException, ValueError):

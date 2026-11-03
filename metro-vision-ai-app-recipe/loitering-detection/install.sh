@@ -16,6 +16,7 @@ echo "Configuring application to use \$HOST_IP"
 # Download OMZ models
 ##############################################################################
 mkdir -p src/dlstreamer-pipeline-server/models/intel
+# The model-proc .json is kept: this OMZ model's IR has no class names.
 OMZ_MODELS=(pedestrian-and-vehicle-detector-adas-0001)
 for model in "\${OMZ_MODELS[@]}"; do
   if [ ! -e "src/dlstreamer-pipeline-server/models/intel/\$model/\$model.json" ]; then

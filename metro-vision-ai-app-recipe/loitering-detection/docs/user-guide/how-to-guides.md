@@ -2,6 +2,7 @@
 
 This section collects guides for the Loitering Detection sample application.
 
+- [Use the Console UI](./how-to-guides/use-console-ui.md)
 - [Customize the Application](./how-to-guides/customize-application.md)
 - [Updating the Pipeline](./how-to-guides/update-pipelines.md)
 - [Generate Offline Package](./how-to-guides/generate-offline-package.md)
@@ -14,6 +15,7 @@ This section collects guides for the Loitering Detection sample application.
 :::{toctree}
 :hidden:
 
+./how-to-guides/use-console-ui
 ./how-to-guides/customize-application
 ./how-to-guides/update-pipelines
 ./how-to-guides/generate-offline-package

@@ -21,7 +21,6 @@ The key features are:
 | [Loitering Detection](./loitering-detection) | Real-time detection of loitering behavior in transportation hubs                                   | [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-vision/pallet-defect-detection/index.html)                       |
 | [Smart Parking](./smart-parking)     | Automated parking space monitoring and management.             | [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/loitering-detection/index.html)                         |
 
-
 ## How It Works
 
 The Metro Vision AI App Recipe architecture is designed to facilitate seamless integration and operation of various components involved in AI-driven video analytics for transportation and safety & security scenarios. The system processes real-time video feeds from traffic cameras, applies deep learning models for object detection and classification, and generates actionable insights for traffic management.

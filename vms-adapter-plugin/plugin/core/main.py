@@ -20,7 +20,7 @@ from plugin.core.api.routes import (
     sessions as sessions_routes,
     vms as vms_routes,
 )
-from plugin.core.config import load_config
+from plugin.core.config import InvalidConfigError, load_config
 from plugin.core.pipeline.orchestrator import init_orchestrator
 
 
@@ -60,6 +60,10 @@ def create_app() -> FastAPI:
     try:
         cfg = load_config()
         install_api_key_middleware(application, cfg.api.api_key)
+    except InvalidConfigError:
+        # The message was already printed; exit now rather than fail inside
+        # lifespan, where the server would add an unhelpful traceback.
+        raise
     except SystemExit:
         pass
 

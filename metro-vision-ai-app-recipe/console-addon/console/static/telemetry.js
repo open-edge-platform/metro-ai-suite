@@ -16,10 +16,18 @@ window.Console = window.Console || {};
   }
 
   function fmtMem(used, total) {
-    if (!used && !total) { return ""; }
+    if (!(used > 0) && !(total > 0)) { return ""; }
     var g = function (b) { return (b / (1024 * 1024 * 1024)).toFixed(1); };
-    if (used && total) { return g(used) + "/" + g(total) + " GB"; }
-    return used ? g(used) + " GB" : "";
+    if (used > 0 && total > 0) { return g(used) + "/" + g(total) + " GB"; }
+    return used > 0 ? g(used) + " GB" : "";
+  }
+
+  // NPU memory is tens to hundreds of MB, which rounds to 0.0 GB.
+  function npuSub(npu) {
+    var parts = [];
+    if (npu.mem_used_bytes > 0) { parts.push(Math.round(npu.mem_used_bytes / 1e6) + " MB"); }
+    if (npu.power_w > 0) { parts.push(npu.power_w.toFixed(1) + " W"); }
+    return parts.join(" \u00b7 ");
   }
 
   function healthNote(s) {
@@ -81,12 +89,11 @@ window.Console = window.Console || {};
       // still distinguishable after a reload even if the numbers no
       // longer match what was typed into the rail when they were started.
       if (!C.panels[s.peer_id]) {
-        var modelLabel = (C.modelLabel ? C.modelLabel(s.model) : s.model) || "?";
         var pipelineNum = Object.keys(C.panels).length + 1;
         C.createPanel({
           peer_id: s.peer_id,
           whep_url: "whep/" + s.peer_id,
-          title: "Pipeline " + pipelineNum + " \u00b7 " + modelLabel + " \u00b7 " + (s.device || "?"),
+          title: C.panelTitle(pipelineNum, s.model, s.device),
           zone: s.zone,
         });
         C.panels[s.peer_id].settled = true;
@@ -110,6 +117,7 @@ window.Console = window.Console || {};
 
   function pollEvents() {
     C.apiGet("api/events").then(function (d) {
+      if (C._zoneApplying) { return; }
       var streams = (d && d.streams) || [];
       // Drop panels the server no longer knows about, so a stopped or
       // aborted pipeline cannot linger as a frozen panel.
@@ -154,6 +162,9 @@ window.Console = window.Console || {};
     if (subEl) { subEl.textContent = sub || ""; }
   }
 
+  // Some qmassa builds report raw i915/xe engine names, others the long form.
+  var ENGINE_NAMES = { bcs: "copy", ccs: "compute", rcs: "render", vcs: "video", vecs: "video-enhance" };
+
   function engineSub(gpu) {
     var e = gpu && gpu.engines;
     var parts = [];
@@ -162,7 +173,7 @@ window.Console = window.Console || {};
       // scaling made every engine but the busiest read as 0.
       Object.keys(e).sort().forEach(function (k) {
         var v = e[k];
-        if (v !== null && v !== undefined) { parts.push(k + " " + Math.round(v * 100)); }
+        if (v !== null && v !== undefined) { parts.push((ENGINE_NAMES[k] || k) + " " + Math.round(v * 100)); }
       });
     }
     var mem = fmtMem(gpu && gpu.mem_used_bytes, gpu && gpu.mem_total_bytes);
@@ -175,7 +186,7 @@ window.Console = window.Console || {};
       var cpu = m.cpu || {}, gpu = m.gpu || {}, npu = m.npu || {}, mem = m.mem || {};
       setGauge("cpu", cpu.percent, cpu.freq_mhz ? Math.round(cpu.freq_mhz) + " MHz" : "");
       setGauge("gpu", gpu.percent, engineSub(gpu));
-      setGauge("npu", npu.percent, fmtMem(npu.mem_used_bytes, npu.mem_total_bytes));
+      setGauge("npu", npu.percent, npuSub(npu));
       setGauge("mem", mem.percent, fmtMem(mem.used_bytes, mem.total_bytes));
     }).catch(function () { /* transient */ });
   }
