@@ -1,10 +1,12 @@
 # Release Notes: Real-Time Scene Understanding
 
-## Version 1.0.0
+## Version 2026.3.0
+
+**Release Date**:
 
 Initial release of Real-Time Scene Understanding, a Docker Compose application for prompt-driven analysis of live RTSP camera streams.
 
-### New
+**New**:
 
 - RTSP stream ingestion with low-latency browser playback over WebRTC.
 - Prompt-based frame alert detection using the `Qwen3-VL-2B-Instruct` VLM, with temporal deep analysis of video segments using `Qwen3-VL-8B-Instruct` as default.
