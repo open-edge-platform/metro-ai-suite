@@ -16,7 +16,7 @@ import { hitCameraLabel, hitMatchesRef } from "@/lib/hits";
 import { confidence } from "@/protocol/directives";
 import { formatClock } from "@/lib/time";
 import type { TraceStop } from "@/stores/case";
-import { PRESET_LABEL, type ReportContent } from "./content";
+import type { ReportContent } from "./content";
 import { cameraZone, useFloorplanStore } from "@/stores/floorplan";
 import { stopNumbers } from "@/features/map/route";
 
@@ -99,24 +99,6 @@ export function ReportEditor({
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <div className="grid gap-1.5">
-          <Label>Report type</Label>
-          <Select
-            value={value.preset}
-            onValueChange={(v) => set("preset", v as ReportContent["preset"])}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(PRESET_LABEL).map(([k, label]) => (
-                <SelectItem key={k} value={k}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
         <div className="grid gap-1.5">
           <Label>Confidence</Label>
           <Select

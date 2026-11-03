@@ -142,7 +142,7 @@ Zustand stores in `ui/src/stores/`:
 | `liveTimeline` | Live sightings per Hermes session, with their confirmed state (persisted in this browser). |
 | `cameras` | VSS live streams and their status. |
 | `floorplan` | Active plan (persisted). |
-| `reports` | PDFs generated in this tab (memory only, lost on reload). |
+| `reports` | The Reports page lists past reports from the Hermes transcripts. |
 | `settings` | Minimum score (0.6), search limit (20), watch duration (30 min), idle stop (10 min). |
 
 Pure route helpers (`confirmedSightings`, `movementLegs`, `timelineLines`)

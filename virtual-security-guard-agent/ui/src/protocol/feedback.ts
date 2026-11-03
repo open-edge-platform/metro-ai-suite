@@ -14,7 +14,8 @@ interface UiBlocks {
 }
 
 /** Prompt used when the operator sends only a photo. */
-export const IMAGE_ONLY_PROMPT = "Find this person in the recorded footage.";
+export const IMAGE_ONLY_PROMPT =
+  "Find matches for this photo in the recorded footage.";
 
 function block<F extends keyof UiBlocks>(
   fence: F,

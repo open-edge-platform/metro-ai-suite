@@ -5,48 +5,23 @@ import { create } from "zustand";
 export interface GeneratedReport {
   id: string;
   title: string;
-  preset: string;
   fileName: string;
   createdAt: number;
-  size: number;
   blobUrl: string;
   sessionId?: string;
-  stops: number;
 }
 
 interface ReportsState {
   reports: GeneratedReport[];
   add: (r: GeneratedReport) => void;
-  /**
-   * Take a report off the list and return it. Its PDF stays available until
-   * the caller calls `discard` (so an Undo can `restore` it).
-   */
-  remove: (id: string) => GeneratedReport | undefined;
-  restore: (r: GeneratedReport) => void;
-  clear: () => void;
 }
 
-/** Free a removed report's PDF. */
-export const discard = (r: GeneratedReport) => URL.revokeObjectURL(r.blobUrl);
-
 /**
- * PDFs generated in this tab. Kept in memory only (decision Q10); blob URLs
- * are revoked on removal and lost on reload.
+ * PDFs built in this browser tab (report card or Reports > Download PDF),
+ * listed in the case file of their investigation. Kept in memory only
+ * (decision Q10), so they are lost on reload.
  */
 export const useReportsStore = create<ReportsState>()((set, get) => ({
   reports: [],
   add: (r) => set({ reports: [r, ...get().reports] }),
-  remove: (id) => {
-    const r = get().reports.find((x) => x.id === id);
-    set({ reports: get().reports.filter((x) => x.id !== id) });
-    return r;
-  },
-  restore: (r) =>
-    set({
-      reports: [...get().reports, r].sort((a, b) => b.createdAt - a.createdAt),
-    }),
-  clear: () => {
-    get().reports.forEach(discard);
-    set({ reports: [] });
-  },
 }));

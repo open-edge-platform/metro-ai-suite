@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import type { StreamInput } from "@/adapters/vss/types";
+import { StatusChip } from "@/components/shared/media";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,6 +21,7 @@ import {
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -260,19 +262,23 @@ export function CameraFormDialog({
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  {byZone.map(([zone, keys]) => (
+                  {byZone.map(([zone, keys], i) => (
                     <SelectGroup key={zone}>
-                      <SelectLabel>{zone}</SelectLabel>
+                      {i > 0 && <SelectSeparator />}
+                      <SelectLabel className="font-semibold tracking-wide text-foreground uppercase">
+                        {zone}
+                      </SelectLabel>
                       {keys.map((k) => (
                         <SelectItem
                           key={k}
                           value={k}
                           disabled={taken.has(k)}
-                          description={
-                            taken.has(k) ? "Has a live stream" : undefined
-                          }
+                          className="pl-5"
                         >
                           <span className="font-mono text-xs">{k}</span>
+                          {taken.has(k) && (
+                            <StatusChip tone="success">Live</StatusChip>
+                          )}
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -288,12 +294,13 @@ export function CameraFormDialog({
               ) : touched && errors.tag ? (
                 <p className="text-xs text-destructive">{errors.tag}</p>
               ) : (
-                tag && (
+                tag &&
+                (node?.zone || hasFootage) && (
                   <p className="text-xs text-muted-foreground">
-                    {node?.zone && <>Zone {node.zone}. </>}
-                    This name is also the VSS tag used for search.
+                    {node?.zone && <>Zone {node.zone}.</>}
+                    {node?.zone && hasFootage && " "}
                     {hasFootage &&
-                      " This camera already has recorded footage; the live stream joins it."}
+                      "This camera already has recorded footage; the live stream joins it."}
                   </p>
                 )
               )}

@@ -21,6 +21,11 @@ backend or database of its own.
 
 ### 1. Get the source
 
+If you set up the prerequisite stack on this host, you already cloned the
+source in its [step 1](./get-started/set-up-prerequisite-stack.md#1-get-the-sources).
+Go to that directory and run `cd metro-ai-suite/virtual-security-guard-agent`.
+Otherwise, clone it:
+
 ```bash
 git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
 cd metro-ai-suite

@@ -153,16 +153,15 @@ report on the person in the black t-shirt".
 
 ![Handover report draft from the VSG agent](../_assets/report-draft.jpg "Report draft")
 
-PDFs are built in the browser and kept only for the open tab. The **Reports**
-page lists them and links to past investigations: open one in Argus to
-generate its PDF again.
+PDFs are built in the browser. The **Reports** page lists the latest report of
+each past investigation.
 
 ![Reports page](../_assets/reports.jpg "Reports")
 
 ## 8. Reopen an investigation
 
 Each investigation is a Hermes session. Click **History** to reopen or delete
-one; deleting asks for confirmation because it removes the Hermes session. The URL `…/argus?session=<id>` opens a session directly.
+one.
 
 ![Investigation history](../_assets/investigation-history.jpg "History")
 

@@ -26,7 +26,7 @@ const SUGGESTIONS = [
   {
     icon: ImageUp,
     title: "Search with a photo",
-    prompt: "Find this person on every camera.",
+    prompt: "Find matches for this photo on every camera.",
     needsImage: true,
   },
 ];

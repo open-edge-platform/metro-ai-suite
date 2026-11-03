@@ -9,6 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   useCameraPolling,
   useCamerasStore,
   type Camera,
@@ -19,6 +24,37 @@ import { STATUS_META } from "./status";
 import { CameraFormDialog } from "./CameraFormDialog";
 import { useLastDefined } from "./useLastDefined";
 import { useFloorplanStore, zoneOf } from "@/stores/floorplan";
+import { freePlanTags } from "@/features/map/tags";
+
+/** Opens the add dialog; disabled once every floorplan camera has a stream. */
+function AddCameraButton({
+  full,
+  variant,
+  onClick,
+}: {
+  full: boolean;
+  variant?: "outline";
+  onClick: () => void;
+}) {
+  const button = (
+    <Button variant={variant} onClick={onClick} disabled={full}>
+      <Plus /> Add camera
+    </Button>
+  );
+  if (!full) return button;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {/* A disabled button gets no pointer events, so the span shows the tip. */}
+        <span tabIndex={0}>{button}</span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-64">
+        Every camera on the floorplan has a live stream. Remove one to add
+        another.
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 /** Live cameras: the RTSP streams VSS is ingesting, with add/edit/pause/remove. */
 export function CameraFleetPage() {
@@ -36,6 +72,12 @@ export function CameraFleetPage() {
 
   // Locations come from the plan, so re-sort when it or the mapping changes.
   const plan = useFloorplanStore((s) => s.plan);
+  const planReady = useFloorplanStore(
+    (s) => s.source !== "default" || s.defaultStatus === "ready",
+  );
+  // Only a loaded plan and camera list can tell that no camera is free.
+  const planFull =
+    planReady && loaded && freePlanTags(plan, cameras).length === 0;
   const shown = useMemo(() => {
     const f = filter.trim().toLowerCase();
     const where = (c: Camera) => zoneOf(plan, c.tag) ?? c.location;
@@ -141,9 +183,7 @@ export function CameraFleetPage() {
           {refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
           Refresh
         </Button>
-        <Button onClick={() => setEditing("new")}>
-          <Plus /> Add camera
-        </Button>
+        <AddCameraButton full={planFull} onClick={() => setEditing("new")} />
       </div>
 
       {error && (
@@ -180,9 +220,11 @@ export function CameraFleetPage() {
               : "No live cameras yet. Add an RTSP camera, or ask Argus to add one."}
           </p>
           {!cameras.length && (
-            <Button variant="outline" onClick={() => setEditing("new")}>
-              <Plus /> Add camera
-            </Button>
+            <AddCameraButton
+              full={planFull}
+              variant="outline"
+              onClick={() => setEditing("new")}
+            />
           )}
         </div>
       )}

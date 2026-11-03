@@ -20,7 +20,7 @@ import {
 } from "@/features/reports/useReportGenerator";
 import { cn } from "@/lib/utils";
 import type { ReportDirective } from "@/protocol/directives";
-import { useReportsStore, type GeneratedReport } from "@/stores/reports";
+import type { GeneratedReport } from "@/stores/reports";
 import { useInvestigationStore } from "@/stores/investigation";
 import { useRoute } from "@/hooks/useRoute";
 
@@ -61,29 +61,8 @@ export function ReportCard({ data }: { data: ReportDirective }) {
       const r = await build();
       toast.success("Incident report ready", {
         description: r.fileName,
-        action: { label: "Download", onClick: () => void download(r) },
+        action: { label: "Download", onClick: () => downloadReport(r) },
       });
-    } catch (e) {
-      toast.error("Couldn't build the PDF", {
-        description: (e as Error).message,
-      });
-    }
-  }
-
-  /**
-   * Save the PDF. One removed on the Reports page has had its blob freed, so
-   * it is built again from this draft instead of downloading nothing.
-   */
-  async function download(r: GeneratedReport) {
-    if (useReportsStore.getState().reports.some((x) => x.id === r.id)) {
-      downloadReport(r);
-      return;
-    }
-    toast.info("That PDF was removed from Reports", {
-      description: "Building it again from this draft.",
-    });
-    try {
-      downloadReport(await build());
     } catch (e) {
       toast.error("Couldn't build the PDF", {
         description: (e as Error).message,
@@ -157,7 +136,7 @@ export function ReportCard({ data }: { data: ReportDirective }) {
               size="sm"
               variant="outline"
               disabled={busy}
-              onClick={() => void download(done)}
+              onClick={() => downloadReport(done)}
             >
               <Download /> Download
             </Button>

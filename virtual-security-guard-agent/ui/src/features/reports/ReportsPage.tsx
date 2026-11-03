@@ -1,245 +1,98 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import {
-  Download,
-  ExternalLink,
-  Eye,
-  FileText,
-  FolderOpen,
-  Loader2,
-  RefreshCw,
-  Trash2,
-} from "lucide-react";
+import { useQueries } from "@tanstack/react-query";
+import { Download, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { StatusChip } from "@/components/shared/media";
+import { getAdapters } from "@/adapters";
+import type { HermesMessage, HermesSession } from "@/adapters/hermes/types";
 import { Button } from "@/components/ui/button";
+import { qk, useInvestigations } from "@/hooks/queries";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { useInvestigations } from "@/hooks/queries";
-import { formatBytes } from "@/lib/utils";
-import { formatDateTime, timeAgo } from "@/lib/time";
-import {
-  discard,
-  useReportsStore,
-  type GeneratedReport,
-} from "@/stores/reports";
-import { PRESET_LABEL } from "./content";
-import { downloadReport } from "./useReportGenerator";
+  latestDirective,
+  reviewsFromTurns,
+  routeOf,
+  subjectImageOf,
+  turnsFromMessages,
+} from "@/stores/investigation.logic";
+import { sessionSightings, useLiveTimelineStore } from "@/stores/liveTimeline";
+import { toReportContent } from "./content";
+import { downloadReport, useReportGenerator } from "./useReportGenerator";
 
-function ReportPreviewDialog({
-  report,
-  onOpenChange,
-}: {
-  report?: GeneratedReport;
-  onOpenChange: (o: boolean) => void;
-}) {
-  return (
-    <Dialog open={!!report} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[90vh] flex-col sm:max-w-4xl">
-        <DialogHeader>
-          <DialogTitle className="pr-8">{report?.title}</DialogTitle>
-          <DialogDescription>{report?.fileName}</DialogDescription>
-        </DialogHeader>
-        {report && (
-          <iframe
-            src={report.blobUrl}
-            title={`Preview of ${report.title}`}
-            className="min-h-0 w-full flex-1 border bg-muted"
-          />
-        )}
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" asChild>
-            <a href={report?.blobUrl} target="_blank" rel="noopener">
-              <ExternalLink /> Open in new tab
-            </a>
-          </Button>
-          <Button onClick={() => report && downloadReport(report)}>
-            <Download /> Download
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
+/** An investigation's latest report draft and what its PDF is built from. */
+function reportOf(session: HermesSession, messages: HermesMessage[]) {
+  const turns = turnsFromMessages(messages);
+  const found = latestDirective(turns, "report");
+  if (!found) return undefined;
+  const live = sessionSightings(useLiveTimelineStore.getState(), session.id);
+  return {
+    session,
+    report: toReportContent(found.directive.data),
+    stops: routeOf({ turns, reviews: reviewsFromTurns(turns) }, live),
+    subjectImage: subjectImageOf(turns)?.previewUrl,
+  };
 }
 
-function Generated({ onPreview }: { onPreview: (r: GeneratedReport) => void }) {
-  const reports = useReportsStore((s) => s.reports);
-  const clear = useReportsStore((s) => s.clear);
-  const [clearing, setClearing] = useState(false);
+const NO_SESSIONS: HermesSession[] = [];
 
-  /** Remove at once; the PDF is freed only once Undo is no longer offered. */
-  function removeReport(id: string) {
-    const r = useReportsStore.getState().remove(id);
-    if (!r) return;
-    let undone = false;
-    toast(`Removed "${r.title}"`, {
-      action: {
-        label: "Undo",
-        onClick: () => {
-          undone = true;
-          useReportsStore.getState().restore(r);
-        },
-      },
-      onAutoClose: () => !undone && discard(r),
-      onDismiss: () => !undone && discard(r),
-    });
+/** Transcript query results, combined (and structurally shared) for memos. */
+function combineTranscripts(
+  results: {
+    data?: HermesMessage[];
+    isPending: boolean;
+    error: Error | null;
+  }[],
+) {
+  return {
+    data: results.map((t) => t.data),
+    pending: results.some((t) => t.isPending),
+    error: results.find((t) => t.error)?.error,
+  };
+}
+
+/** Incident reports: the latest report of each past investigation in Hermes. */
+export function ReportsPage() {
+  const navigate = useNavigate();
+  const sessions = useInvestigations();
+  const list = sessions.data ?? NO_SESSIONS;
+  // Keyed by lastActive: a transcript is read again only when it changed.
+  const transcripts = useQueries({
+    queries: list.map((s) => ({
+      queryKey: [...qk.messages(s.id), s.lastActive],
+      queryFn: () => getAdapters().hermes.getMessages(s.id),
+      staleTime: Infinity,
+    })),
+    combine: combineTranscripts,
+  });
+  const reports = useMemo(
+    () =>
+      list.flatMap((s, i) => {
+        const messages = transcripts.data[i];
+        const r = messages && reportOf(s, messages);
+        return r ? [r] : [];
+      }),
+    [list, transcripts.data],
+  );
+  const loading =
+    sessions.isLoading || sessions.isFetchingNextPage || transcripts.pending;
+  const failed = sessions.error ?? transcripts.error;
+
+  const { generate, offscreen } = useReportGenerator();
+  const [building, setBuilding] = useState<string>();
+  async function download(r: NonNullable<ReturnType<typeof reportOf>>) {
+    setBuilding(r.session.id);
+    try {
+      downloadReport(await generate({ ...r, sessionId: r.session.id }));
+    } catch (e) {
+      toast.error("Couldn't build the PDF", {
+        description: (e as Error).message,
+      });
+    } finally {
+      setBuilding(undefined);
+    }
   }
 
-  return (
-    <section className="border bg-card">
-      <header className="flex items-center gap-2 border-b px-4 py-2.5">
-        <FileText className="size-4 text-brand-accent" />
-        <h3 className="text-sm font-semibold">Generated in this tab</h3>
-        <span className="text-xs text-muted-foreground">
-          PDFs live in memory and are gone when you close or reload the tab.
-        </span>
-        <span className="flex-1" />
-        {reports.length > 0 && (
-          <Button size="xs" variant="ghost" onClick={() => setClearing(true)}>
-            Clear all
-          </Button>
-        )}
-      </header>
-      {reports.length ? (
-        <ul className="divide-y">
-          {reports.map((r) => (
-            <li
-              key={r.id}
-              className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{r.title}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatDateTime(r.createdAt)}, {r.stops} sighting
-                  {r.stops === 1 ? "" : "s"}, {formatBytes(r.size)}
-                </p>
-              </div>
-              <StatusChip tone="neutral">
-                {PRESET_LABEL[r.preset as keyof typeof PRESET_LABEL] ??
-                  r.preset}
-              </StatusChip>
-              <div className="flex gap-1">
-                <Button size="sm" variant="ghost" onClick={() => onPreview(r)}>
-                  <Eye /> Preview
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => downloadReport(r)}
-                >
-                  <Download /> Download
-                </Button>
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  onClick={() => removeReport(r.id)}
-                  aria-label={`Remove ${r.title}`}
-                >
-                  <Trash2 />
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-          No PDFs yet. Ask Argus for a report after tracing a subject, or open a
-          past investigation below and generate its PDF there.
-        </p>
-      )}
-      <ConfirmDialog
-        open={clearing}
-        onOpenChange={setClearing}
-        title={`Remove all ${reports.length} reports?`}
-        description="The PDFs are only kept in this browser tab, so they can't be recovered."
-        action="Remove all"
-        errorTitle="Couldn't remove the reports"
-        onConfirm={clear}
-      />
-    </section>
-  );
-}
-
-function Past() {
-  const { data, isLoading, error, refetch, isFetching } = useInvestigations();
-  const navigate = useNavigate();
-
-  return (
-    <section className="border bg-card">
-      <header className="flex items-center gap-2 border-b px-4 py-2.5">
-        <FolderOpen className="size-4 text-brand-accent" />
-        <h3 className="text-sm font-semibold">Past investigations</h3>
-        <span className="text-xs text-muted-foreground">
-          Stored as Argus sessions in Hermes. Open one to review it and generate
-          its PDF.
-        </span>
-        <span className="flex-1" />
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          onClick={() => void refetch()}
-          disabled={isFetching}
-          aria-label="Refresh"
-        >
-          <RefreshCw className={isFetching ? "animate-spin" : undefined} />
-        </Button>
-      </header>
-      {isLoading ? (
-        <p className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" /> Loading investigations
-        </p>
-      ) : error ? (
-        <p className="px-4 py-8 text-center text-sm text-destructive">
-          Couldn't reach Hermes: {(error as Error).message}
-        </p>
-      ) : data?.length ? (
-        <ul className="divide-y">
-          {data.map((s) => (
-            <li
-              key={s.id}
-              className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">
-                  {s.title || "Untitled"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {timeAgo(s.lastActive ?? s.startedAt)}
-                  {s.messageCount ? `, ${s.messageCount} messages` : ""}
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  navigate(`/argus?session=${encodeURIComponent(s.id)}`)
-                }
-              >
-                Open in Argus
-              </Button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-          No investigations yet.
-        </p>
-      )}
-    </section>
-  );
-}
-
-/** Incident reports: PDFs from this tab plus links to past investigations. */
-export function ReportsPage() {
-  const [preview, setPreview] = useState<GeneratedReport>();
   return (
     <div className="mx-auto grid w-full max-w-5xl gap-6 p-4 md:p-6">
       <div>
@@ -249,12 +102,80 @@ export function ReportsPage() {
           the browser.
         </p>
       </div>
-      <Generated onPreview={setPreview} />
-      <Past />
-      <ReportPreviewDialog
-        report={preview}
-        onOpenChange={(o) => !o && setPreview(undefined)}
-      />
+      <section className="border bg-card">
+        {reports.length > 0 && (
+          <ul className="divide-y">
+            {reports.map((r) => (
+              <li
+                key={r.session.id}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5"
+              >
+                <FileText className="size-4 shrink-0 text-brand-accent" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {r.report.title}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {r.session.title || "Untitled"}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={!!building}
+                  onClick={() => void download(r)}
+                >
+                  {building === r.session.id ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <Download />
+                  )}
+                  Download PDF
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    navigate(
+                      `/argus?session=${encodeURIComponent(r.session.id)}`,
+                    )
+                  }
+                >
+                  Open in Argus
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {failed ? (
+          <p className="px-4 py-8 text-center text-sm text-destructive">
+            Couldn't reach Hermes: {failed.message}
+          </p>
+        ) : loading ? (
+          <p className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" /> Loading reports
+          </p>
+        ) : (
+          !reports.length && (
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+              No reports yet. Ask Argus for a report after tracing a subject.
+            </p>
+          )
+        )}
+        {sessions.hasNextPage && !loading && (
+          <div className="flex items-center gap-3 border-t px-4 py-2 text-xs text-muted-foreground">
+            Checked {list.length} investigations.
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void sessions.fetchNextPage()}
+            >
+              Load older
+            </Button>
+          </div>
+        )}
+      </section>
+      {offscreen}
     </div>
   );
 }

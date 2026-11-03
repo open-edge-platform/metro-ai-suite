@@ -11,6 +11,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { IMAGE_ONLY_PROMPT } from "@/protocol/feedback";
 import { useInvestigationStore } from "@/stores/investigation";
 import { useSettingsStore } from "@/stores/settings";
 import { CaseFilePanel } from "./CaseFilePanel";
@@ -61,9 +62,11 @@ export function AgentHub() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlSession, busy]);
 
-  // Store -> URL: a new investigation got its Hermes session id.
+  // Store -> URL: a new investigation got its Hermes session id. A session
+  // already in the URL wins (e.g. Reports > Open in Argus): the effect above
+  // opens it, and writing the old id here would undo that.
   useEffect(() => {
-    if (!onArgus || !sessionId || params.get("session") === sessionId) return;
+    if (!onArgus || !sessionId || params.get("session")) return;
     setParams((p) => (p.set("session", sessionId), p), { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, onArgus]);
@@ -84,7 +87,7 @@ export function AgentHub() {
       return;
     }
     const image = take();
-    const text = s.text || (image ? "Find this person." : "");
+    const text = s.text || (image ? IMAGE_ONLY_PROMPT : "");
     if (!text) return;
     setDraft("");
     void send(text, { image });
@@ -198,7 +201,7 @@ export function AgentHub() {
           <div className="pointer-events-none absolute inset-2 z-20 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-brand-accent bg-background/85 text-brand-accent">
             <ImageDown className="size-8" />
             <p className="text-sm font-medium">
-              Drop a photo to search for this person
+              Drop a photo to search the footage for it
             </p>
           </div>
         )}

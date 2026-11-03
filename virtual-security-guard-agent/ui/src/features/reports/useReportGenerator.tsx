@@ -130,13 +130,10 @@ export function useReportGenerator() {
         const report: GeneratedReport = {
           id: uid("report"),
           title: args.report.title,
-          preset: args.report.preset,
           fileName: reportFileName(args.report.title, at),
           createdAt: at.getTime(),
-          size: blob.size,
           blobUrl: URL.createObjectURL(blob),
           sessionId: args.sessionId,
-          stops: args.stops.length,
         };
         add(report);
         return report;

@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { hitKey, noteForHit, resolveRefs, scoreCutoff } from "@/lib/hits";
 import type { MatchesDirective } from "@/protocol/directives";
+import { IMAGE_ONLY_PROMPT } from "@/protocol/feedback";
 import { useRoute } from "@/hooks/useRoute";
 import { sameVerdicts, splitVerdicts, type Verdict } from "@/stores/case";
 import { latestGridId, useInvestigationStore } from "@/stores/investigation";
@@ -105,8 +106,7 @@ export function ValidationGrid({ data, turnId, interactive }: Props) {
 
   /** A frame was cropped and stored in VSS: search the footage for it. */
   function onCrop(image: { previewUrl: string; imageUrl: string }) {
-    const search = () =>
-      void send("Search for the person in this image.", { image });
+    const search = () => void send(IMAGE_ONLY_PROMPT, { image });
     // A run is streaming: the search can't start now, so let the operator
     // start it once Argus is done instead of dropping it.
     if (useInvestigationStore.getState().busy) {

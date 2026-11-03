@@ -214,7 +214,7 @@ export function LiveTraceCard() {
           ) : liveCameras ? (
             <p>
               Watches the {liveCameras} live camera
-              {liveCameras === 1 ? "" : "s"} for this person for {watchMinutes}{" "}
+              {liveCameras === 1 ? "" : "s"} for this subject for {watchMinutes}{" "}
               min.
             </p>
           ) : (

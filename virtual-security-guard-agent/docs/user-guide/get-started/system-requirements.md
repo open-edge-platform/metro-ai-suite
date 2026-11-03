@@ -72,5 +72,5 @@ are a starting point, not a performance/accuracy guarantee.
 | `12346` | VSG console (`VSG_UI_PORT`) | The browser (the only port it needs). |
 | `8642` | Hermes API server | The VSG container. |
 | `12345` | VSS nginx gateway, including the VSS MCP server at `/mcp` | The VSG container and Hermes. |
-| `8010` | Inference Router (`127.0.0.1` only) | Hermes, on the same host. |
-| `8450` (`HARNESS_OVMS_REST_PORT`) | OVMS (`127.0.0.1` only) | The Inference Router. |
+| `8010` | Inference Router, on the `<HOST_IP>` given to the installer | Hermes, on the same host. |
+| `8450` (`HARNESS_OVMS_REST_PORT`) | OVMS, on the `<HOST_IP>` given to the installer | The Inference Router. |

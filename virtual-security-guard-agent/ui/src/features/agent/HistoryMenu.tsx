@@ -34,7 +34,14 @@ export function HistoryMenu({
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState<{ id: string; title: string }>();
   const qc = useQueryClient();
-  const { data, isLoading, error } = useInvestigations();
+  const {
+    data,
+    isLoading,
+    error,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useInvestigations();
 
   async function remove() {
     if (!deleting) return;
@@ -111,6 +118,18 @@ export function HistoryMenu({
                 </li>
               ))}
             </ul>
+            {hasNextPage && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="w-full"
+                disabled={isFetchingNextPage}
+                onClick={() => void fetchNextPage()}
+              >
+                {isFetchingNextPage && <Loader2 className="animate-spin" />}
+                Load older
+              </Button>
+            )}
           </div>
         </PopoverContent>
       </Popover>

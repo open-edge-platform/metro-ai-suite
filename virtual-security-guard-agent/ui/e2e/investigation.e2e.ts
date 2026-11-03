@@ -163,7 +163,7 @@ test("live search: a timeline of sightings, confirm one onto the route, stop, re
   await expect(live).toContainText("2 confirmed stops");
 });
 
-test("report: Argus drafts a report and the PDF is listed", async ({
+test("report: Argus drafts a report and Reports lists it for download", async ({
   page,
 }) => {
   const grid = await search(page);
@@ -188,9 +188,16 @@ test("report: Argus drafts a report and the PDF is listed", async ({
   ).toBeVisible({ timeout: 20_000 });
 
   await page.getByRole("link", { name: "Reports", exact: true }).click();
-  await expect(page.getByRole("main").last()).toContainText(
+  // Read back from the Hermes transcript, next to the seeded past report.
+  const row = page
+    .getByRole("listitem")
+    .filter({ hasText: "Find a person in a blue jacket" });
+  await expect(row).toContainText(
     "Person in blue jacket, Level 4 walk-through",
   );
+  const download = page.waitForEvent("download");
+  await row.getByRole("button", { name: "Download PDF" }).click();
+  expect((await download).suggestedFilename()).toMatch(/\.pdf$/);
 });
 
 test("resume: a past investigation restores its reviewed grid", async ({
@@ -250,4 +257,46 @@ test("floorplan: a live camera takes its plan key as name and tag", async ({
   await expect(
     panel.getByRole("button", { name: "Add live camera here" }),
   ).toHaveCount(0);
+});
+
+test("cameras: Add camera is disabled once every plan camera is live", async ({
+  page,
+}) => {
+  await page.goto("/cameras");
+  await expect(page.getByRole("button", { name: "Add camera" })).toBeEnabled();
+  await page.getByRole("link", { name: "Floorplan" }).click();
+  // The only plan camera already has a mock live stream.
+  await page.locator('input[accept="application/json,.json"]').setInputFiles({
+    name: "full.floorplan.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(
+      JSON.stringify({
+        cameras: {
+          P_Lev_4_Entry_Way_ip_107: { x: 100, y: 100, zone: "Entry" },
+        },
+      }),
+    ),
+  });
+  await page.getByRole("link", { name: "Live cameras" }).click();
+  await expect(page.getByRole("button", { name: "Add camera" })).toBeDisabled();
+});
+
+test("reports: Open in Argus opens that investigation, not the current one", async ({
+  page,
+}) => {
+  await search(page);
+  await expect(page).toHaveURL(/session=/);
+  await page.getByRole("link", { name: "Reports", exact: true }).click();
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: "Person in blue jacket, Level 4" })
+    .filter({ hasNotText: "Find a person" })
+    .getByRole("button", { name: "Open in Argus" })
+    .click();
+  await expect(
+    page
+      .getByRole("list", { name: "Investigation transcript" })
+      .getByText("Find a person in a blue jacket on Level 4"),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/session=mock_session_past/);
 });
