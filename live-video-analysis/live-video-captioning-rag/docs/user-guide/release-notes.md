@@ -1,5 +1,23 @@
 # Release Notes: Live Video Captioning RAG
 
+## Version 2026.3.0
+
+**Release Date**:
+
+**New**:
+
+- Integrated NPU support for embedding and LLM inference in RAG workflows.
+- Updated Helm charts and Docker Compose configurations to support NPU devices.
+- Revised documentation to reflect NPU integration for embedding and LLM inference in RAG workflows.
+- Enabled chatbot mode for detached new-tab windows and embedded views in the live-video-captioning dashboard.
+- Upgraded GPU and NPU driver version.
+- Bumped dependency package versions to address reported vulnerabilities.
+
+**Known Issues**:
+
+- The sample application is not validated either on the Standalone or Developer Node
+  versions of Edge Microvisor Toolkit.
+
 ## Version 2026.2.0
 
 **Release Date**: September 10, 2026
