@@ -112,7 +112,7 @@ services:
       - DBHOST=pgserver
       - NO_PROXY=${NO_PROXY:-},.scenescape.intel.com
       - no_proxy=${no_proxy:-},.scenescape.intel.com
-      - SCENESCAPE_ALLOWED_HOSTS=${PUBLIC_HOSTNAME}
+      - SCENESCAPE_ALLOWED_HOSTS=${HOST_IP}
     cap_add:
       - SYS_ADMIN
     devices:
