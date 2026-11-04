@@ -1,8 +1,8 @@
 # Release Notes: Real-Time Scene Understanding
 
-## Version 2026.3.0
+## Version 2026.3.0-rc1
 
-**Release Date**:
+**Release Date**: November 6, 2026
 
 Initial release of Real-Time Scene Understanding, a Docker Compose application for prompt-driven analysis of live RTSP camera streams.
 

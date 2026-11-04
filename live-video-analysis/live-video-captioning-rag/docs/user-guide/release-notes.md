@@ -1,8 +1,10 @@
 # Release Notes: Live Video Captioning RAG
 
-## Version 2026.3.0
+## Version 2026.3.0-rc1
 
-**Release Date**:
+**Release Date**: November 6, 2026
+
+> **Note:** Helm Chart support will be deprecated in the next release. Limited validation has been performed on the Helm charts for this release.
 
 **New**:
 
