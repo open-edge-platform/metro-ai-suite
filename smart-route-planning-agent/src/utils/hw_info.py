@@ -18,22 +18,6 @@ CAPABILITIES_URL = os.getenv(
 )
 UNAVAILABLE = "Unavailable"
 
-# Intel NPU PCI device IDs -> platform generation.
-NPU_GENERATIONS = {
-    "0x7d1d": "Meteor Lake",
-    "0xad1d": "Arrow Lake",
-    "0x643e": "Lunar Lake",
-    "0xb03e": "Panther Lake",
-}
-
-
-def _read_text(path: str) -> str:
-    try:
-        with open(path) as f:
-            return f.read().strip()
-    except OSError:
-        return ""
-
 
 def get_hardware_info() -> tuple[str, str, str]:
     """Returns display strings for (CPU, GPU, NPU)."""
@@ -79,17 +63,9 @@ def get_hardware_info() -> tuple[str, str, str]:
     if npus:
         npu = npus[0]
         pci_id = (npu.get("pci_device") or "").lower()
-        generation = NPU_GENERATIONS.get(pci_id, "")
-        base_name = npu.get("commercial_reference") or npu.get("model") or "Intel NPU"
+        name = npu.get("commercial_reference") or npu.get("model") or "Intel NPU"
         driver = npu.get("driver") or ""
-        driver_version = (
-            _read_text(f"/sys/module/{driver}/version").split(" ")[0] if driver else ""
-        )
-        name = f"{base_name} ({generation})" if generation else base_name
-        npu_text = (
-            f"{name}  |  {driver or 'n/a'} {driver_version or 'n/a'}  |  "
-            f"PCI {pci_id or 'n/a'}"
-        )
+        npu_text = f"{name}  |  {driver or 'n/a'}  |  PCI {pci_id or 'n/a'}"
     else:
         npu_text = "None"
 
