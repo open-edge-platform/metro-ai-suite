@@ -220,7 +220,7 @@
           "editorMode": "code",
           "expr": "last_over_time(hw_npu_info[30s])",
           "instant": true,
-          "legendFormat": "{{name}}  |  {{driver}} {{driver_version}}  |  PCI {{pci_id}}",
+          "legendFormat": "{{name}}  |  {{driver}}  |  PCI {{pci_id}}",
           "range": false,
           "refId": "A"
         }

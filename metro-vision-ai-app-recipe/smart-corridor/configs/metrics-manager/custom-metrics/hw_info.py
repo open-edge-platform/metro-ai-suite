@@ -13,8 +13,7 @@ fields become Prometheus labels:
 
   hw_cpu_info{model=..., cores=..., threads=..., ram_gb=...} 1
   hw_gpu_info{name=..., igpu=..., dgpu=...}                   1
-  hw_npu_info{name=..., present=..., generation=..., pci_id=...,
-              driver=..., driver_version=..., pci_address=...} 1
+  hw_npu_info{name=..., present=..., pci_id=..., driver=..., pci_address=...} 1
 """
 
 import json
@@ -23,23 +22,6 @@ import urllib.request
 
 # The expanded profile adds pci_device / driver / sysfs_path for the NPU.
 CAPABILITIES_URL = "http://localhost:9090/api/v1/capabilities?profile=expanded"
-
-# Intel NPU PCI device IDs -> platform generation (the capabilities API only
-# reports the generic "Intel NPU" commercial name).
-NPU_GENERATIONS = {
-    "0x7d1d": "Meteor Lake",
-    "0xad1d": "Arrow Lake",
-    "0x643e": "Lunar Lake",
-    "0xb03e": "Panther Lake",
-}
-
-
-def read_text(path):
-    try:
-        with open(path) as f:
-            return f.read().strip()
-    except OSError:
-        return ""
 
 
 def esc(value):
@@ -89,19 +71,14 @@ def main():
     npus = by_cat.get("npu", [])
     npu = npus[0] if npus else {}
     pci_id = (npu.get("pci_device") or "").lower()
-    generation = NPU_GENERATIONS.get(pci_id, "")
-    base_name = npu.get("commercial_reference") or npu.get("model") or "Intel NPU"
+    name = npu.get("commercial_reference") or npu.get("model") or "Intel NPU"
     driver = npu.get("driver") or ""
-    # e.g. "1.0.0 6.14.0-27-generic" -> "1.0.0"
-    driver_version = read_text(f"/sys/module/{driver}/version").split(" ")[0] if driver else ""
     print(line("hw_npu", {
-        "name": (f"{base_name} ({generation})" if generation else base_name) if npus else "None",
+        "name": name if npus else "None",
         "present": 1 if npus else 0,
-        "generation": generation or "unknown",
         "pci_id": pci_id or "n/a",
         "pci_address": npu.get("id") or "n/a",
         "driver": driver or "n/a",
-        "driver_version": driver_version or "n/a",
     }))
     return 0
 
