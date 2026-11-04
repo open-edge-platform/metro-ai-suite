@@ -72,16 +72,6 @@ export function splitVerdicts(v: Record<string, Verdict> | undefined) {
   return { confirm: confirm.sort(byRank), reject: reject.sort(byRank) };
 }
 
-/** Same verdicts for the same matches. */
-export function sameVerdicts(
-  a: Record<string, Verdict> | undefined,
-  b: Record<string, Verdict> | undefined,
-): boolean {
-  const ka = Object.keys(a ?? {});
-  if (ka.length !== Object.keys(b ?? {}).length) return false;
-  return ka.every((k) => a![k] === b?.[k]);
-}
-
 export interface TraceStop {
   hit: VssHit;
   /** 1-based position on the route. */

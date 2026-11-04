@@ -18,8 +18,8 @@ import { hitKey, noteForHit, resolveRefs, scoreCutoff } from "@/lib/hits";
 import type { MatchesDirective } from "@/protocol/directives";
 import { IMAGE_ONLY_PROMPT } from "@/protocol/feedback";
 import { useRoute } from "@/hooks/useRoute";
-import { sameVerdicts, splitVerdicts, type Verdict } from "@/stores/case";
-import { latestGridId, useInvestigationStore } from "@/stores/investigation";
+import { splitVerdicts, type Verdict } from "@/stores/case";
+import { editableGridId, useInvestigationStore } from "@/stores/investigation";
 import { useSettingsStore } from "@/stores/settings";
 import { ClipPlayerDialog } from "./ClipPlayerDialog";
 import { ATTACH_INPUT_ID, PROMPT_ID } from "./Composer";
@@ -45,8 +45,9 @@ const MAX_FINDINGS = 20;
 /**
  * Human-in-the-loop review of Argus's potential matches: the top six, with
  * "Show more findings" revealing up to twenty. The operator only confirms;
- * every shown match left unconfirmed is sent as a false positive. Only the
- * latest grid can be changed; earlier grids show what was sent. Sightings
+ * every shown match left unconfirmed is sent as a false positive. A grid can
+ * be reviewed once, and only while it is the last turn; after that it shows
+ * what was sent. Sightings
  * confirmed in any grid form the time-ordered route and the report.
  */
 export function ValidationGrid({ data, turnId, interactive }: Props) {
@@ -54,9 +55,7 @@ export function ValidationGrid({ data, turnId, interactive }: Props) {
     useDirectiveHits(turnId);
   const minScore = useSettingsStore((s) => s.minTraceScore);
   const send = useInvestigationStore((s) => s.send);
-  const editable = useInvestigationStore(
-    (s) => latestGridId(s.turns) === turnId,
-  );
+  const editable = useInvestigationStore((s) => editableGridId(s) === turnId);
   const review = useInvestigationStore((s) => s.reviews[turnId]);
   const setVerdicts = useInvestigationStore((s) => s.setVerdicts);
   const sent = review?.sent;
@@ -102,7 +101,6 @@ export function ValidationGrid({ data, turnId, interactive }: Props) {
     return out;
   }, [shown, verdicts]);
   const confirmed = splitVerdicts(next).confirm.length;
-  const changed = !sent || !sameVerdicts(next, sent);
 
   /** A frame was cropped and stored in VSS: search the footage for it. */
   function onCrop(image: { previewUrl: string; imageUrl: string }) {
@@ -128,19 +126,18 @@ export function ValidationGrid({ data, turnId, interactive }: Props) {
   }
 
   /** Nothing confirmed yet and some matches are still hidden: show them first. */
-  const revealFirst = !sent && confirmed === 0 && total > shown.length;
+  const revealFirst = confirmed === 0 && total > shown.length;
 
   function save() {
     if (revealFirst) {
       setVisible(total);
       return;
     }
-    if (confirmed === 0 && !sent) {
+    if (confirmed === 0) {
       // Nothing matches: nothing is sent; the operator retries from the composer.
       setNoMatch(true);
       return;
     }
-    // A sent review is replaced, so unticking every match withdraws it.
     setNoMatch(false);
     void submit(next);
   }
@@ -203,11 +200,11 @@ export function ValidationGrid({ data, turnId, interactive }: Props) {
             )}
           </h3>
           <p className="truncate text-xs text-muted-foreground">
-            {!editable
-              ? "Earlier search. Only the latest results can be changed."
-              : sent && !changed
-                ? "Review sent to Argus. You can still confirm more sightings."
-                : "Confirm the sightings that show the subject. Unconfirmed ones count as false positives."}
+            {editable
+              ? "Confirm the sightings that show the subject. Unconfirmed ones count as false positives."
+              : sent
+                ? "Review sent to Argus."
+                : "Earlier search. Only the latest results can be reviewed."}
           </p>
         </div>
         {queryId && (
@@ -299,9 +296,9 @@ export function ValidationGrid({ data, turnId, interactive }: Props) {
           ) : (
             <Button
               size="sm"
-              variant={confirmed || !changed ? "default" : "outline"}
+              variant={confirmed ? "default" : "outline"}
               className="ml-auto shrink-0 whitespace-nowrap"
-              disabled={sending || !interactive || !changed}
+              disabled={sending || !interactive}
               title={
                 !interactive
                   ? "Argus is busy; send when it finishes"
@@ -314,17 +311,11 @@ export function ValidationGrid({ data, turnId, interactive }: Props) {
               ) : (
                 <SendHorizontal />
               )}
-              {!changed
-                ? "Review sent"
-                : confirmed
-                  ? sent
-                    ? `Update review (${confirmed} confirmed)`
-                    : `Save ${confirmed} confirmed`
-                  : sent
-                    ? "Update review (none match)"
-                    : revealFirst
-                      ? `None match, show ${total - shown.length} more`
-                      : "None match"}
+              {confirmed
+                ? `Save ${confirmed} confirmed`
+                : revealFirst
+                  ? `None match, show ${total - shown.length} more`
+                  : "None match"}
             </Button>
           )}
         </footer>

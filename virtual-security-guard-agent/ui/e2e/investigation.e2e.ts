@@ -24,6 +24,14 @@ async function confirm(grid: Locator, ...refs: string[]) {
       .click();
 }
 
+/** A grid that can no longer be reviewed: no verdict buttons, no Save. */
+async function expectLocked(grid: Locator) {
+  await expect(grid.getByRole("button", { name: /^Confirm/ })).toHaveCount(0);
+  await expect(
+    grid.getByRole("button", { name: /Save|None match|Update review/ }),
+  ).toHaveCount(0);
+}
+
 const caseFile = (page: Page) =>
   page.getByRole("complementary", { name: "Case file" });
 
@@ -39,9 +47,8 @@ test("review: confirmed sightings become the time-ordered route", async ({
       "Review sent. Confirmed m1, m3. Marked m2, m4, m5, m6 as false positives.",
     ),
   ).toBeVisible();
-  await expect(
-    grid.getByRole("button", { name: "Review sent" }),
-  ).toBeDisabled();
+  // A sent review is final: the grid is read-only.
+  await expectLocked(grid);
 
   // m3 (External Lift foyer) happened before m1 (Main Entry).
   const stops = caseFile(page)
@@ -57,9 +64,7 @@ test("review: only the latest grid can be changed", async ({ page }) => {
   const first = await search(page);
   await confirm(first, "m1");
   await first.getByRole("button", { name: "Save 1 confirmed" }).click();
-  await expect(
-    first.getByRole("button", { name: "Review sent" }),
-  ).toBeVisible();
+  await expectLocked(first);
 
   await page
     .getByRole("textbox", { name: "Message Argus" })
@@ -86,6 +91,30 @@ test("review: only the latest grid can be changed", async ({ page }) => {
       .getByRole("article", { name: /^Match m1 / })
       .getByRole("button", { name: "Confirmed" }),
   ).toBeVisible();
+});
+
+test("review: a new search locks an unsent grid (ITEP-98128)", async ({
+  page,
+}) => {
+  const first = await search(page);
+  await confirm(first, "m1");
+
+  await page
+    .getByRole("textbox", { name: "Message Argus" })
+    .fill("Find a person in a blue jacket near the lifts");
+  await page.getByRole("button", { name: "Send" }).click();
+  // Locked as soon as the new search is sent, not when its grid arrives.
+  await expectLocked(first);
+  await expect(
+    first.getByText("Earlier search. Only the latest results can be reviewed."),
+  ).toBeVisible();
+
+  const grids = page.getByRole("region", { name: "Potential matches" });
+  await expect(grids).toHaveCount(2);
+  await expect(grids.last().getByRole("article")).toHaveCount(6);
+  await expectLocked(grids.first());
+  // The unsent tick never reached Argus.
+  await expect(page.getByText(/^Review sent\./)).toHaveCount(0);
 });
 
 test("review: none match shows a retry hint and sends nothing", async ({
@@ -210,14 +239,13 @@ test("resume: a past investigation restores its reviewed grid", async ({
     .click();
 
   const grid = page.getByRole("region", { name: "Potential matches" }).first();
+  // Sent, so read-only: the confirm shows as text, not a toggle.
   await expect(
     grid
       .getByRole("article", { name: /^Match m1 / })
-      .getByRole("button", { name: "Confirmed" }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await expect(
-    grid.getByRole("button", { name: "Review sent" }),
-  ).toBeDisabled();
+      .getByText("Confirmed", { exact: true }),
+  ).toBeVisible();
+  await expectLocked(grid);
   await expect(
     page.getByRole("region", { name: "Incident report draft" }),
   ).toBeVisible();

@@ -40,7 +40,8 @@ vi.mock("./watch", () => ({
   isWatchActive: (s: { status?: string }) => s.status === "watching",
 }));
 
-const { useInvestigationStore } = await import("./investigation");
+const { editableGridId, useInvestigationStore } =
+  await import("./investigation");
 const { toast } = await import("sonner");
 
 const store = () => useInvestigationStore.getState();
@@ -73,6 +74,7 @@ const grid = '```vsg-matches\n{"v":1,"keep":["m1"]}\n```';
 beforeEach(() => {
   Object.values(hermes).forEach((f) => f.mockReset());
   vi.mocked(toast.info).mockReset();
+  vi.mocked(toast.error).mockReset();
   watch.status = undefined;
   sessionStorage.clear();
   store().reset();
@@ -140,22 +142,44 @@ describe("stop", () => {
 
 describe("submitReview", () => {
   async function withGrid() {
-    hermes.streamRun.mockImplementation(completes(grid));
+    hermes.streamRun.mockImplementationOnce(completes(grid));
     await store().send("Find a person");
     return store().turns[1].id;
   }
 
-  it("rolls the review back when the run doesn't start", async () => {
+  it("rolls the review back and keeps the grid editable when the run doesn't start", async () => {
     const gridId = await withGrid();
     hermes.startRun.mockRejectedValue(new Error("Hermes 503"));
     await store().submitReview(gridId, { m1: "confirm" }, {});
     expect(store().reviews[gridId]).toEqual({ verdicts: { m1: "confirm" } });
+    expect(store().turns).toHaveLength(2);
+    expect(editableGridId(store())).toBe(gridId);
+    expect(toast.error).toHaveBeenCalledWith("Review not sent", {
+      description: "Hermes 503",
+    });
   });
 
-  it("marks the review sent once the run started", async () => {
+  it("marks the review sent once the run started and locks the grid", async () => {
     const gridId = await withGrid();
     await store().submitReview(gridId, { m1: "confirm" }, {});
     expect(store().reviews[gridId].sent).toEqual({ m1: "confirm" });
+    expect(editableGridId(store())).toBeUndefined();
+    store().setVerdicts(gridId, {});
+    expect(store().reviews[gridId].verdicts).toEqual({ m1: "confirm" });
+  });
+
+  it("locks an unsent grid as soon as another message is sent", async () => {
+    const gridId = await withGrid();
+    expect(editableGridId(store())).toBe(gridId);
+    const next = store().send("Find a person in a red jacket");
+    // Locked while the new search is still running, before it has a grid.
+    expect(store().busy).toBe(true);
+    expect(editableGridId(store())).toBeUndefined();
+    await next;
+    expect(editableGridId(store())).toBeUndefined();
+    hermes.startRun.mockClear();
+    await store().submitReview(gridId, { m1: "confirm" }, {});
+    expect(hermes.startRun).not.toHaveBeenCalled();
   });
 });
 

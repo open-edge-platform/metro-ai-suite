@@ -7,7 +7,6 @@ import {
   confirmedSightings,
   movementLegs,
   routeFromSightings,
-  sameVerdicts,
   timelineLines,
 } from "./case";
 
@@ -34,15 +33,6 @@ describe("formatGap", () => {
     expect(formatGap(185)).toBe("3 min 05 s");
     expect(formatGap(3720)).toBe("1 h 02 min");
     expect(formatGap(undefined)).toBe("unknown time");
-  });
-});
-
-describe("sameVerdicts", () => {
-  it("compares verdict maps by content", () => {
-    expect(sameVerdicts({ m1: "confirm" }, { m1: "confirm" })).toBe(true);
-    expect(sameVerdicts({ m1: "confirm" }, { m1: "reject" })).toBe(false);
-    expect(sameVerdicts({ m1: "confirm" }, {})).toBe(false);
-    expect(sameVerdicts(undefined, {})).toBe(true);
   });
 });
 

@@ -145,9 +145,17 @@ function forgetActiveRun(runId: string) {
 
 const errorText = (e: unknown) => (e as Error).message || "Request failed.";
 
-/** The agent turn whose review grid the operator can still change. */
-export function latestGridId(turns: Turn[]): string | undefined {
-  return latestDirective(turns, "matches")?.turnId;
+/**
+ * The agent turn whose review grid the operator can still change: it must be
+ * the last turn of the transcript and not yet sent. Any later message (a new
+ * search, a chat follow-up, a report) or sending the review locks it.
+ */
+export function editableGridId(
+  s: Pick<InvestigationState, "turns" | "reviews">,
+): string | undefined {
+  const id = latestDirective(s.turns, "matches")?.turnId;
+  const last = s.turns[s.turns.length - 1];
+  return id && id === last?.id && !s.reviews[id]?.sent ? id : undefined;
 }
 
 /** The session's live sightings, from the live timeline store. */
@@ -547,18 +555,17 @@ export const useInvestigationStore = create<InvestigationState>()((
     },
 
     setVerdicts(turnId, verdicts) {
-      if (turnId !== latestGridId(get().turns)) return;
+      if (turnId !== editableGridId(get())) return;
       set((s) => ({
         reviews: { ...s.reviews, [turnId]: { ...s.reviews[turnId], verdicts } },
       }));
     },
 
     async submitReview(turnId, verdicts, opts) {
-      if (get().busy || turnId !== latestGridId(get().turns)) return;
+      if (get().busy || turnId !== editableGridId(get())) return;
       const { confirm, reject } = splitVerdicts(verdicts);
       // Marked sent up front so this run's context already has the new
       // route; rolled back if Hermes never accepts the run.
-      const prev = get().reviews[turnId];
       set((s) => ({
         reviews: { ...s.reviews, [turnId]: { verdicts, sent: verdicts } },
       }));
@@ -580,13 +587,19 @@ export const useInvestigationStore = create<InvestigationState>()((
         op,
         runningPhase("feedback", confirm.length > 0),
       );
-      if (!started)
-        set((s) => ({
-          reviews: {
-            ...s.reviews,
-            [turnId]: { verdicts, ...(prev?.sent && { sent: prev.sent }) },
-          },
-        }));
+      if (started) return;
+      // Hermes never got the review: drop the failed exchange so the grid is
+      // the last turn again and can be sent once more.
+      const turns = get().turns;
+      const failed = turns[turns.findIndex((t) => t.id === op.id) + 1] as
+        AgentTurn | undefined;
+      set((s) => ({
+        turns: s.turns.filter((t) => t.id !== op.id && t.id !== failed?.id),
+        reviews: { ...s.reviews, [turnId]: { verdicts } },
+      }));
+      toast.error("Review not sent", {
+        description: failed?.error ?? "Argus couldn't start. Try again.",
+      });
     },
 
     async retry(agentTurnId) {
