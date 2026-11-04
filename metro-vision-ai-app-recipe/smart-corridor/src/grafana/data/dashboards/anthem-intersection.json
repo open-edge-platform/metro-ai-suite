@@ -220,6 +220,31 @@
       "title": "",
       "transparent": true,
       "type": "text"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 6,
+        "x": 9,
+        "y": 73
+      },
+      "id": 105,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style=\"display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center\">\n  <h3 style=\"margin:0 0 8px 0\">Scan for Documentation</h3>\n  <img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUgAAAFIAQMAAAAI2vVwAAAABlBMVEUAAAD///+l2Z/dAAAAAnRSTlP//8i138cAAAAJcEhZcwAACxIAAAsSAdLdfvwAAAG0SURBVGiB7dXBUgMxDANQ/f9Pm6GW5HQKxeEAFy1Dt+u8XBzVi9peiIz8D4m++L1v9Si8rkYuJBurcj9+fnn8u+2RW9kVt5hdf16NvJWlZteZ3MjfSnSC5cA0R15LToYuzwNLX8yQyHeSI+GbPw+MyJ3UpQAXN6Iz7eXIneQPX8192cB4R26lTqADK8XTmFLkVuJYY2rh3ZwQkRfSWdUOZ5g4ci/LtXKIeRZwoiPXspeKvS63XzryVk7vKWdg1BH4yK2ccToXJwI/ItfySLHHq24uR17Ibq1ifByCjgSRe6m4eiRg1ifUkVtZZ3jddg0MPkXuZU0VdY4KftebLPJCzmIfhvc44JE7OWmFKEYAWozcymk3h0Sdy70nci31bnL3VddRzKbIn+Xkli1/3oxjhkQu5PHO0ivreQWRN/JRmNS67eq+VeRKHvOgD4C7ZrvDHLmQusBud5+hEJ/dj1xInH3u4dBHgNIzIi9kTaTBTPcSNDg0GSJX0r9+blHJI0JJjryQCiw8HHibo4m8kGemHeWmbn7kRlZpUY3uIKPGR64lf/7uP1RX0xXuyI1cXpGRfy8/AALcS1vwXdTIAAAAAElFTkSuQmCC\" style=\"width:140px;height:140px\" alt=\"QR code linking to the smart corridor documentation\"/>\n  <a href=\"https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/smart-corridor/index.html\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"margin-top:8px;font-size:12px\">Smart Corridor Documentation</a>\n</div>",
+        "mode": "html"
+      },
+      "pluginVersion": "11.5.4",
+      "title": "",
+      "type": "text"
     }
   ],
   "preload": false,
