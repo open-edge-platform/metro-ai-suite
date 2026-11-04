@@ -94,7 +94,6 @@ To get started:
      - **Username**: `admin`
      - **Password**: `admin`
    - Check under the Dashboards section for the application-specific preloaded dashboard.
-   - The **System Performance Dashboard** (also under Dashboards) shows the Intel CPU/GPU/NPU hardware on the host and their live utilization, temperature and power, collected by `metrics-manager` and scraped by Prometheus.
    - **Expected Results**: The dashboard displays real-time video streams with AI overlays
      and detection metrics.
 
