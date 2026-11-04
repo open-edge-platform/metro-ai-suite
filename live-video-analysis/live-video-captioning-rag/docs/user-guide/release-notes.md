@@ -15,11 +15,6 @@
 - Upgraded GPU and NPU driver version.
 - Bumped dependency package versions to address reported vulnerabilities.
 
-**Known Issues**:
-
-- The sample application is not validated either on the Standalone or Developer Node
-  versions of Edge Microvisor Toolkit.
-
 ## Version 2026.2.0
 
 **Release Date**: September 10, 2026

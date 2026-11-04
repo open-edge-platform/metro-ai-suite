@@ -18,4 +18,3 @@ Initial release of Real-Time Scene Understanding, a Docker Compose application f
 **Known Issues**:
 
 - Helm support is not available in this version.
-- The sample application is not validated either on the Standalone or Developer Node versions of Edge Microvisor Toolkit.
