@@ -52,29 +52,3 @@ Feel free to file new tickets there (after learning about the guidelines for [Co
 
      Try building the image locally as mentioned in Step 2 of
      [Set up and First Use](./get-started.md#set-up-and-first-use) before bringing up the containers.
-
-## Troubleshooting Helm Deployments
-
-1. **Helm Chart Not Found**
-
-   - Check if the Helm repository was added:
-
-     ```bash
-     helm repo list
-     ```
-
-2. **Pods Not Running**:
-
-   - Review pod logs:
-
-     ```bash
-     kubectl logs {{pod-name}} -n {{namespace}}
-     ```
-
-3. **Service Unreachable**:
-
-   - Confirm the service configuration:
-
-     ```bash
-     kubectl get svc -n {{namespace}}
-     ```

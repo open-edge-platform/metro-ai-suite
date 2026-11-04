@@ -91,48 +91,5 @@
          "Created RTSP Stream for instance",
          "State to RUNNING"
       ]
-   },
-   "LDHELM001": {
-      "app": "LD",
-      "device": "CPU",
-      "dlsps_log_param": [
-         "number-streams=4",
-         "fps"
-      ]
-   },
-   "LDHELM002": {
-      "app": "LD",
-      "device": "CPU",
-      "deploy": true,
-      "webrtc_url": true
-   },
-   "SPHELM001": {
-      "app": "SP",
-      "device": "CPU",
-      "dlsps_log_param": [
-         "number-streams=4",
-         "fps"
-      ]
-   },
-   "SPHELM002": {
-      "app": "SP",
-      "device": "CPU",
-      "deploy": true,
-      "webrtc_url": true
-   },
-   "SIHELM001": {
-      "app": "SI",
-      "device": "CPU",
-      "dlsps_log_param": [
-         "fps",
-         "timestamp_for_next_block",
-         "postdecode_timestamp"
-      ]
-   },
-   "SIHELM002": {
-      "app": "SI",
-      "device": "CPU",
-      "deploy": true,
-      "webrtc_url": true
    }
 }

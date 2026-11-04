@@ -11,16 +11,22 @@ to file new tickets there (after learning about the guidelines for
 1. **Changing the Host IP Address**
 
    - If you need to use a specific Host IP address instead of the one automatically detected
-     during installation, you can explicitly provide it using the following command:
+     during installation, you can explicitly provide it using the following command. Replace `<HOST_IP>` with your desired IP address:
 
      ```bash
-     ./install.sh <application-name> <HOST_IP>
+     ./install.sh loitering-detection <HOST_IP>
      ```
 
      Example:
 
      ```bash
-     ./install.sh smart-parking 192.168.1.100
+     ./install.sh loitering-detection 192.168.1.100
+     ```
+
+   - If you use the Console UI, use `loitering-detection-ui` instead:
+
+     ```bash
+     ./install.sh loitering-detection-ui <HOST_IP>
      ```
 
 2. **Containers Not Starting**:
@@ -121,9 +127,8 @@ to file new tickets there (after learning about the guidelines for
 
 ## Troubleshooting the Console UI
 
-See [Getting started - Loitering Detection Console UI](./getting-started-ui.md) for normal
+See [Use the Console UI](./how-to-guides/use-console-ui.md) for normal
 usage; the issues below are specific to it.
-
 
 1. **Console UI not reflecting a code change**
 
@@ -138,7 +143,7 @@ usage; the issues below are specific to it.
 2. **No bounding boxes on a stream**
 
    - Detection runs on the full frame and every detected object gets a box regardless of zone
-     (see [How detection and zones interact](./getting-started-ui.md#how-detection-and-zones-interact)),
+     (see [How detection and zones interact](./how-to-guides/use-console-ui.md#how-detection-and-zones-interact)),
      so a missing box means the model did not detect that object that frame (confidence below
      the pipeline's threshold), not a zone restriction. Check the stream's raw MQTT topic to
      confirm, or try different model for better recall on some object types/angles.
@@ -172,7 +177,7 @@ usage; the issues below are specific to it.
      ```
 
      Any result reported as `HTML document` instead of a video/model format confirms this - every
-     device fails identically on corrupted input, so this is not a DEVICE-specific problem. Re-run 
+     device fails identically on corrupted input, so this is not a DEVICE-specific problem. Re-run
      `install.sh` to redownload, then restart the pipeline server so it
      drops any model-instance-id it already marked broken from the earlier corrupted file:
 
@@ -202,39 +207,3 @@ usage; the issues below are specific to it.
 
      An empty `result` array means the metrics pipeline itself (`metrics-manager`'s `qmassa`)
      is not reporting for this GPU, not a Console UI bug - check `docker logs metrics-manager`.
-
-## Troubleshooting Helm Deployments
-
-1. Deploying with Intel® GPU K8S Extension on Open Edge Platform
-
-   If you're deploying a GPU based pipeline (example: with VA-API elements like `vapostproc`,
-   `vah264dec`, etc., and/or with `device=GPU` in `gvadetect` in `config.json`) with Intel® GPU
-   k8s Extension on Open Edge Platform, ensure to set the below details in the file
-   `helm/values.yaml` appropriately in order to utilize the underlying GPU.
-
-   ```sh
-   gpu:
-     enabled: true
-     type: "gpu.intel.com/i915"
-     count: 1
-   ```
-
-2. **`dlstreamer-pipeline-server` pod shows `CreateContainerError`**
-
-  - **Issue**: The `dlstreamer-pipeline-server` pod fails to start and shows `CreateContainerError`. This issue is seen only on environments using the `docker://` container runtime.
-  - **Check Container Runtime**: Run the following command to check which container runtime is being used:
-
-    ```bash
-    kubectl get nodes -o wide
-    ```
-
-    Inspect the `CONTAINER-RUNTIME` column to check if the node is using the `docker://` runtime.
-
-  - **Fix**: Run the following command to configure the Intel GPU device plugin for container runtime compatibility:
-
-    ```bash
-    kubectl patch ds intel-gpu-plugin -n intel-device-plugins --type='json' \
-      -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "-bypath=none"}]'
-    ```
-    Restart the Helm deployment once this fix is implemented.
-

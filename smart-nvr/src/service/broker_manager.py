@@ -17,6 +17,7 @@ from config import (
     SCENESCAPE_MQTT_BROKER,
     SCENESCAPE_MQTT_PORT,
     SCENESCAPE_MQTT_TOPIC,
+    SCENESCAPE_REGION_MQTT_TOPIC,
 )
 from model.broker import Broker
 from service import redis_store
@@ -24,7 +25,7 @@ from service.mqtt_listener import handle_frigate_message, handle_scenescape_mess
 
 logger = logging.getLogger("broker-manager")
 
-_tasks: dict[str, asyncio.Task] = {}
+_tasks: dict[str, list[asyncio.Task]] = {}
 _semaphore = asyncio.Semaphore(MAX_CONCURRENT_EVENTS)
 
 
@@ -35,15 +36,41 @@ def _tls_context() -> ssl.SSLContext:
     return ctx
 
 
+def _reason_code_to_int(code) -> int:
+    """Best-effort conversion for aiomqtt/paho reason-code values."""
+    if isinstance(code, int):
+        return code
+
+    value = getattr(code, "value", None)
+    if isinstance(value, int):
+        return value
+
+    try:
+        return int(code)
+    except (TypeError, ValueError):
+        return -1
+
+
 async def _dispatch(broker: Broker, payload, topic, state):
     async with _semaphore:
         if broker.type == "frigate":
             await handle_frigate_message(payload, topic)
         else:
-            await handle_scenescape_message(payload, topic, state, broker_id=broker.id)
+            # Tag region-stream messages so downstream camera-name derivation
+            # (see mqtt_listener/vms_service) can distinguish them from camera
+            # events even when both topics share a single broker connection.
+            is_region = topic.startswith("scenescape/event/region/")
+            dispatch_id = f"{broker.id}-region" if is_region else broker.id
+            await handle_scenescape_message(payload, topic, state, broker_id=dispatch_id)
 
 
-async def _run_broker(broker: Broker):
+async def _run_broker_topic(broker: Broker, topic: str):
+    """One dedicated MQTT connection per topic filter.
+
+    Each topic gets its own connection (and throttle state) rather than sharing
+    one client across camera_topic/region_topic: a burst on one topic must not
+    delay or starve delivery/throttling of the other.
+    """
     state = {"last_processed": 0, "interval": broker.throttle_interval}
     while True:
         try:
@@ -52,19 +79,23 @@ async def _run_broker(broker: Broker):
                 port=broker.port,
                 tls_context=_tls_context() if broker.use_tls else None,
             ) as client:
-                await client.subscribe(broker.topic, qos=1)
-                logger.info(f"[{broker.id}] subscribed to {broker.topic} at {broker.host}:{broker.port}")
+                await client.subscribe(topic, qos=1)
+                logger.info(
+                    f"[{broker.id}] subscribed to {topic} at {broker.host}:{broker.port}"
+                )
                 async for message in client.messages:
-                    topic = str(message.topic)
+                    msg_topic = str(message.topic)
                     try:
                         payload = json.loads(message.payload.decode("utf-8", errors="ignore"))
-                        asyncio.create_task(_dispatch(broker, payload, topic, state))
+                        asyncio.create_task(_dispatch(broker, payload, msg_topic, state))
                     except json.JSONDecodeError as e:
                         logger.error(f"[{broker.id}] failed to decode message: {e}")
                     except Exception as e:
                         logger.error(f"[{broker.id}] error processing message: {e}", exc_info=True)
         except aiomqtt.MqttError as e:
-            logger.error(f"[{broker.id}] connection error: {e}; reconnecting in {BROKER_RECONNECT_DELAY}s")
+            logger.error(
+                f"[{broker.id}] connection error on {topic}: {e}; reconnecting in {BROKER_RECONNECT_DELAY}s"
+            )
             await asyncio.sleep(BROKER_RECONNECT_DELAY)
 
 
@@ -78,13 +109,22 @@ async def start_broker(broker):
     if not broker.enabled:
         logger.info(f"[{broker.id}] disabled, not starting")
         return
-    _tasks[broker.id] = asyncio.create_task(_run_broker(broker))
+    topics = broker.topics
+    if not topics:
+        logger.warning(f"[{broker.id}] no topics configured, not starting")
+        return
+    _tasks[broker.id] = [
+        asyncio.create_task(_run_broker_topic(broker, topic)) for topic in topics
+    ]
 
 
 async def stop_broker(broker_id: str):
-    task = _tasks.pop(broker_id, None)
-    if task:
+    tasks = _tasks.pop(broker_id, None)
+    if not tasks:
+        return
+    for task in tasks:
         task.cancel()
+    for task in tasks:
         try:
             await task
         except asyncio.CancelledError:
@@ -106,8 +146,11 @@ async def stop_all():
         await stop_broker(broker_id)
 
 
-async def _has_scenescape(request=None) -> bool:
-    return any(b.get("type") == "scenescape" for b in await redis_store.get_brokers(request))
+async def _topic_covered(topic: str, request=None) -> bool:
+    return any(
+        topic in (b.get("camera_topic"), b.get("region_topic"))
+        for b in await redis_store.get_brokers(request)
+    )
 
 
 async def load_yaml_brokers(path: str = BROKERS_CONFIG_PATH, request=None):
@@ -129,19 +172,40 @@ async def load_yaml_brokers(path: str = BROKERS_CONFIG_PATH, request=None):
             broker = Broker(**entry)
             await redis_store.save_broker(broker.id, broker.model_dump(), request)
 
-    if NVR_SCENESCAPE_ENABLED and not await _has_scenescape(request):
-        legacy = Broker(
-            id="si1",
-            name="Smart Intersection 1",
-            host=SCENESCAPE_MQTT_BROKER,
-            port=SCENESCAPE_MQTT_PORT,
-            topic=SCENESCAPE_MQTT_TOPIC,
-            type="scenescape",
-            use_tls=True,
-            rtsp_host=SCENESCAPE_MQTT_BROKER,
-        )
-        await redis_store.save_broker(legacy.id, legacy.model_dump(), request)
-        logger.info("Seeded default si1 broker from environment")
+    # Check camera/region topic coverage independently: brokers.yaml (e.g. reset by
+    # setup.sh start) commonly already has a camera-topic si1, which previously
+    # caused the region-topic seed below to be skipped because "a scenescape
+    # broker" existed.
+    if NVR_SCENESCAPE_ENABLED:
+        has_camera = await _topic_covered(SCENESCAPE_MQTT_TOPIC, request)
+        has_region = await _topic_covered(SCENESCAPE_REGION_MQTT_TOPIC, request)
+
+        if not has_camera or not has_region:
+            brokers_by_id = {b["id"]: b for b in await redis_store.get_brokers(request)}
+            existing = brokers_by_id.get("si1")
+            if existing:
+                if not has_camera and not existing.get("camera_topic"):
+                    existing["camera_topic"] = SCENESCAPE_MQTT_TOPIC
+                if not has_region and not existing.get("region_topic"):
+                    existing["region_topic"] = SCENESCAPE_REGION_MQTT_TOPIC
+                await redis_store.save_broker("si1", existing, request)
+                logger.info("Updated default si1 broker with missing scenescape topic(s) from environment")
+            else:
+                default_broker = Broker(
+                    id="si1",
+                    name="Smart Intersection 1",
+                    host=SCENESCAPE_MQTT_BROKER,
+                    port=SCENESCAPE_MQTT_PORT,
+                    camera_topic=SCENESCAPE_MQTT_TOPIC,
+                    region_topic=SCENESCAPE_REGION_MQTT_TOPIC,
+                    type="scenescape",
+                    use_tls=True,
+                    rtsp_host=SCENESCAPE_MQTT_BROKER,
+                )
+                await redis_store.save_broker(
+                    default_broker.id, default_broker.model_dump(), request
+                )
+                logger.info("Seeded default si1 broker (camera + region topics) from environment")
 
     await sync_yaml_from_redis(request=request, path=path)
 
@@ -151,6 +215,7 @@ _YAML_HEADER = (
     "# host = MQTT broker IP only.\n"
     "# rtsp_host = optional SI RTSP stream IP, read by setup.sh to build the Frigate camera list.\n"
     "# rtsp_port = SI RTSP stream port, read by setup.sh. Required for start-nvr (or set SI{N}_RTSP_PORT); ignored by start (uses RTSP_STREAM_PORT).\n"
+    "# scenescape_api_user/password = optional per-broker SceneScape API credentials for /scenes and /regions.\n"
     "# Broker id must match the SI node prefix in Frigate camera names (e.g. si1 -> si1-camera1).\n"
 )
 
@@ -165,4 +230,3 @@ async def sync_yaml_from_redis(request=None, path: str = BROKERS_CONFIG_PATH):
         logger.info(f"Synced {len(brokers)} broker(s) to {path}")
     except OSError as e:
         logger.warning(f"Could not write brokers YAML at {path}: {e}")
-

@@ -10,13 +10,17 @@ metadata:
     {{- include "multimodal-embedding.labels" . | nindent 4 }}
 data:
   EMBEDDING_MODEL_NAME: {{ .Values.global.embeddingModel.modelId | quote }}
-  {{- if .Values.global.embeddingModel.useGPU.enabled }}
+  {{- if .Values.global.embeddingModel.useNPU.enabled }}
+  EMBEDDING_DEVICE: "NPU"
+  {{- else if .Values.global.embeddingModel.useGPU.enabled }}
   EMBEDDING_DEVICE: "GPU"
   {{- else }}
   EMBEDDING_DEVICE: "CPU"
   {{- end }}
   EMBEDDING_USE_OV: {{ .Values.env.embeddingUseOV | quote }}
   EMBEDDING_OV_MODELS_DIR: {{ .Values.env.embeddingOVModelsDir | quote }}
+  EMBEDDING_STATIC_SEQ_LEN: {{ .Values.global.embeddingModel.useNPU.embeddingStaticSeqLen | quote }}
+  EMBEDDING_CHUNK_LONG_TEXT: {{ .Values.global.embeddingModel.useNPU.embeddingChunkLongText | quote }}
   OV_MODELS_DIR: {{ .Values.env.embeddingOVModelsDir | quote }}
   OV_PERFORMANCE_MODE: {{ .Values.env.ovPerformanceMode | quote }}
   HF_HOME: "/home/appuser/.cache/huggingface"

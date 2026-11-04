@@ -30,18 +30,10 @@ System Inventory
   If the MCP server itself is unavailable, state that the inventory cannot be
   fetched; there is no config-file fallback.
 
-## Existing update report
+## Incremental update report
 
-Use “Use Case Updated” / “Monitor Updated” with changed fields/events/threshold,
-affected cameras, validation, persistence and elapsed timings. Never claim a
-measured speedup from interface call counts; record real timing samples. Surface
-errors, partial application and recovery results. An unchanged result needs no
-new confirmation or writes.
-
-## Fast update result
-
-Show added/removed/changed and retained detection events, affected monitors,
-prefilter parameter changes if requested, persistence, applied steps, timings
-and recovery/errors. Do not ask for schema or rule-path approval. Distinguish
-structural validation from detection accuracy on representative footage.
-Historical records remain; saved unbound preferences are not running changes.
+For incremental updates, report “Use Case Updated” / “Monitor Updated”, the
+changes and retained detections, affected cameras, persistence, validation and
+any errors or partial application. Unchanged requests need no confirmation or
+writes. Preserve historical records; structural validity alone does not prove
+detection accuracy. Registration reporting above remains unchanged.

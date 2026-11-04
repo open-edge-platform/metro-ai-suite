@@ -201,18 +201,18 @@ spec:
             - name: accel-device
               mountPath: /dev/accel
       {{- end }}
-      {{- if .Values.global.llmModel.useGPU.enabled }}
-          resources:
-            requests:
-              {{ .Values.global.llmModel.useGPU.key}}: 1
-            limits:
-              {{ .Values.global.llmModel.useGPU.key}}: 1
-      {{- else if .Values.global.llmModel.useNPU.enabled }}
+      {{- if .Values.global.llmModel.useNPU.enabled }}
           resources:
             requests:
               {{ .Values.global.llmModel.useNPU.key}}: 1
             limits:
               {{ .Values.global.llmModel.useNPU.key}}: 1
+      {{- else if .Values.global.llmModel.useGPU.enabled }}
+          resources:
+            requests:
+              {{ .Values.global.llmModel.useGPU.key}}: 1
+            limits:
+              {{ .Values.global.llmModel.useGPU.key}}: 1
       {{- else if .Values.resources }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

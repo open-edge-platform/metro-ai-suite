@@ -117,3 +117,20 @@ async def test_get_search_results_error_path(monkeypatch):
     # Should swallow error and return []
     results = await rs.get_search_results_by_rule('rX', req)
     assert results == []
+
+
+@pytest.mark.asyncio
+async def test_get_search_results_normalizes_legacy_and_variant_payloads():
+    fake = FakeRedis()
+    req = make_request(fake)
+    await fake.rpush("search_results:r5", "legacy-vid-only")
+    await fake.rpush(
+        "search_results:r5",
+        json.dumps({"videoId": "vid-from-camel", "status": "Pending"}),
+    )
+    await fake.rpush("search_results:r5", json.dumps(["unexpected-list"]))
+
+    results = await rs.get_search_results_by_rule("r5", req)
+
+    assert results[0] == {"video_id": "legacy-vid-only", "message": ""}
+    assert results[1] == {"video_id": "vid-from-camel", "message": "Pending"}

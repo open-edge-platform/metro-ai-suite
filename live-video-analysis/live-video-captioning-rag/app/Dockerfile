@@ -5,7 +5,7 @@ FROM python:3.12-slim AS base
 
 # Install GPU drivers
 # Copy drivers and set execute permission on sh files
-ARG INSTALL_DRIVER_VERSION="26.18.38308"
+ARG INSTALL_DRIVER_VERSION="26.31.39395"
 COPY ./drivers/install_gpu_drivers.sh /tmp/drivers/install_gpu_drivers.sh
 RUN chmod +x /tmp/drivers/install_gpu_drivers.sh
 
@@ -19,10 +19,10 @@ RUN echo "Installing GPU drivers version $INSTALL_DRIVER_VERSION" && \
 # driver/compiler/firmware plus the oneAPI Level Zero loader (libze1). The
 # loader is mandatory — without libze_loader.so.1 the NPU plugin cannot
 # enumerate the device. The final test fails the build if it is missing.
-ARG NPU_DRIVER_VERSION="1.35.0"
-ARG NPU_DRIVER_BUILD="v1.35.0.20260722-29947505341-ubuntu2404"
-ARG LEVEL_ZERO_VERSION="1.28.2-1~24.04~ppa1"
-ARG LEVEL_ZERO_PPA_SNAPSHOT="20260606T100000Z"
+ARG NPU_DRIVER_VERSION="1.38.0"
+ARG NPU_DRIVER_BUILD="v1.38.0.20260910-34487311128-ubuntu2404"
+ARG LEVEL_ZERO_VERSION="1.32.0-1~24.04~ppa1"
+ARG LEVEL_ZERO_PPA_SNAPSHOT="20260830T100000Z"
 
 RUN mkdir -p /tmp/npu_deps && cd /tmp/npu_deps \
     && apt-get update && apt-get install -y --no-install-recommends curl ca-certificates libtbb12 \

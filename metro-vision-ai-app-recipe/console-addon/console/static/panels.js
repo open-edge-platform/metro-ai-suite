@@ -163,11 +163,14 @@ window.Console = window.Console || {};
     var body = { zone: zone };
     if (peerId) { body.peer_id = peerId; }
     if (btn) { btn.disabled = true; btn.textContent = "Applying..."; }
+    // The 1s reconcile poll must not recreate/remove panels while sessions are being swapped.
+    C._zoneApplying = (C._zoneApplying || 0) + 1;
     return C.apiPost("api/zone", body).then(function (r) {
       var updated = (r && r.updated) || [];
       updated.forEach(function (session) {
         var old = panels[session.old_peer_id];
-        var title = old ? old.el.querySelector(".p-title").textContent : (session.model + " / " + session.device);
+        var title = old ? old.el.querySelector(".p-title").textContent
+          : C.panelTitle(Object.keys(panels).length + 1, session.model, session.device);
         // Captured before removal - the slot the replacement should land in.
         var insertBefore = old ? old.el.nextSibling : null;
         removePanelLocal(session.old_peer_id);
@@ -198,7 +201,7 @@ window.Console = window.Console || {};
       }
     }).catch(function () {
       if (btn) { btn.textContent = peerId ? "Apply to this pipeline" : "Apply failed"; btn.disabled = false; }
-    });
+    }).then(function () { C._zoneApplying -= 1; });
   };
 
   C.panelZone = function (peerId) {

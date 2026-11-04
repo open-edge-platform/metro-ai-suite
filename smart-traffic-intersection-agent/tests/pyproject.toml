@@ -1,0 +1,22 @@
+[project]
+name = "smart-traffic-intersection-agent-tests"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "smart-traffic-intersection-agent",
+    "pytest~=9.0.3",
+    "pytest-asyncio~=1.4.0",
+    "httpx~=0.25",
+    "black~=26.3",
+    "flake8~=6.1",
+    "mypy~=1.7",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+smart-traffic-intersection-agent = { path = "../src", editable = true }
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

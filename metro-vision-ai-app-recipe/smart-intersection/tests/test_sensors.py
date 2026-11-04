@@ -6,7 +6,6 @@ import pytest
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
-from tests.utils.kubernetes_utils import get_scenescape_kubernetes_url
 from tests.utils.ui_utils import waiter, driver
 from .conftest import (
   SCENESCAPE_URL,
@@ -102,14 +101,6 @@ def delete_sensor_functionality_check(waiter, sensor_name, sensor_id, url):
     error_message=f"Expected sensor ID '{sensor_id}' should not be present after deletion"
   )
 
-@pytest.mark.kubernetes
-@pytest.mark.zephyr_id("NEX-T13925")
-def test_add_sensor_kubernetes(waiter):
-  """Test that the admin can add a new sensor."""
-  name_of_new_sensor = "sensor_NEX-T13925"
-  id_of_new_sensor = "sensor_id_NEX-T13925"
-  add_sensor(waiter, name_of_new_sensor, id_of_new_sensor, get_scenescape_kubernetes_url())
-
 @pytest.mark.docker
 @pytest.mark.zephyr_id("NEX-T9384")
 def test_add_sensor_docker(waiter):
@@ -117,14 +108,6 @@ def test_add_sensor_docker(waiter):
   name_of_new_sensor = "sensor_NEX-T9384"
   id_of_new_sensor = "sensor_id_NEX-T9384"
   add_sensor(waiter, name_of_new_sensor, id_of_new_sensor)
-
-@pytest.mark.kubernetes
-@pytest.mark.zephyr_id("NEX-T13926")
-def test_delete_sensor_kubernetes(waiter):
-  """Test that the admin can delete a new sensor."""
-  name_of_new_sensor = "sensor_NEX-T13926"
-  id_of_new_sensor = "sensor_id_NEX-T13926"
-  delete_sensor_functionality_check(waiter, name_of_new_sensor, id_of_new_sensor, get_scenescape_kubernetes_url())
 
 @pytest.mark.docker
 @pytest.mark.zephyr_id("NEX-T9385")

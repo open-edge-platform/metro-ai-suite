@@ -4,25 +4,24 @@ USER root
 # Pull Debian security fixes (addresses libpng/libpq/linux-libc-dev CVEs when available in node security)
 RUN apt-get update \
  && apt-get -y upgrade \
- && apt-get install --yes --no-install-recommends gstreamer1.0-plugins-ugly wget \
- && rm -rf /var/lib/apt/lists/*
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
+ && apt-get install --yes --no-install-recommends \
+     gstreamer1.0-plugins-ugly \
+     wget \
     python3 \
     python3-pip \
     python3-venv \
- && rm -rf /var/lib/apt/lists/*
+ && python3 -m pip install --break-system-packages --no-cache-dir --upgrade \
+     'certifi>=2026.10.18' \
+     'urllib3>=2.8.0' \
+ && rm -rf /var/lib/apt/lists/* \
+ && python3 -m venv /opt/venv \
+ && /opt/venv/bin/python -m pip install --no-cache-dir opencv-python-headless
 
-RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-
-RUN pip install --no-cache-dir opencv-python-headless
 
 USER dlstreamer
 
 ENV GST_PLUGIN_PATH=$GST_PLUGIN_PATH/usr/lib/x86_64-linux-gnu/gstreamer-1.0/
-
-RUN pip install opencv-python-headless
 
 # Conditional installation of source code
 USER root

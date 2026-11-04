@@ -3,9 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # --- Camera Watcher API (moved to end for formatting) ---
 
-from typing import List, Dict
+from typing import List, Dict, Optional
 from service.directory_watcher import set_camera_watcher_mapping, get_enabled_cameras
 from service.directory_watcher import upload_videos_to_dataprep
+from service.scene_region import fetch_scenes_with_retry, fetch_regions_with_retry
 from fastapi import APIRouter, Depends, HTTPException, Request, Body
 from pydantic import BaseModel
 from api.endpoints.frigate_api import FrigateService
@@ -14,6 +15,7 @@ from api.endpoints.brokers_api import broker_router
 from api.endpoints.vss_api import vss_router
 from service.vms_service import VmsService
 from service import redis_store
+from model.rule import Rule
 import asyncio
 import requests
 import logging
@@ -52,6 +54,22 @@ async def get_cameras():
 async def get_camera_events(camera: str):
     return await frigate_service.get_camera_events(camera)
 
+
+@router.get("/scenes", summary="Get SceneScape scenes")
+async def get_scenescape_scenes(request: Request):
+    brokers = await redis_store.get_brokers(request)
+    return await asyncio.to_thread(fetch_scenes_with_retry, brokers)
+
+
+@router.get("/regions", summary="Get SceneScape regions")
+async def get_scenescape_regions(
+    request: Request,
+    scene_id: Optional[str] = None,
+    broker_id: Optional[str] = None,
+):
+    brokers = await redis_store.get_brokers(request)
+    return await asyncio.to_thread(fetch_regions_with_retry, scene_id, brokers, broker_id)
+
 @router.get("/summary/{camera_name}", summary="Stream video using clip.mp4 API")
 async def summarize_video(
     camera_name: str, start_time: float, end_time: float, download: bool = False
@@ -75,10 +93,12 @@ async def get_summary(summary_id: str):
 
 from service.redis_store import (
     get_rules,
+    get_responses,
     get_summary_ids,
     get_summary_result,
     get_search_results_by_rule,
 )
+import json
 
 
 @router.get("/rules/responses/")
@@ -121,26 +141,54 @@ async def get_search_responses(request: Request):
     try:
         rules = await get_rules(request)  # Fetch all rules
 
+        def _extract_video_id_and_message(entry) -> tuple[str, str]:
+            if not isinstance(entry, dict):
+                return "", ""
+
+            video_id = (
+                entry.get("video_id")
+                or entry.get("videoId")
+                or entry.get("identifier")
+                or ""
+            )
+            message = entry.get("message")
+            if message is None:
+                message = entry.get("status") or entry.get("error") or ""
+
+            return str(video_id).strip(), str(message).strip()
+
+        async def _fallback_from_rule_responses(rule_id: str) -> list[dict]:
+            response_rows = await get_responses(request, rule_id)
+            fallback_rows: list[dict] = []
+            for raw in response_rows:
+                try:
+                    parsed = json.loads(raw)
+                except (TypeError, json.JSONDecodeError):
+                    continue
+
+                video_id, message = _extract_video_id_and_message(parsed)
+                if video_id or message:
+                    fallback_rows.append(
+                        {"video_id": video_id, "message": message}
+                    )
+            return fallback_rows
+
         for rule in rules:
             if rule.get("action") == "add to search":
                 rule_id = rule["id"]
                 results = await get_search_results_by_rule(rule_id, request)
-                output[rule_id] = results or [{"status": "Pending"}]
+                if results:
+                    output[rule_id] = results
+                    continue
+
+                fallback_rows = await _fallback_from_rule_responses(rule_id)
+                output[rule_id] = fallback_rows or [{"status": "Pending"}]
 
         return output
 
     except Exception as e:
         logger.error("Failed to fetch search responses: %s", e, exc_info=True)
         return {"error": "Failed to fetch search responses. Please try again later."}
-
-
-class Rule(BaseModel):
-    id: str
-    label: str
-    action: str
-    camera: str | None = None
-    source: str | None = None
-    count: int | None = None
 
 
 @router.post("/rules/")

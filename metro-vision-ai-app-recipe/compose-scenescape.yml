@@ -260,6 +260,7 @@ services:
       - EXAMPLEDB=/home/scenescape/Scenescape/${SS_SCENE_DB:-smart-intersection-ri.tar.bz2}
       - DBHOST=pgserver
       - DBPORT=5432
+      - SCENESCAPE_ALLOWED_HOSTS=${HOST_IP}
     command: >
       webserver
       --dbtype postgres
@@ -267,7 +268,7 @@ services:
       --brokerauth /run/secrets/browser.auth
       --brokerrootcert /run/secrets/certs/scenescape-ca.pem
     healthcheck:
-      test: "curl --insecure -X GET https://web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
+      test: "curl --insecure -X GET https://localhost:443/api/v1/database-ready | grep 'true'"
       interval: 10s
       timeout: 120s
       retries: 10
@@ -282,7 +283,6 @@ services:
       - pgserver-media:/workspace/media
       - pgserver-migrations:/workspace/migrations
       - ./${SAMPLE_APP}/src/webserver/user_access_config.json:/home/scenescape/Scenescape/user_access_config.json
-      - ./${SAMPLE_APP}/src/webserver/${SS_SCENE_DB:-smart-intersection-ri.tar.bz2}:/home/scenescape/Scenescape/${SS_SCENE_DB:-smart-intersection-ri.tar.bz2}
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -294,6 +294,34 @@ services:
       - browser.auth
       - controller.auth
     restart: on-failure:5
+
+  scene-uploader:
+    image: intel/scenescape-manager:2026.2.0
+    entrypoint: ["upload-scenes"]
+    command:
+      - --restauth
+      - /run/secrets/controller.auth
+      - --rootcert
+      - /run/secrets/certs/scenescape-ca.pem
+      - --wait
+      - "300"
+      - https://web.scenescape.intel.com/api/v1
+      - /scenes
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - scenescape
+    environment:
+      NO_PROXY: web.scenescape.intel.com
+      no_proxy: web.scenescape.intel.com
+    volumes:
+      - ./${SAMPLE_APP}/src/webserver/scenes:/scenes:ro
+    secrets:
+      - controller.auth
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+    restart: "no"
 
   scene:
     image: intel/scenescape-controller:2026.2.0
@@ -319,6 +347,8 @@ services:
     depends_on:
       web:
         condition: service_healthy
+      scene-uploader:
+        condition: service_completed_successfully
       broker:
         condition: service_started
       ntpserver:
@@ -352,6 +382,8 @@ services:
     depends_on:
       web:
         condition: service_healthy
+      scene-uploader:
+        condition: service_completed_successfully
       broker:
         condition: service_started
       ntpserver:

@@ -27,6 +27,14 @@ global:
     useGPU:
       enabled: false
       key: "" # GPU resource key for your cluster, e.g. "gpu.intel.com/i95" or "gpu.intel.com/xe"
+    useNPU:
+      enabled: false
+      key: "npu.intel.com/accel" # NPU resource key for your cluster
+      # This applies only to QwenText models on NPU. Leaving it empty will use the default values.
+      # Defaults give a working configuration for typical use cases in the multimodal-embedding-serving service.
+      # Note: For more detailed configuration options and explanations, refer to the QwenText on NPU guide in project docs.
+      embeddingStaticSeqLen: ""
+      embeddingChunkLongText: ""
 
   noProxy: ""
   httpProxy: ""
@@ -74,7 +82,12 @@ modelPvc:
 podAnnotations: {}
 podLabels: {}
 
-podSecurityContext: {}
+podSecurityContext:
+  supplementalGroups:
+    - 1000
+    - 109
+    - 110
+    - 992
 securityContext:
   capabilities:
     drop:

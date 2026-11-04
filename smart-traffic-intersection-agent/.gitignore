@@ -93,3 +93,6 @@ MANIFEST
 
 # Ignore cloned dependency directory
 deps/metro-vision/
+
+# Ignoring lock file for test dependencies
+tests/uv.lock

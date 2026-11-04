@@ -191,8 +191,21 @@ async def save_search(rule_id: str, search_output: dict, request=None):
         else fallback_redis_client
     )
 
+    if not isinstance(search_output, dict):
+        raise TypeError("search_output must be a dictionary")
+
+    video_id = (
+        search_output.get("video_id")
+        or search_output.get("videoId")
+        or search_output.get("identifier")
+        or ""
+    )
+    message = search_output.get("message")
+    if message is None:
+        message = search_output.get("status") or search_output.get("error") or ""
+
     entry = json.dumps(
-        {"video_id": search_output["video_id"], "message": search_output["message"]}
+        {"video_id": str(video_id).strip(), "message": str(message).strip()}
     )
 
     await redis_client.rpush(f"search_results:{rule_id}", entry)
@@ -234,7 +247,47 @@ async def get_search_results_by_rule(rule_id: str, request=None) -> list[dict]:
 
     try:
         results = await redis_client.lrange(key, 0, -1)
-        return [json.loads(entry) for entry in results]
+        normalized_results: list[dict] = []
+
+        for entry in results:
+            try:
+                parsed = json.loads(entry)
+            except (TypeError, json.JSONDecodeError):
+                raw_value = entry.decode() if isinstance(entry, bytes) else str(entry)
+                raw_value = raw_value.strip()
+                if not raw_value:
+                    continue
+                logger.warning(
+                    "Legacy/non-JSON search result for rule %s; interpreting value as video_id.",
+                    rule_id,
+                )
+                normalized_results.append({"video_id": raw_value, "message": ""})
+                continue
+
+            if not isinstance(parsed, dict):
+                logger.warning(
+                    "Skipping non-dict search result for rule %s: %r", rule_id, parsed
+                )
+                continue
+
+            video_id = (
+                parsed.get("video_id")
+                or parsed.get("videoId")
+                or parsed.get("identifier")
+                or ""
+            )
+            message = parsed.get("message")
+            if message is None:
+                message = parsed.get("status") or parsed.get("error") or ""
+
+            normalized_results.append(
+                {
+                    "video_id": str(video_id).strip(),
+                    "message": str(message).strip(),
+                }
+            )
+
+        return normalized_results
     except Exception as e:
         logger.error(f"Failed to fetch search results for rule {rule_id}: {e}")
         return []

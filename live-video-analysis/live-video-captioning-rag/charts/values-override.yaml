@@ -62,11 +62,22 @@ global:
       key: "npu.intel.com/accel"
 
   # Embedding model configuration for the embedding service.
+  # Priority: NPU > GPU > CPU
+  # If both useGPU and useNPU are enabled, the embedding model will prioritize NPU first, then GPU, and finally CPU.
   embeddingModel:
     modelId: "QwenText/qwen3-embedding-0.6b"
     useGPU:
       enabled: false
       key: ""
+    useNPU:
+      enabled: false
+      key: "npu.intel.com/accel"
+      # This applies only to QwenText models on NPU. Leaving it empty will use the default values.
+      # Defaults give a working configuration for typical use cases in the multimodal-embedding-serving service.
+      # Note: QwenText models are used for embedding in multimodal-embedding-serving service and may have specific configuration on NPU.
+      # Please refer to the https://github.com/open-edge-platform/edge-ai-libraries/blob/main/microservices/multimodal-embedding-serving/docs/user-guide/qwentext-on-npu.md for more details.
+      embeddingStaticSeqLen: ""
+      embeddingChunkLongText: ""
 
   # RAG chatbot mode.
   # Options: "embedded" or "detached"

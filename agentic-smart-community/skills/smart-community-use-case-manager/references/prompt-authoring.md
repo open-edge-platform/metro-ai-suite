@@ -27,7 +27,8 @@ default `SIMPLE`, `levels=1` path.
 
 ### Structured alerting
 
-- Final Schema is `severity, event, desc` plus only internally derived fields needed for supported business requirements.
+- Final Schema is `severity, event, desc` plus only extensions requested through
+  Q2.
 - LOCAL emits exactly one `KEY: value` line per Final Schema field.
 - Every clip emits exactly one primary `EVENT`; secondary observations may be
   included in `DESC` but are not independently queryable or alertable.
@@ -47,20 +48,22 @@ default `SIMPLE`, `levels=1` path.
 
 ## Detection Contract
 
-For existing event edits, update-use-case.md takes precedence: author the candidate
-before its single business difference approval, preserve unaffected events, and
-commit the exact preview. Creation-only approval gates below do not apply.
+For incremental event edits only, follow update-use-case.md: read the active
+contract/schema, author the candidate before one difference approval, and
+commit the exact preview. Reuse existing fields; no new Q2 answer is needed.
+This also applies to revisions during behavior validation. New creation and
+full refinement retain the authoring and overwrite rules below.
 
-After resolving business requirements, resolve the proposed contract from the initial
+After the explicit Q1/Q2 reply, resolve the proposed contract from the initial
 request, those answers, and the conservative defaults in `SKILL.md`. Display the
-proposed business behavior and compact Detection Contract, then stop and
+proposed Final Schema, Rule Path, and compact Detection Contract, then stop and
 wait for the mandatory final approval described in `SKILL.md`. Do not write
 prompt prose until a later user message explicitly approves that displayed
 design.
 
 In this reference, `resolved` means derived for the proposal; `approved` means
 the user explicitly accepted the displayed proposal in a later turn. Defaults
-may resolve a detail, but neither defaults nor the initial requirements can approve a
+may resolve a detail, but neither defaults nor the Q1/Q2 reply can approve a
 design that had not yet been displayed. All authoring rules below operate on the
 approved contract. A contract contains:
 
@@ -188,7 +191,7 @@ History is continuity context only:
 
 The fence below delimits this reference template only. Never copy the fence into
 `prompt_text`. Replace every angle-bracket placeholder and expand the event
-block once per allowed event. Add extension output lines only for internally derived
+block once per allowed event. Add extension output lines only for Q2-requested
 Final Schema extensions.
 
 ```text

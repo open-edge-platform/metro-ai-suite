@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -43,13 +44,31 @@ from urllib.parse import urlparse,quote
 # Used automatically when analytics_manifest_path is not set in config.
 DEFAULT_MANIFEST_PATH = Path(__file__).parent / "nx_integration.json"
 
+# Object metadata ``durationMs`` bounds. The Nx client draws a pushed packet
+# only while the displayed frame lies in [timestampMs, timestampMs + durationMs),
+# so the duration must also cover the metadata's arrival latency (pipeline
+# inference + MQTT + REST, plus the offset at which Nx started the RTSP
+# re-stream). Defaults are overridable through ``vendor_options``:
+#   metadata_min_duration_ms     - floor; also the old fixed value (100 ms)
+#   metadata_latency_margin_ms   - slack added on top of the measured latency
+#   metadata_max_duration_ms     - ceiling guarding against bogus timestamps
+DEFAULT_METADATA_MIN_DURATION_MS = 100
+DEFAULT_METADATA_LATENCY_MARGIN_MS = 500
+DEFAULT_METADATA_MAX_DURATION_MS = 10_000
+
 import httpx
 import structlog
 
-from plugin.base.interfaces import IVmsShim
+from plugin.base.interfaces import DetectionPublishContext, IVmsShim
 from plugin.core.config import VmsInstanceConfig
-from plugin.core.models.domain import Camera, CommandResult
+from plugin.core.models.domain import AnalyticsEvent, Camera, CommandResult, DetectionFrame
 from vms_shim.nxwitness.settings_factory import apply_settings_model
+from vms_shim.nxwitness.translator import (
+    DEFAULT_ZONE_TYPE_ID,
+    ZONE_CATEGORY,
+    category_to_type_id,
+    frame_to_nx,
+)
 
 if TYPE_CHECKING:
     from plugin.core.pipeline.orchestrator import Orchestrator
@@ -67,7 +86,7 @@ def _merge_object_types_into_manifest(
     ``engineManifest.typeLibrary.objectTypes`` and
     ``deviceAgentManifest.supportedTypes``. The typeIds are contributed
     generically by the configured analytics apps (via each app config's
-    ``object_types()``), so this VMS-side helper stays free of any
+    ``object_categories()``), so this VMS-side helper stays free of any
     app-specific concepts and works for any future app.
     """
     if not type_ids:
@@ -487,6 +506,8 @@ class NxWitnessVmsShim(IVmsShim):
                     analytics_app_id=analytics_app_id,
                     detail="Metadata push unavailable — recreate the integration to store credentials.",
                 )
+            # Nx UI pipeline control must survive restarts, not just first registration.
+            self._start_settings_poll(orchestrator)
             return
 
         if not db_record and nx_record:
@@ -516,12 +537,21 @@ class NxWitnessVmsShim(IVmsShim):
             return
 
         # Declare each app's object typeIds in the manifest so Nx accepts the
-        # detections that we later push. Apps opt in via object_types() on their config.
+        # detections that we later push. Apps opt in via object_categories() on their
+        # config; categories are vendor-neutral and resolved to typeIds here.
         extra_type_ids: set[str] = set()
+        type_map = self._type_map()
         for ca_cfg in orchestrator.config.analytics_apps:
-            provider = getattr(ca_cfg, "object_types", None)
-            if callable(provider):
-                extra_type_ids.update(provider())
+            provider = getattr(ca_cfg, "object_categories", None)
+            if not callable(provider):
+                continue
+            for category in provider():
+                if category == ZONE_CATEGORY:
+                    extra_type_ids.add(
+                        self._zone_type_id(getattr(ca_cfg, "zone_type_id", None)),
+                    )
+                else:
+                    extra_type_ids.add(category_to_type_id(category, type_map))
         _merge_object_types_into_manifest(manifests, extra_type_ids)
 
         # Build the per-app camera settings panel (checkboxes/dropdowns) into the
@@ -564,6 +594,10 @@ class NxWitnessVmsShim(IVmsShim):
         if username and password:
             self.set_integration_credentials(username, password)
 
+        self._start_settings_poll(orchestrator)
+
+    def _start_settings_poll(self, orchestrator: Orchestrator) -> None:
+        """Begin polling Nx device-agent settings so the Nx UI can control pipelines."""
         self._orchestrator = orchestrator
         task = asyncio.create_task(
             self._poll_device_agent_settings(),
@@ -1025,12 +1059,71 @@ class NxWitnessVmsShim(IVmsShim):
             logger.error("nx_get_device_agent_settings_failed", error=str(exc), device_id=device_id)
             return {}
 
+    def _type_map(self) -> dict[str, str]:
+        """Per-instance category → typeId overrides (``vendor_options.type_map``)."""
+        return dict(self._config.vendor_options.get("type_map") or {})
+
+    def _zone_type_id(self, app_default: str | None = None) -> str:
+        return (
+            self._config.vendor_options.get("zone_type_id")
+            or app_default
+            or DEFAULT_ZONE_TYPE_ID
+        )
+
+    def _vendor_option_int(self, key: str, default: int) -> int:
+        try:
+            return int(self._config.vendor_options.get(key, default))
+        except (TypeError, ValueError):
+            logger.warning("nx_vendor_option_invalid", option=key, default=default)
+            return default
+
+    def _metadata_duration_ms(self, timestamp_ms: int, now_ms: int | None = None) -> int:
+        """``durationMs`` for an object packet stamped ``timestamp_ms``.
+
+        The Nx client shows the newest packet whose timestamp is not after the
+        displayed frame, but only while the frame is still inside the packet's
+        duration window. Metadata arrival timing at Nx always trails the video 
+        (because of latency from inference, MQTT, REST, 
+        and the position Nx started the RTSP re-stream at). 
+        Hence a duration window is used instead of fixed timestamp. 
+        This duration accounts for the observed latency.
+        """
+        min_ms = self._vendor_option_int(
+            "metadata_min_duration_ms", DEFAULT_METADATA_MIN_DURATION_MS,
+        )
+        margin_ms = self._vendor_option_int(
+            "metadata_latency_margin_ms", DEFAULT_METADATA_LATENCY_MARGIN_MS,
+        )
+        max_ms = self._vendor_option_int(
+            "metadata_max_duration_ms", DEFAULT_METADATA_MAX_DURATION_MS,
+        )
+        now = now_ms if now_ms is not None else int(time.time() * 1000)
+        latency_ms = max(0, now - timestamp_ms)
+        return max(min_ms, min(max_ms, latency_ms + margin_ms))
+
+    async def publish_detections(
+        self,
+        camera_id: str,
+        frame: DetectionFrame,
+        context: DetectionPublishContext,
+    ) -> bool:
+        """Translate a neutral frame to Nx objects and push them to the camera."""
+        objects = frame_to_nx(
+            frame, self._type_map(), self._zone_type_id(context.zone_type_id),
+        )
+        if not objects:
+            return True
+        return await self.push_analytics_objects(
+            camera_id.removeprefix("nx:"), objects, frame.timestamp_ms,
+            duration_ms=self._metadata_duration_ms(frame.timestamp_ms),
+        )
+
     async def push_analytics_objects(
         self,
         device_id: str,
         objects: list[dict],
         timestamp_ms: int,
-        duration_ms: int = 100,
+        duration_ms: int = DEFAULT_METADATA_MIN_DURATION_MS,
     ) -> bool:
         """POST analytics objects to Nx for the given device.
 
@@ -1040,9 +1133,10 @@ class NxWitnessVmsShim(IVmsShim):
 
         Args:
             device_id: Nx device UUID (without ``nx:`` prefix).
-            objects: list of Nx object dicts (from ``translate_dls_metadata``).
+            objects: list of Nx object dicts (from ``frame_to_nx``).
             timestamp_ms: epoch milliseconds for the frame.
-            duration_ms: frame duration hint (default 100 ms).
+            duration_ms: how long past ``timestamp_ms`` the Nx client may keep
+                drawing these objects (see :meth:`_metadata_duration_ms`).
 
         Returns True on success, False on any failure.
         """
@@ -1120,6 +1214,11 @@ class NxWitnessVmsShim(IVmsShim):
         except httpx.HTTPError as e:
             return _result(camera_id, "set_bookmark", "timeout", str(e))
 
+    async def publish_event(self, camera_id: str, event: AnalyticsEvent) -> bool:
+        """Store the event as a bookmark on the camera timeline (text truncated to 500 chars)."""
+        result = await self.set_bookmark(camera_id, event.timestamp, event.text[:500])
+        return result.status == "accepted"
+
     async def push_label(
         self, camera_id: str, event_id: str, labels: list[str],
         confidence: float | None = None,
@@ -1152,6 +1251,15 @@ class NxWitnessVmsShim(IVmsShim):
 
 # -- Helpers -------------------------------------------------------------
 
+def _nx_resolution(d: dict) -> tuple[int | None, int | None]:
+    """Stream resolution from ``options.bitrateInfos[].resolution`` (e.g. "1280x720")."""
+    for info in (d.get("options") or {}).get("bitrateInfos") or []:
+        width, sep, height = str(info.get("resolution", "")).partition("x")
+        if sep and width.isdigit() and height.isdigit():
+            return int(width), int(height)
+    return None, None
+
+
 def _to_camera(d: dict, stream_url: str | None = None) -> Camera:
     nx_status = d.get("status", "")
     cam_status = "online" if nx_status in ("Online", "Recording") else "offline"
@@ -1159,6 +1267,7 @@ def _to_camera(d: dict, stream_url: str | None = None) -> Camera:
     # Normalise to bare UUID so camera_id is always nx:<uuid> without braces.
     raw_id = d.get("id", "")
     device_id = raw_id.strip("{}")
+    width, height = _nx_resolution(d)
     return Camera(
         camera_id=f"nx:{device_id}",
         name=d.get("name", ""),
@@ -1166,6 +1275,8 @@ def _to_camera(d: dict, stream_url: str | None = None) -> Camera:
         status=cam_status,
         stream_url=stream_url or d.get("url"),
         enabled=False,
+        width=width,
+        height=height,
         vendor_meta=d,
     )
 

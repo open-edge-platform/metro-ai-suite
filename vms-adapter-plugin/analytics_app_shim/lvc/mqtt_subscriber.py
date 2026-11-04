@@ -47,12 +47,12 @@ class LvcMqttSubscriber:
         self._run_queues: dict[str, asyncio.Queue] = {}
         # Broadcast queue — receives ALL run messages
         self._broadcast: asyncio.Queue = asyncio.Queue(maxsize=_QUEUE_MAX)
-        # Optional Nx write-back: async (run_id, caption) → None
-        self._nx_write_back: Callable[[str, str], object] | None = None
+        # Optional VMS write-back: async (run_id, caption) → None
+        self._write_back: Callable[[str, str], object] | None = None
 
-    def set_nx_write_back(self, callback: Callable[[str, str], object]) -> None:
-        """Register an async callback invoked for every caption to push to Nx Witness."""
-        self._nx_write_back = callback
+    def set_write_back(self, callback: Callable[[str, str], object]) -> None:
+        """Register an async callback invoked for every caption to publish to the VMS."""
+        self._write_back = callback
 
     # ── Queue management (called by SSE route via shim) ───────────────────────
 
@@ -150,11 +150,11 @@ class LvcMqttSubscriber:
 
         logger.debug("lvc_mqtt_dispatched", run_id=run_id, result_len=len(data.get("result", "")))
 
-        # Push caption to Nx Witness as a bookmark (fire-and-forget).
-        if self._nx_write_back is not None:
+        # Publish the caption to the VMS (fire-and-forget).
+        if self._write_back is not None:
             caption = data.get("result", "")
             if caption:
-                asyncio.ensure_future(self._nx_write_back(run_id, caption))
+                asyncio.ensure_future(self._write_back(run_id, caption))
 
     @staticmethod
     def _put_nowait(queue: Optional[asyncio.Queue], item: object) -> None:
