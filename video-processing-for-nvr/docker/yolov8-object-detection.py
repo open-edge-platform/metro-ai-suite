@@ -87,7 +87,7 @@ import subprocess
 import sys
 
 subprocess.run(
-    [sys.executable, "-m", "pip", "install", "-q", "openvino>=2024.0.0", "nncf>=2.9.0"],
+    [sys.executable, "-m", "pip", "install", "-q", "openvino==2026.1.0", "nncf==2.19.0", "numpy==2.2.6"],
     check=True,
 )
 subprocess.run(
@@ -530,7 +530,6 @@ quantized_det_model = nncf.quantize(
     det_ov_model,
     quantization_dataset,
     preset=nncf.QuantizationPreset.MIXED,
-    ignored_scope=ignored_scope
 )
 
 
