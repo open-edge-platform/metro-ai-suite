@@ -31,12 +31,12 @@ jobs:
         id: changed
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          HEAD_SHA: ${{ github.sha }}
         run: |
           if [ -n "$BASE_SHA" ] && git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
-            files=$(git diff --name-only --diff-filter=ACMRT -z "$BASE_SHA" "$HEAD_SHA" -- metro-vision-ai-app-recipe | jq -Rs 'split("\u0000")[:-1]')
+            files=$(git diff --name-only --diff-filter=ACMRT -z "$BASE_SHA" "$HEAD_SHA" -- metro-vision-ai-app-recipe | jq -Rsc 'split("\u0000")[:-1]')
           else
-            files=$(git ls-files -z metro-vision-ai-app-recipe | jq -Rs 'split("\u0000")[:-1]')
+            files=$(git ls-files -z metro-vision-ai-app-recipe | jq -Rsc 'split("\u0000")[:-1]')
           fi
           echo "files=$files" >> "$GITHUB_OUTPUT"
           echo "shellcheck_files=$(jq -c '[.[] | select(endswith(".sh"))]' <<< "$files")" >> "$GITHUB_OUTPUT"
