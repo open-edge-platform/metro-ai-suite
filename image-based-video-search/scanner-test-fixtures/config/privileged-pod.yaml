@@ -1,0 +1,11 @@
+# Static scanner fixture only; do not deploy.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: scanner-fixture-privileged
+spec:
+  containers:
+    - name: scanner-fixture
+      image: nginx:latest
+      securityContext:
+        privileged: true
