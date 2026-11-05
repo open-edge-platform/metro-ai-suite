@@ -32,7 +32,7 @@ This page provides detailed hardware, software, and platform requirements to hel
 | **Component**      | **Minimum Requirement**   |
 |---------------------|--------------------------|
 | **Processor**       | 12th Generation Intel® Core™ processor and above with Intel® HD Graphics, 4th Gen Intel® Xeon® Scalable Processors   |
-| **Memory**          | 16 GB                    |
+| **Memory**          | 32 GB                    |
 | **Disk Space**      | 128 GB SSD               |
 
 ### Validated Platforms

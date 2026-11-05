@@ -98,15 +98,15 @@ def discover_models(force=False):
                     ident = f"{ident}-{len(models)}"
                 seen_ids.add(ident)
 
-                label = f"{stem} ({precision})" if precision else stem
-
-                model_proc = None
-                same_dir_proc = os.path.join(root, stem + ".json")
-                parent_proc = os.path.join(os.path.dirname(root), stem + ".json")
-                if os.path.isfile(same_dir_proc):
-                    model_proc = same_dir_proc
-                elif os.path.isfile(parent_proc):
-                    model_proc = parent_proc
+                # Path under the model store (precision folder dropped), so two IRs that share a
+                # file name in different folders stay distinguishable in the UI.
+                parent = os.path.dirname(rel_dir) if precision else rel_dir
+                parent = "" if parent == "." else parent.replace(os.sep, "/")
+                if parent and parent.rsplit("/", 1)[-1].lower() == stem.lower():
+                    shown = parent
+                else:
+                    shown = f"{parent}/{stem}" if parent else stem
+                label = f"{shown} ({precision})" if precision else shown
 
                 shape = _ir_input_shape(xml_path)
                 compatibility, detail = _model_compatibility(shape)
@@ -115,7 +115,6 @@ def discover_models(force=False):
                     "id": ident,
                     "label": label,
                     "model": xml_path,
-                    "model_proc": model_proc,
                     "compatibility": compatibility,
                     "input_shape": shape,
                     "compatibility_detail": detail,
@@ -135,25 +134,20 @@ def discover_models(force=False):
 # --------------------------------------------------------------------------
 
 def _select_pipeline(device):
-    """Select a pipeline whose *version* carries the device.
+    """Select the console's own `object_tracking_<device>` pipeline.
 
-    The released pipelines are published under one name with the device in
-    the version field. Selecting by name alone never selects a device and
-    silently falls through to whichever entry is first.
+    Matched by exact version, never by suffix or substring: config.json also ships other
+    pipeline families (e.g. loiter_detect_roi_* with gvaattachroi) that end in the same
+    _cpu/_gpu/_npu and that this UI cannot drive (no roi-properties, different semantics).
     """
-    r = requests.get(f"{PIPELINE_SERVER_URL}/pipelines", timeout=5)
+    r = requests.get(f"{PIPELINE_SERVER_URL}/pipelines", timeout=30)
     r.raise_for_status()
     entries = r.json()
     if not isinstance(entries, list):
         return None
-    dev = device.lower()
+    wanted = f"object_tracking_{device.lower()}"
     for e in entries:
-        version = str(e.get("version", ""))
-        if version.lower().endswith(f"_{dev}"):
-            return e
-    for e in entries:
-        version = str(e.get("version", ""))
-        if dev in version.lower():
+        if str(e.get("version", "")).lower() == wanted:
             return e
     return None
 

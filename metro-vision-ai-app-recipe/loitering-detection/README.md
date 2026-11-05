@@ -5,7 +5,6 @@
 > For more information, refer to
 > [Intended Use](https://docs.openedgeplatform.intel.com/dev/OEP-articles/notes-on-usage.html#intended-use)
 
-
 Loitering Detection leverages advanced AI algorithms for monitoring and analyzing real-time
 video feeds to demonstrate the efficiency of Intel hardware in AI systems for detecting
 individuals lingering in specified areas and recognizing their activity.
@@ -25,7 +24,6 @@ extend its functionalities to meet their specific needs.
   real-time monitoring, and insightful data visualization.
 - **User-Friendly:** Simplifies configuration and operation through prebuilt scripts and
   configuration files.
-
 
 ## How It Works
 

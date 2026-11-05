@@ -7,7 +7,7 @@ JSON file. This guide covers where it lives, what each stage does, and how to ch
 > [!NOTE]
 > This page is about editing the pipeline *definition* itself (`config.json` - adding/removing
 > GStreamer elements, changing what is hardcoded vs REST-overridable). To use the pipeline as-is
-> - add a zone, add a new stream, pick a different model, read the published MQTT data - see
+> - i.e., add a zone, add a new stream, pick a different model, read the published MQTT data - see
 > [Customize the Application](./customize-application.md) instead; nothing there requires editing
 > this file.
 
@@ -71,7 +71,7 @@ pipeline-string edit; it also drops every currently-running stream (CLI and Cons
 | `decodebin3` (CPU) / `parsebin ! vah264dec ! vapostproc` (GPU/NPU) | Decode the source video; GPU/NPU decode into `video/x-raw(memory:VAMemory)` for hardware-accelerated inference. |
 | `gvadetect` | Runs the detection model on the **full frame** |
 | `gvatrack tracking-type=zero-term` | Assigns/keeps a stable id per object across frames. |
-| `gvaanalytics evaluation-point=bottom-center draw-zones=true` | Matches each tracked object against the active zone(s) (polygons from the zone file, or a custom rectangle - see below), computes dwell time, and draws the zone outline(s). This is the only zone-awareness in the pipeline - it decides what counts toward the loiter table, not what gets boxed. |
+| `gvaanalytics evaluation-point=bottom-center draw-zones=true` | Matches each tracked object against the active zone(s) (polygons from the zone file, or a custom shape - see below), computes dwell time, and draws the zone outline(s). This is the only zone-awareness in the pipeline - it decides what counts toward the loiter table, not what gets boxed. |
 | `loitering_watermark` | Burns zone/dwell-time text onto the video itself, toggled by the Console UI's "Show dwell-time overlay" checkbox (`loitering-watermark-properties.quiet-mode`); the console's own per-panel loiter table shows the same data regardless. |
 | `gvametaconvert add-empty-results=true` | Serialises detections + zone/dwell info into the JSON published to MQTT, including empty-frame results. |
 | `appsink` | Hands frames+metadata to the Pipeline Server, which fans them out to the configured destinations (MQTT for metadata, WebRTC for video). |
@@ -82,10 +82,15 @@ Both the Console UI (`console-addon/console/api_pipelines.py`, function `_launch
 sample (`sample_start.sh`) call `POST /pipelines/{name}/{version}` with a `parameters` object
 matching `config.json`'s schema:
 
+> [!NOTE]
+> The Console UI only ever launches the `object_tracking_<device>` pipelines (matched by exact
+> name). Other pipeline families in `config.json`, such as `loiter_detect_roi_*`, are never
+> started from the UI.
+
 | Request key | Element it targets | What it sets |
 | --- | --- | --- |
-| `detection-properties` | `detection` (`gvadetect`) | `model`, `device`, `model-instance-id`, `model_proc` |
-| `analytics-properties` | `analytics` (`gvaanalytics`) | `config` (a zone file under `src/dlstreamer-pipeline-server/zones/`, see [Adding a new stream](./customize-application.md#adding-a-new-stream)), or `zones` - the file's zones, or a single custom rectangle, never both (see [Getting started - Loitering Detection Console UI](../getting-started-ui.md#changing-the-zone)) |
+| `detection-properties` | `detection` (`gvadetect`) | `model`, `device`, `model-instance-id`. No `model-proc` is baked or sent: models that embed their pre/post-processing in the IR (RF-DETR, YOLO) need none, and for the shipped `pedestrian-and-vehicle-detector-adas-0001` (an older SSD-style model whose IR has no class names) DLSPS applies the `.json` that `install.sh` downloads next to it. Without that file it still detects, but objects are labelled `class 2` instead of `pedestrian`. |
+| `analytics-properties` | `analytics` (`gvaanalytics`) | `config` (a zone file under `src/dlstreamer-pipeline-server/zones/`, see [Adding a new stream](./customize-application.md#adding-a-new-stream)), or `zones` - the file's zones, or a single custom shape, never both (see [Getting started - Loitering Detection Console UI](./use-console-ui.md#change-the-zone)) |
 | `loitering-watermark-properties` | `loitering_watermark` | `quiet-mode`, `loitering-threshold` |
 
 There is **no live-update path**: changing any of these (switching model, device, or zone)
@@ -114,6 +119,6 @@ confirmed in `dlstreamer-pipeline-server`'s own logs, where a zone/model change 
 
 ## Related
 
-- [Getting started - Loitering Detection Console UI](../getting-started-ui.md) - the operator-facing side of zones/models/devices.
+- [Use the Console UI](./use-console-ui.md) - the operator-facing side of zones/models/devices.
 - `loitering-detection/sample_start.sh` - the CLI equivalent of the Console UI's `_launch`, useful
   as a second working reference for the same `parameters` schema.
