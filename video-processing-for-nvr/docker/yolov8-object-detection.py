@@ -87,7 +87,7 @@ import subprocess
 import sys
 
 subprocess.run(
-    [sys.executable, "-m", "pip", "install", "-q", "openvino==2026.1.0", "nncf==2.19.0", "numpy==2.2.6"],
+    [sys.executable, "-m", "pip", "install", "-q", "openvino==2026.1.0", "nncf==2.19.0", "numpy==2.2.6", "ipywidgets"],
     check=True,
 )
 subprocess.run(
