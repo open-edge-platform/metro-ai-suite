@@ -187,18 +187,21 @@ jobs:
         EOF
         
     - name: Trivy Image Scans
+      id: trivy-image-scan
+      continue-on-error: true
       run: |
         cd metro-ai-suites-repo/image-based-video-search
         mkdir -p ${{ github.workspace }}/reports/Trivy
+        scan_status=0
         for entry in "feature-matching:$SCAN_FEATURE_MATCHING" "streaming-pipeline:$SCAN_STREAMING_PIPELINE" "image-based-video-search:$SCAN_APP"; do
           name=${entry%:*}
           [ "${entry##*:}" = "true" ] || continue
           version=$(awk -F: -v name="$name" '$0 ~ name ":" && NF >= 3 { print $3; exit }' compose.yml | tr -d '[:space:]')
           image="intel/$name:$version"
           report="trivy-image-scan-$name"
-          trivy image "$image" -s HIGH,CRITICAL --ignore-unfixed --format template --template "@trivy-html.tpl" -o "$report-ignore-unfixed.html"
-          trivy image "$image" -s HIGH,CRITICAL --ignore-unfixed --format template --template "@csv.tpl" -o "$report-ignore-unfixed.csv"
-          trivy image "$image" -s HIGH,CRITICAL --ignore-unfixed --format json -o "$report.json"
+          trivy image "$image" -s HIGH,CRITICAL --ignore-unfixed --exit-code 1 --format template --template "@trivy-html.tpl" -o "$report-ignore-unfixed.html" || scan_status=$?
+          trivy image "$image" -s HIGH,CRITICAL --ignore-unfixed --exit-code 1 --format template --template "@csv.tpl" -o "$report-ignore-unfixed.csv" || scan_status=$?
+          trivy image "$image" -s HIGH,CRITICAL --ignore-unfixed --exit-code 1 --format json -o "$report.json" || scan_status=$?
           trivy image --quiet --format spdx-json --output "$report.spdx.json" "$image"
         done
 
@@ -206,8 +209,11 @@ jobs:
         if [ -e "${image_reports[0]}" ]; then
           mv trivy-image* ${{ github.workspace }}/reports/Trivy
         fi
+        exit "$scan_status"
 
     - name: Trivy Config Scan
+      id: trivy-config-scan
+      continue-on-error: true
       run: |
         cd metro-ai-suites-repo/image-based-video-search
         config_files=()
@@ -219,7 +225,7 @@ jobs:
         for index in "${!config_files[@]}"; do
           report="trivy-config-$index.json"
           reports+=("$report")
-          trivy config "${config_files[index]}" -s HIGH,CRITICAL --format json -o "$report" || scan_status=$?
+          trivy config "${config_files[index]}" -s HIGH,CRITICAL --exit-code 1 --format json -o "$report" || scan_status=$?
         done
         if [ "${#reports[@]}" -gt 0 ]; then
           jq -s '{Results: [.[].Results[]?]}' "${reports[@]}" > trivy-config.json
@@ -253,21 +259,40 @@ jobs:
         echo "HIGH: $high_count | CRITICAL: $critical_count" >> "$GITHUB_STEP_SUMMARY"
         cp "$report" reports/Trivy/trivy-config.json
     - name: Trivy FS Scan
+      id: trivy-fs-scan
+      continue-on-error: true
       run: |
         cd metro-ai-suites-repo/image-based-video-search
         index=0
+        scan_status=0
         while IFS= read -r -d '' file; do
           [ -f "$file" ] || continue
-          trivy fs "$file" --format template --template "@trivy-html.tpl" -o "trivy-fs-$index.html"
-          trivy fs --list-all-pkgs --format template --template "@csv.tpl" --output "trivy-fs-$index.csv" "$file"
-          trivy fs "$file" -s HIGH,CRITICAL --ignore-unfixed | tee "trivy-fs-$index.txt"
-          trivy fs "$file" -s HIGH,CRITICAL --ignore-unfixed --format json -o "trivy-fs-$index.json"
+          trivy fs "$file" -s HIGH,CRITICAL --exit-code 1 --format template --template "@trivy-html.tpl" -o "trivy-fs-$index.html" || scan_status=$?
+          trivy fs "$file" --list-all-pkgs -s HIGH,CRITICAL --exit-code 1 --format template --template "@csv.tpl" --output "trivy-fs-$index.csv" || scan_status=$?
+          trivy fs "$file" -s HIGH,CRITICAL --ignore-unfixed --exit-code 1 | tee "trivy-fs-$index.txt" || scan_status=$?
+          trivy fs "$file" -s HIGH,CRITICAL --ignore-unfixed --exit-code 1 --format json -o "trivy-fs-$index.json" || scan_status=$?
           index=$((index + 1))
         done < <(jq -j '.[] | . + "\u0000"' <<< "$CHANGED_FILES")
         fs_reports=(trivy-fs-*)
         if [ -e "${fs_reports[0]}" ]; then
           mv trivy-fs-* ${{ github.workspace }}/reports/Trivy
         fi
+        exit "$scan_status"
+    - name: Enforce Trivy findings
+      if: always()
+      env:
+        IMAGE_SCAN_RESULT: ${{ steps.trivy-image-scan.outcome }}
+        CONFIG_SCAN_RESULT: ${{ steps.trivy-config-scan.outcome }}
+        FS_SCAN_RESULT: ${{ steps.trivy-fs-scan.outcome }}
+      run: |
+        failed=0
+        for result in "$IMAGE_SCAN_RESULT" "$CONFIG_SCAN_RESULT" "$FS_SCAN_RESULT"; do
+          if [ "$result" != "success" ]; then
+            echo "::error title=Trivy Scan Failed::One or more image, config, or filesystem scans failed or did not run."
+            failed=1
+          fi
+        done
+        exit "$failed"
     - name: Collect Trivy HIGH findings
       id: collect-trivy-high
       if: always()
@@ -315,16 +340,18 @@ jobs:
         sudo apt-get install -y shellcheck
 
     - name: Run ShellCheck Scan
+      id: run-shellcheck
       run: |
         cd metro-ai-suites-repo/image-based-video-search/
         mkdir -p "$GITHUB_WORKSPACE/reports"
+        shellcheck_exit=0
         shell_files=()
         while IFS= read -r -d '' file; do
           if [ -f "$file" ]; then shell_files+=("$file"); fi
         done < <(jq -j '.[] | . + "\u0000"' <<< "$SHELLCHECK_FILES")
         : > "$GITHUB_WORKSPACE/reports/shellcheck-report.txt"
         if [ "${#shell_files[@]}" -gt 0 ]; then
-          shellcheck -f gcc "${shell_files[@]}" > "$GITHUB_WORKSPACE/reports/shellcheck-report.txt" || true
+          shellcheck -S error -f gcc "${shell_files[@]}" > "$GITHUB_WORKSPACE/reports/shellcheck-report.txt" || shellcheck_exit=$?
         fi
         report="$GITHUB_WORKSPACE/reports/shellcheck-report.txt"
         issue_count=$(wc -l < "$report")
@@ -351,6 +378,7 @@ jobs:
           echo "Findings: $issue_count"
           echo "Full report: shellcheck-report.txt"
         } >> "$GITHUB_STEP_SUMMARY"
+        echo "exit_code=$shellcheck_exit" >> "$GITHUB_OUTPUT"
         
     - name: Run Virus Scan
       run: |
@@ -384,8 +412,10 @@ jobs:
           echo "Full report: clamav-report.txt"
         } >> "$GITHUB_STEP_SUMMARY"
     - name: Run Bandit Scan
+      id: run-bandit
       run: |
         mkdir -p reports
+        bandit_exit=0
         python_files=()
         while IFS= read -r -d '' file; do
           if [ -f "metro-ai-suites-repo/image-based-video-search/$file" ]; then
@@ -395,11 +425,12 @@ jobs:
         if [ "${#python_files[@]}" -gt 0 ]; then
           docker pull ghcr.io/pycqa/bandit/bandit
           docker run --rm -v "$GITHUB_WORKSPACE:/src" ghcr.io/pycqa/bandit/bandit "${python_files[@]}" -f txt -o /src/reports/bandit-report.txt || true
-          docker run --rm -v "$GITHUB_WORKSPACE:/src" ghcr.io/pycqa/bandit/bandit "${python_files[@]}" -f json -o /src/reports/bandit-report.json || true
+          docker run --rm -v "$GITHUB_WORKSPACE:/src" ghcr.io/pycqa/bandit/bandit "${python_files[@]}" -f json -o /src/reports/bandit-report.json || bandit_exit=$?
         else
           printf '{"results":[]}\n' > reports/bandit-report.json
           : > reports/bandit-report.txt
         fi
+        echo "exit_code=$bandit_exit" >> "$GITHUB_OUTPUT"
 
     - name: Summarize Bandit findings
       if: always()
@@ -449,6 +480,31 @@ jobs:
           echo "has_high=false" >> "$GITHUB_OUTPUT"
         fi
         echo "Bandit HIGH findings: $high_count"
+    - name: Enforce scanner findings
+      if: always()
+      env:
+        SHELLCHECK_EXIT: ${{ steps.run-shellcheck.outputs.exit_code }}
+        BANDIT_EXIT: ${{ steps.run-bandit.outputs.exit_code }}
+        BANDIT_HIGH: ${{ steps.collect-bandit-high.outputs.has_high }}
+      run: |
+        failed=0
+        if [ "$SHELLCHECK_EXIT" != "0" ]; then
+          echo "::error title=ShellCheck Errors::ShellCheck reported error-level findings."
+          failed=1
+        fi
+        if [ "$BANDIT_HIGH" = "true" ]; then
+          echo "::error title=Bandit Findings::Bandit found HIGH severity issues."
+          failed=1
+        fi
+        if [ ! -s reports/bandit-report.json ]; then
+          echo "::error title=Bandit Report Missing::Bandit did not produce a JSON report."
+          failed=1
+        fi
+        case "$BANDIT_EXIT" in
+          ""|0|1) ;;
+          *) echo "::error title=Bandit Execution Failed::Bandit exited with code $BANDIT_EXIT."; failed=1 ;;
+        esac
+        exit "$failed"
     - name: Upload Scan Reports
       if: always()
       uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f #v6.0.0
