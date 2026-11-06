@@ -10,15 +10,17 @@ services:
     image: intel/smart-route-planning-agent:${TAG:-latest}
     ports:
       - "${AI_ROUTE_PLANNER_PORT:-7864}:7860"
+      - "${INTERSECTIONS_API_PORT:-8765}:8765"
     environment:
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
-      - no_proxy=${no_proxy},${HOST_IP},ovms
+      - no_proxy=${no_proxy:-${NO_PROXY}},${HOST_IP},ovms
       - HTTP_PROXY=${http_proxy}
       - HTTPS_PROXY=${https_proxy}
-      - NO_PROXY=${no_proxy},${HOST_IP},ovms
+      - NO_PROXY=${no_proxy:-${NO_PROXY}},${HOST_IP},ovms
       - REASONING_MODEL_NAME=${REASONING_MODEL_NAME:-}  # Optional. When empty, rule based planning is used.
-      - REASONING_TIMEOUT_SEC=${REASONING_TIMEOUT_SEC:-15.0}  # Increase for larger reasoning models (e.g. 60-120s for 14B on CPU).
+      - REASONING_TIMEOUT_SEC=${REASONING_TIMEOUT_SEC:-120.0}  # Increase for larger models or slower hardware.
+      - INTERSECTIONS_API_PORT=8765
     volumes:
       - ./data/config.json:/app/data/config.json:ro
     networks:
@@ -27,6 +29,8 @@ services:
       ovms:
         condition: service_healthy
         required: false
+      metrics-manager:
+        condition: service_started
     healthcheck:
       test: ["CMD", "uv", "run", "health_check.py", "7860"]
       interval: 30s
@@ -35,8 +39,19 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  # Provides Intel hardware info (CPU / GPU / NPU) shown at the top of the UI.
+  metrics-manager:
+    image: intel/metrics-manager:2026.2.0
+    privileged: true
+    volumes:
+      - /sys:/sys
+      - /dev:/dev
+    networks:
+      - routeplanner
+    restart: unless-stopped
+
   ovms:
-    image: openvino/model_server:2026.3.1
+    image: openvino/model_server:2026.4.0
     profiles:
       - reasoning
     command:
@@ -57,16 +72,20 @@ services:
     environment:
       - http_proxy=${http_proxy}
       - https_proxy=${https_proxy}
-      - no_proxy=${no_proxy},${HOST_IP}
+      - no_proxy=${no_proxy:-${NO_PROXY}},${HOST_IP}
       - HTTP_PROXY=${http_proxy}
       - HTTPS_PROXY=${https_proxy}
-      - NO_PROXY=${no_proxy},${HOST_IP}
+      - NO_PROXY=${no_proxy:-${NO_PROXY}},${HOST_IP}
       # Only needed for gated repositories on HuggingFace.
       - HF_TOKEN=${HF_TOKEN:-}
     volumes:
       - ovms-models:/home/ovms
     networks:
       - routeplanner
+    ulimits:
+      nofile:
+        soft: 16384
+        hard: 65536
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8000/v2/health/ready"]
       interval: 15s

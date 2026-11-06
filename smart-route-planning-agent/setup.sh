@@ -91,11 +91,14 @@ export DATA_RETENTION_HOURS=${DATA_RETENTION_HOURS:-24}
 # AI Route Planner Configuration
 export AI_ROUTE_PLANNER_PORT=${AI_ROUTE_PLANNER_PORT:-7864}
 
+# Intersections API Configuration (host port exposing GET /v1/intersections)
+export INTERSECTIONS_API_PORT=${INTERSECTIONS_API_PORT:-8765}
+
 # Reasoning Model Configuration (optional)
 export REASONING_MODEL_NAME=${REASONING_MODEL_NAME:-}
-# Timeout (seconds) for the reasoning model HTTP request. Increase for larger models
-# (e.g. 60-120s for 14B-class models on CPU) to avoid premature client-side cancellation.
-export REASONING_TIMEOUT_SEC=${REASONING_TIMEOUT_SEC:-15.0}
+# Timeout (seconds) for the reasoning model HTTP request. Increase for slower
+# hardware to avoid premature client-side cancellation.
+export REASONING_TIMEOUT_SEC=${REASONING_TIMEOUT_SEC:-120.0}
 # OVMS KV-cache size in GB. Increase for larger reasoning models so requests aren't
 # starved of cache (undersized cache causes requests to stall/be cancelled).
 export OVMS_CACHE_SIZE=${OVMS_CACHE_SIZE:-10}
@@ -140,6 +143,7 @@ start_service() {
     if docker compose -f "$COMPOSE_MAIN" -p "$PROJECT_NAME" up -d; then
         echo -e "${GREEN}Smart-Route-Planning-Agent container started successfully!${NC}"
         echo -e "${BLUE}AI Route Planner UI: ${YELLOW}http://${HOST_IP}:${AI_ROUTE_PLANNER_PORT}${NC}"
+        echo -e "${BLUE}Intersections API: ${YELLOW}http://${HOST_IP}:${INTERSECTIONS_API_PORT}/v1/intersections${NC}"
     else
         echo -e "${RED}Failed to start Smart-Route-Planning-Agent container!${NC}"
         return 1
