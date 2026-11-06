@@ -193,9 +193,11 @@ jobs:
         cd metro-ai-suites-repo/image-based-video-search
         mkdir -p ${{ github.workspace }}/reports/Trivy
         scan_status=0
+        scanned_images=0
         for entry in "feature-matching:$SCAN_FEATURE_MATCHING" "streaming-pipeline:$SCAN_STREAMING_PIPELINE" "image-based-video-search:$SCAN_APP"; do
           name=${entry%:*}
           [ "${entry##*:}" = "true" ] || continue
+          scanned_images=$((scanned_images + 1))
           version=$(awk -F: -v name="$name" '$0 ~ name ":" && NF >= 3 { print $3; exit }' compose.yml | tr -d '[:space:]')
           image="intel/$name:$version"
           report="trivy-image-scan-$name"
@@ -208,6 +210,9 @@ jobs:
         image_reports=(trivy-image*)
         if [ -e "${image_reports[0]}" ]; then
           mv trivy-image* ${{ github.workspace }}/reports/Trivy
+        fi
+        if [ "$scanned_images" -eq 0 ]; then
+          echo "No supporting file changes; Trivy image scans passed without running." >> "$GITHUB_STEP_SUMMARY"
         fi
         exit "$scan_status"
 
@@ -232,9 +237,12 @@ jobs:
         else
           printf '{"Results":[]}\n' > trivy-config.json
         fi
+        echo "file_count=${#config_files[@]}" >> "$GITHUB_OUTPUT"
         exit "$scan_status"
     - name: Summarize Trivy config findings
       if: always()
+      env:
+        CONFIG_FILE_COUNT: ${{ steps.trivy-config-scan.outputs.file_count }}
       run: |
         report="metro-ai-suites-repo/image-based-video-search/trivy-config.json"
         table="reports/Trivy/trivy-config.txt"
@@ -242,6 +250,11 @@ jobs:
         echo "## Trivy Config Findings" >> "$GITHUB_STEP_SUMMARY"
         if [ ! -s "$report" ]; then
           echo "Trivy JSON report was not generated." | tee "$table" >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+        if [ "$CONFIG_FILE_COUNT" -eq 0 ]; then
+          echo "No supporting file changes; Trivy config scan passed without running." | tee "$table" >> "$GITHUB_STEP_SUMMARY"
+          cp "$report" reports/Trivy/trivy-config.json
           exit 0
         fi
         high_count=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "HIGH")] | length' "$report")
@@ -276,6 +289,9 @@ jobs:
         fs_reports=(trivy-fs-*)
         if [ -e "${fs_reports[0]}" ]; then
           mv trivy-fs-* ${{ github.workspace }}/reports/Trivy
+        fi
+        if [ "$index" -eq 0 ]; then
+          echo "No supporting file changes; Trivy filesystem scan passed without running." >> "$GITHUB_STEP_SUMMARY"
         fi
         exit "$scan_status"
     - name: Enforce Trivy findings
@@ -359,7 +375,9 @@ jobs:
           echo "## ShellCheck Findings"
           echo "| File | Line | Column | Severity | Code | Finding |"
           echo "|------|-----:|-------:|----------|------|---------|"
-          if [ "$issue_count" -gt 0 ]; then
+          if [ "${#shell_files[@]}" -eq 0 ]; then
+            echo "No supporting file changes; ShellCheck passed without running."
+          elif [ "$issue_count" -gt 0 ]; then
             while IFS=: read -r file line column diagnostic; do
               severity="${diagnostic# }"
               severity="${severity%%:*}"
@@ -390,18 +408,21 @@ jobs:
           fi
         done < <(jq -j '.[] | . + "\u0000"' <<< "$CHANGED_FILES")
         : > ./reports/clamav-report.txt
+        infected_count=0
         if [ "${#files[@]}" -gt 0 ]; then
           docker pull clamav/clamav
           docker run --rm -v "$GITHUB_WORKSPACE:/src" clamav/clamav clamscan "${files[@]}" > ./reports/clamav-report.txt || true
+          infected_count=$(awk '/ FOUND$/ { count++ } END { print count + 0 }' reports/clamav-report.txt)
         fi
-        infected_count=$(awk '/ FOUND$/ { count++ } END { print count + 0 }' reports/clamav-report.txt)
         {
           echo "### Virus Scan Results"
           echo "| Metric | Count |"
           echo "|--------|------:|"
           echo "| Infected files | $infected_count |"
           echo ""
-          if [ "$infected_count" -gt 0 ]; then
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No supporting file changes; virus scan passed without running."
+          elif [ "$infected_count" -gt 0 ]; then
             echo "| File | Detection |"
             echo "|------|-----------|"
             awk '/ FOUND$/ { line = $0; sub(/ FOUND$/, "", line); file = line; sub(/: [^:]*$/, "", file); detection = line; sub(/^.*: /, "", detection); printf "| %s | %s |\n", file, detection }' reports/clamav-report.txt
@@ -431,14 +452,21 @@ jobs:
           : > reports/bandit-report.txt
         fi
         echo "exit_code=$bandit_exit" >> "$GITHUB_OUTPUT"
+        echo "file_count=${#python_files[@]}" >> "$GITHUB_OUTPUT"
 
     - name: Summarize Bandit findings
       if: always()
+      env:
+        BANDIT_FILE_COUNT: ${{ steps.run-bandit.outputs.file_count }}
       run: |
         report="reports/bandit-report.json"
         echo "## Bandit Scan Findings" >> "$GITHUB_STEP_SUMMARY"
         if [ ! -s "$report" ]; then
           echo "Bandit JSON report was not generated. See bandit-report.txt for scan output." >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+        if [ "$BANDIT_FILE_COUNT" -eq 0 ]; then
+          echo "No supporting file changes; Bandit scan passed without running." >> "$GITHUB_STEP_SUMMARY"
           exit 0
         fi
         high_count=$(jq '[.results[]? | select(.issue_severity == "HIGH")] | length' "$report")
