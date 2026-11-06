@@ -78,10 +78,28 @@ Empty always-pass files are defects. `pytest --collect-only -q tests/ | tail -1`
 **`test_grafana_mqtt_data.py`**
 - `GET /grafana/api/datasources` (basic auth admin/admin) returns datasource with `type=="mqtt-datasource"`, `access=="proxy"`.
 - Dashboard `{{DASHBOARD_SLUG}}` provisioned — look up **by uid** (`GET /grafana/api/dashboards/uid/{{DASHBOARD_SLUG}}` returns 200). Do NOT use `/grafana/api/search?query=`; it matches *title*, not slug/uid, and flakes when they differ.
-- Query datasource proxy for count topic over 60 s: ≥1 datapoint (guards 1.2.1 "invalid orgId" regression).
+- **Real numeric subscription:** for the pinned MQTT plugin 1.3.3, a successful
+  datasource health check or `/api/ds/query` response is insufficient. Query
+  with `intervalMs=1000`, a URL-safe base64 topic (without padding), and
+  `streamingKey="<datasourceUid>/<hash>/<orgId>"`. The Live channel path is
+  `interval/base64url-topic/datasourceUid/hash/orgId`; omitting the streaming
+  key causes `invalid channel path format`. Use the real datasource/org IDs
+  and hash (first 16 hex characters of SHA-1 over compact JSON
+  `{"topic":"<base64url-topic>"}` for this pinned version); derive the channel from the
+  returned frame's `schema.meta.channel`, not a guessed path. Authenticate to
+  Grafana Live and assert receipt of an actual numeric frame for the count topic
+  within 60 s. Keep ordinary dashboard targets as plain MQTT topics; this encoding
+  applies to the low-level query/subscription client, not the broker topic.
 
-**`test_grafana_dashboard_content.py`** — verifies dashboard *displays* video and MQTT, guarding common "green but empty/black" regressions.
+**`test_grafana_dashboard_content.py`** — checks dashboard wiring; browser checks below establish actual rendering.
 - **MQTT connected:** `GET /grafana/api/datasources/uid/mqtt_ds/health` (admin/admin) returns `status=="OK"` and message containing `connected`. Catches `jsonData.uri` mistake: wrong key provisions "successfully" but health says `"Network error dial tcp: missing address"` and panels are blank.
 - **Video panels present:** fetch dashboard (`/grafana/api/dashboards/uid/<uid>`) and assert exactly `{{NUM_SOURCES}}` `type=="text"` panels whose `options.content` is an `<iframe>` referencing `WEBRTC_URL` / `mediamtx`, each with distinct `{{DETECTIONS_TOPIC_PREFIX}}_N` peer-id.
-- **Video playable:** resolve `WEBRTC_URL` and assert each `<WEBRTC_URL>/{{DETECTIONS_TOPIC_PREFIX}}_N/` returns 200 HTML (WHEP player served — requires running pipelines).
+- **Player served:** resolve `WEBRTC_URL` and assert each `<WEBRTC_URL>/{{DETECTIONS_TOPIC_PREFIX}}_N/` returns 200 HTML (not playback proof).
 - **MQTT panels bound:** at least one panel's `datasource` resolves to `uid=="mqtt_ds"` (or type contains `mqtt`), proving count/alert panels wire to live broker.
+- **Browser rendering:** observe advancing video `currentTime`/decoded frames,
+  numeric panel updates consistent with MQTT, and visible notifications for real
+  qualifying detections. If unavailable or failing, mark rendering unverified or
+  failed even when the API tests pass.
+- **Replacement inputs:** rerun these checks plus detections, counts, real alerts,
+  and EOS/watchdog continuity after switching a source. Record final source URI
+  and timestamps; do not reuse prior-video evidence or retained alerts as new proof.

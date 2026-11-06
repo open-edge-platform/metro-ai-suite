@@ -82,56 +82,39 @@ that skill directly) or wants a pure code answer with no deployable artifact.
 | [`references/DISCOVERY.md`](references/DISCOVERY.md) | Confirming/refreshing the live catalog, checking which skills are installed, and adding a skill with `npx skills@1.5.23`. Load in Step 2 when the catalog is stale or a skill is missing locally. |
 
 Do **not** load delegate skills' bodies yourself up front — you hand off to them
-in Step 5 and *they* load their own references.
+in Step 5 and *they* load their own references. During planning, inspect only
+the selected delegate's compatibility and parameter requirements so the plan
+does not promise unsupported settings (for example, FP16 when INT8 is required).
 
 ## Procedure
 
 ### Step 1 — Understand the objective (Q&A)
 
-Ask a **short, batched** set of questions in ONE message (offer sensible defaults
-in brackets; accept `go`/`defaults`/empty to take them). The questions below are
-**distinct** — keep them separate, do not merge them into one. Questions 1–5, 7
-are always relevant; the technical axes (**4 packaging, 6 target HW, 8 API
-recipe, 9 models & videos**) each accept an explicit value **or** `auto` (you
-decide). Adapt wording to the stated outcome, but cover these axes:
+Ask only unanswered items from these **four plain-language questions in one
+batch**. Offer defaults; accept `defaults` or empty answers to use them (this
+does not replace Step 4 approval). If all answers are known, skip the questionnaire.
 
-1. **Outcome** — what decision/insight/action do you want? (e.g. "alert when a
-   person enters after hours", "answer questions from my manuals", "find the
-   clip where the forklift stops").
-2. **Inputs / data** — what feeds it? (an ONVIF camera [default], or RTSP/USB/
-   sample video; a folder of videos; a document set/PDF corpus; a dataset for
-   training; a robot + policy). For live camera use cases assume **ONVIF** unless
-   the user says otherwise.
-3. **Camera coverage** *(vision use cases)* — is this **one camera / one view**,
-   or **several cameras covering one physical space** where you care about
-   tracking a subject *across* cameras (a whole-scene / spatial view)? [one
-   camera] A multi-camera whole-scene answer routes to the Scenescape path.
-4. **Packaging type** — what shape should the deliverable take? A **demo/PoC
-   app** (proves the model runs, emits results), a **microservice** (a
-   REST/streaming service, e.g. the full end-to-end analytics stack), a
-   **function** (a single batch/one-shot job), or a **port of an existing app**
-   (migrate/convert an existing pipeline)? [`auto`] Picks the deliverable shape
-   and demo-vs-stack routing.
-5. **Deployment target** — a single-host Docker Compose solution, or a
-   Kubernetes/Helm cluster? [Docker Compose]
-6. **Target hardware** — Intel **CPU**, **GPU**, **NPU**, or `auto` (you pick the
-   Intel device)? [`auto`] You may note multi-vendor alternatives as
-   *suggestions only*. Do not name platforms/generations.
-7. **Scale / operations** — one stream vs many; interactive vs batch; needs a
-   dashboard/UI vs an API? [reasonable default per domain]
-8. **API recipe** *(media/analytics use cases)* — which media+analytics API
-   stack? **DL Streamer**, **OpenVINO + OpenCV**, **OVMS + FFmpeg**, or `auto`
-   (you pick from the packaging + outcome). [`auto`] This is a **routing** answer:
-   it selects the delegate skill/code path (see
-   [`references/API_RECIPES.md`](references/API_RECIPES.md) and Step 2) — e.g. DL
-   Streamer routes to `dlstreamer-coding-agent`, **not** the recipe stack.
-9. **Models & videos** — a specific model / video source, or `auto` (state a
-   performance goal instead and let me suggest a model from the OpenVINO, Intel,
-   and Metro Analytics Catalog Hugging Face collections). [`auto`]
+1. **Goal** — what should the app detect, explain, or do? For alerts, include
+   when to notify and where notifications should appear.
+2. **Inputs** — cameras, sample video, documents, dataset, or robot/policy?
+   For live cameras, default to ONVIF. For multiple cameras, ask whether views
+   are independent or require tracking across cameras; the latter routes to
+   Scenescape.
+3. **Where to run** — this device or another host/cluster, and which output
+   folder? [this device, Docker Compose, a dedicated subfolder]
+4. **Scale and experience** — how many inputs, live or batch, and dashboard
+   or API? [one input and domain-appropriate UI; balanced accuracy/latency]
 
-Keep each question distinct and to what changes the routing/build decision. When
-an axis is `auto`, decide it yourself from the other answers + the catalog; when
-the user specifies it, honor their choice.
+Offer one **optional** preferences field: packaging (demo/service/function/port),
+Intel CPU/GPU/NPU, API recipe (DL Streamer/OpenVINO + OpenCV/OVMS + FFmpeg), or
+model. Omitted preferences mean `auto`; do not ask four extra technical questions.
+Infer them from the answers and catalog, honor explicit choices, and show resolved
+values in the plan. Use CPU/GPU/NPU names only, not hardware generations.
+For alerts, state the trigger (appearance vs sustained presence), cooldown, and
+destination in the plan; MQTT publication alone is not an operator notification.
+For sample-video demos, prefer licensed, simple fixed-camera footage with clear
+target objects. For threshold alerts, select footage whose real counts naturally
+cross the requested threshold; do not lower it or inject detections to force proof.
 
 ### Step 2 — Discover the relevant skill(s)
 
@@ -140,7 +123,7 @@ answers to one **primary** skill (and any **supporting** skills, e.g. a
 model-download or embedding-serving step). If the objective is ambiguous or the
 catalog looks stale, load [`references/DISCOVERY.md`](references/DISCOVERY.md) to
 refresh the live index and check what is already installed. When the **API
-recipe** (Q8) is specified, load [`references/API_RECIPES.md`](references/API_RECIPES.md)
+recipe** is specified, load [`references/API_RECIPES.md`](references/API_RECIPES.md)
 — it takes precedence for media/analytics routing. Routing summary:
 
 | Objective / answer (what the user says) | Route to |
@@ -183,6 +166,10 @@ consumes — prepare them so the hand-off in Step 5 needs no further questions.
 Present a concise plan and **stop for approval**. Include:
 
 - **Deliverable** — what will exist when done (directory/service/URLs/artifacts).
+  Resolve the absolute output directory before approval. If it does not exist,
+  include its creation in the plan; after approval, create it before any workspace
+  switch. Never switch to a nonexistent directory or repeat an approved workspace
+  choice unless the host requires it.
 - **Primary + supporting skill(s)** and why each was chosen.
 - **Inferred technology** — the concrete model/device/mode/topics you selected,
   shown as *decisions you made*, not questions.
@@ -228,8 +215,15 @@ Only after confirmation:
    per-skill path override. If it is stale, discover the actual skill folder in
    that repository before installing; do not assume every delegate is in
    `open-edge-platform/skills`.
+   Verify the installed `SKILL.md` exists. If invocation reports "not found"
+   despite a successful installation, use the host's supported skill refresh;
+   if unavailable, explicitly read and follow the installed skill in context.
+   Do not reinstall repeatedly or request another workspace just to refresh it.
 
 2. **Invoke the delegate skill**, passing the parameters you inferred in Step 3.
+   Pass one resolved application specification including the approved output
+   directory, inputs, model/precision, device, and alert behavior. Reuse it rather
+   than repeating the questionnaire; re-confirm any required change to the plan.
    Let it own the build — do not re-implement its work by hand. Chain supporting
    skills in dependency order (e.g. `model-download-user` →
    `metro-ai-app-recipe`; `multimodal-dataprep-user` → `vss-*`).
@@ -243,6 +237,9 @@ ships its own). Then summarize for the user in business terms: what was built,
 how to reach it (URLs/commands), and the immediate next action (e.g. "open the
 Grafana dashboard", "ask the chatbot a question", "run a search query"). If a
 step fails, report the failing delegate step and stop — do not loop.
+Distinguish verified, failed, and unverified outcomes; a passing test count
+does not override a failed user-facing completion criterion. Include start,
+stop, and status commands and whether services remain running.
 
 ## Examples
 

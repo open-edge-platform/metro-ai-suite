@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # API recipes — media/analytics stacks and their delegate routing
 
-The **API recipe** answer (Step 1, Q8) is a **routing** signal: each recipe is a
+An explicit **API recipe** preference is a **routing** signal: each recipe is a
 different media + analytics API stack that requires a **different delegate skill
 or code path**. Load this in Step 2 when the API-recipe axis is set (or when you
 resolve `auto` to a concrete recipe). This takes precedence over the general
