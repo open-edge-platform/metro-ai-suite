@@ -18,31 +18,32 @@ if [[ -f "$ENV_FILE" ]]; then
     TOTAL_REMOTE_CHILD=$(grep -E "^TOTAL_REMOTE_CHILD=" "$ENV_FILE" | cut -d'=' -f2 | tr -d '"')
     TOTAL_REMOTE_CHILD=${TOTAL_REMOTE_CHILD:--1}
 
-    # ── Always clean up symlinks before any deployment ──────────────────
+    # ── Always clear previous scenes before any deployment ──────────────
+    echo "Clearing existing scenes in src/webserver/scenes..."
+    mkdir -p src/webserver/scenes
+    find src/webserver/scenes -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+
+    # ── Clean up config symlink before any deployment ───────────────────
     # Remove symlinks only — never removes real files
-    echo "Cleaning up any existing symlinks..."
-    if [[ -L "src/webserver/smart-corridor-ri.tar.bz2" ]]; then
-        unlink src/webserver/smart-corridor-ri.tar.bz2
-        echo "  Removed symlink: smart-corridor-ri.tar.bz2"
-    fi
     if [[ -L "src/dlstreamer-pipeline-server/config.json" ]]; then
         unlink src/dlstreamer-pipeline-server/config.json
         echo "  Removed symlink: config.json"
     fi
-    
+
     if [[ "$TOTAL_REMOTE_CHILD" -gt 0 ]] 2>/dev/null; then
         echo "Parent deployment detected (TOTAL_REMOTE_CHILD=${TOTAL_REMOTE_CHILD})"
         echo "Running CA bundle..."
         bash ./ca-bundle.sh
-        echo "Using smart-corridor-parent-ri.tar.bz2"
-        ln -sf smart-corridor-parent-ri.tar.bz2 src/webserver/smart-corridor-ri.tar.bz2
+        echo "Copying parent scene from scenes-db/multi-node-deployment/parent-scene to scenes/"
+        cp -r src/webserver/scenes-db/multi-node-deployment/parent-scene/Smart-Corridor src/webserver/scenes/
         echo "Using config_parent.json"
         ln -sf config_parent.json src/dlstreamer-pipeline-server/config.json
     elif [[ "$TOTAL_REMOTE_CHILD" -eq 0 ]]; then
         echo "Single Node Parent deployment detected(TOTAL_REMOTE_CHILD=${TOTAL_REMOTE_CHILD})"
         echo "No child deployments — skipping CA bundle"
-        echo "Using smart-corridor-sn-parent-ri.tar.bz2"
-        ln -sf smart-corridor-sn-parent-ri.tar.bz2 src/webserver/smart-corridor-ri.tar.bz2
+        echo "Copying single-node scenes from scenes-db/single-node-deployment to scenes/"
+        mkdir -p src/webserver/scenes
+        cp -r src/webserver/scenes-db/single-node-deployment/Smart-Corridor src/webserver/scenes/
         echo "Using config_sn_parent.json"
         ln -sf config_sn_parent.json src/dlstreamer-pipeline-server/config.json
     else
@@ -53,12 +54,15 @@ if [[ -f "$ENV_FILE" ]]; then
             echo "Error: REMOTE_CHILD_DEPLOY must be specified in $ENV_FILE for child deployment (e.g., REMOTE_CHILD_DEPLOY=1)."
             exit 1
         fi
-
-        CHILD_TAR="smart-corridor-child-${REMOTE_CHILD_DEPLOY}-ri.tar.bz2"
+        CHILD_SCENE_DIR="src/webserver/scenes-db/multi-node-deployment/child-scene-${REMOTE_CHILD_DEPLOY}"
         CHILD_CONFIG="config_child_${REMOTE_CHILD_DEPLOY}.json"
-
-        echo "Child deployment detected (REMOTE_CHILD_DEPLOY=${REMOTE_CHILD_DEPLOY}) — using ${CHILD_TAR}"
-        ln -sf "${CHILD_TAR}" src/webserver/smart-corridor-ri.tar.bz2
+        if [[ ! -d "$CHILD_SCENE_DIR" ]]; then
+            echo "Error: ${CHILD_SCENE_DIR} not found for REMOTE_CHILD_DEPLOY=${REMOTE_CHILD_DEPLOY}."
+            exit 1
+        fi
+        echo "Child deployment detected (REMOTE_CHILD_DEPLOY=${REMOTE_CHILD_DEPLOY}) — copying ${CHILD_SCENE_DIR} to scenes/"
+        mkdir -p src/webserver/scenes
+        cp -r "${CHILD_SCENE_DIR}/." src/webserver/scenes/
         echo "Child deployment detected (REMOTE_CHILD_DEPLOY=${REMOTE_CHILD_DEPLOY}) — using ${CHILD_CONFIG}"
         ln -sf "${CHILD_CONFIG}" src/dlstreamer-pipeline-server/config.json
     fi
