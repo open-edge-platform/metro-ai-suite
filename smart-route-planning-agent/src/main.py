@@ -10,8 +10,10 @@ from typing import Any, Optional
 import gradio as gr
 
 from config import APP_DETAILS, INITIAL_MAP_HTML
+from intersections_api import start_in_background as start_intersections_api
 from services.route_service import RouteService
 from utils.logging_config import setup_logging
+from utils.hw_info import get_hardware_info
 from schema import QueueItem
 from css import style
 
@@ -295,6 +297,18 @@ def create_gradio_interface() -> gr.Blocks:
             "Get an optimal route using coordinated intersection agents that analyze **real GPX route data**, weather, live traffic, and road events."
         )
 
+        # Intel hardware info, same fields as the Smart Intersection dashboard
+        with gr.Row():
+            cpu_info_tb = gr.Textbox(
+                label="Intel CPU", value="Loading...", interactive=False
+            )
+            gpu_info_tb = gr.Textbox(
+                label="Intel GPU", value="Loading...", interactive=False
+            )
+            npu_info_tb = gr.Textbox(
+                label="Intel NPU (AI accelerator)", value="Loading...", interactive=False
+            )
+
         gr.Markdown("### Quick Route Search")
         with gr.Row(elem_classes=["horizontal-search"]):
             with gr.Column(scale=3):
@@ -353,6 +367,17 @@ def create_gradio_interface() -> gr.Blocks:
                         elem_classes=["map-container"],
                     )
 
+        # Documentation QR code (bottom of the page)
+        gr.HTML(
+            value="""
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 0;text-align:center">
+              <h3 style="margin:0 0 8px 0;font-size:14px">Scan for Documentation</h3>
+              <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUgAAAFIAQMAAAAI2vVwAAAABlBMVEUAAAD///+l2Z/dAAAAAnRSTlP//8i138cAAAAJcEhZcwAACxIAAAsSAdLdfvwAAAGySURBVGiB7dXBjgIxDAPQ/P9PZ0VjJxmtQC6H3YuLGDrtGw5uCJHqCEvL/5BR49y8Ps5SfZwV7FqqEsFGzeqZnkbHbqnKV7Lbz8qaW17Kc101O9Vt+Y1E1DSR78/I8qPEWiRbLlNfFW4pyxr55oVdS1X2YNz1MKaza6lJ5B7xDJp518tSl4kZ+kD0wB6OwVKVJ3hU9a7eOhB8g6UqAfHz74dzjmNq3lKSj2vRxEJ9k6Uss7oASxkP1wpv01KWNWV/CMzp585SlPXbn+2asrB/faHlZzkxZwef82CuMreUJNInROq524GlLivedbOe7uq2VCUqlX9T2YCb6wQsBcmYO+3Wwcq21GUyeYadJL3Vb0tBMtvJOnEMwWMIyxvJCp6UuV6TtNQlkg4WMdeC6XdnsNQkC3cKeDpuYtVSl9HXag+4oL55BpayfFxY2aue0/JKBteYcdXz6guWsuSYjBuwni0vZC8nugDCx3nknIelJFewNRuPs0jLG4mM0QkApqJrwfJe4j3FnGwPll/I9quGu8QtZYl+EAgbiU+XmM5gKUj+/mNqmCcx3cFSleKwtPx7+QP4lMvMrGBj4AAAAABJRU5ErkJggg==" style="width:140px;height:140px" alt="QR code linking to the smart route planning agent documentation"/>
+              <a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/smart-route-planning-agent/index.html" target="_blank" rel="noopener noreferrer" style="margin-top:8px;font-size:12px">Smart Route Planning Agent Documentation</a>
+            </div>
+            """
+        )
+
         # Augment the functions with route_service dependency using partial, as gradio event handlers only accept UI components.
         get_direct_route_partial = partial(
             get_direct_route, route_service=route_service
@@ -385,6 +410,13 @@ def create_gradio_interface() -> gr.Blocks:
             fn=reset_route_optimizing_agent,
             inputs=[],
             outputs=[],
+        )
+
+        # Load Intel hardware info on page load
+        app.load(
+            fn=get_hardware_info,
+            inputs=None,
+            outputs=[cpu_info_tb, gpu_info_tb, npu_info_tb],
         )
 
         # Look of agent updates forever without blocking
@@ -423,6 +455,7 @@ def main():
         logger.info(
             f"Starting Route Planner application on {server_name}:{server_port}..."
         )
+        start_intersections_api(host=server_name)
         app = create_gradio_interface()
         app.queue(default_concurrency_limit=9, max_size=20)
         app.launch(**server_config)

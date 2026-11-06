@@ -12,6 +12,7 @@ from fastapi.responses import StreamingResponse
 
 from config import Config
 from data_loader import update_components, fetch_intersection_data, get_latest_system_info_html
+from hw_info import get_hardware_info
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -586,6 +587,14 @@ def create_dashboard_interface():
         # Row 3: System Info / Summary (full width)
         system_info_component = gr.HTML()
 
+        # Intel hardware info (CPU / GPU / NPU), from Metrics Manager
+        with gr.Row():
+            cpu_info_tb = gr.Textbox(label="Intel CPU", value="Loading...", interactive=False)
+            gpu_info_tb = gr.Textbox(label="Intel GPU", value="Loading...", interactive=False)
+            npu_info_tb = gr.Textbox(
+                label="Intel NPU (AI accelerator)", value="Loading...", interactive=False
+            )
+
         # Row 4: System Telemetry (full width)
         # NOTE: Device Security panel is available via _device_security_panel_html()
         # but hidden until data source is wired up.
@@ -603,6 +612,17 @@ def create_dashboard_interface():
                 with gr.Row():
                     debug_panel_component = gr.HTML(visible=False)
 
+        # Documentation QR code (bottom of the page)
+        gr.HTML(
+            value="""
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 0;text-align:center">
+              <h3 style="margin:0 0 8px 0;font-size:14px">Scan for Documentation</h3>
+              <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUgAAAFIAQMAAAAI2vVwAAAABlBMVEUAAAD///+l2Z/dAAAAAnRSTlP//8i138cAAAAJcEhZcwAACxIAAAsSAdLdfvwAAAGxSURBVGiB7dVLbsRACATQuv+liWKqgJYmMp1FsqmOY/Xn2QtgMGI7YGn5HxI5NP2+8+ABPLVcyw7s858PKSt9armVjHvOyJmAPrW8lgx8lnQlwfKXsjYy5rlheS/VAWYOdIKxsFzJ+nJ9/Pv4jbP8WWpAjYBmnoXlWqqjhuL/XOOJ6Eq2fJdaZrnq2xUs4EApy53sqKPjr9OzM1guZM2qgEflztdZbiSqjFHhjqjOwJvlVsYs5oA8M6F9y63ECC9XOOZRObJcyCphpgCdCy6r81puZIY9d1S7UdGvErfcSfAoGaq29Q6mwnIrURdDnjPoBeOFlkuZVE2iuwKTYHkhx7L6RNQ+JrZcyOoOXceE+ZTWljuZAe8o103zrmTLd0kXh8lzMsByL4niLOxQOcdxWb7LrmCtQg9VQiyv5BNo3TGIQm65l90cNK0CD3YHyyvJpTZD4a8RlmupkcVLNFKhpeVOdnB5yB6BqEUlyHIhO+7ddZkDZSAsLySgcMfoDSMngOW9ZAWnRp1EPWp5I7uc1SRY3J0Vy5UcW1GPYThYXkj+/vNqVWnoy3Ihl8PS8u/lF41xuuvPtX4OAAAAAElFTkSuQmCC" style="width:140px;height:140px" alt="QR code linking to the smart traffic intersection agent documentation"/>
+              <a href="https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/smart-traffic-intersection-agent/index.html" target="_blank" rel="noopener noreferrer" style="margin-top:8px;font-size:12px">Smart Traffic Intersection Agent Documentation</a>
+            </div>
+            """
+        )
+        
         # Show/hide debug panel
         debug_mode.change(
             fn=lambda x: gr.update(visible=x),
@@ -610,6 +630,14 @@ def create_dashboard_interface():
             outputs=debug_panel_component
         )
         
+        # Load Intel hardware info on page load
+        interface.load(
+            fn=get_hardware_info,
+            inputs=None,
+            outputs=[cpu_info_tb, gpu_info_tb, npu_info_tb],
+            show_progress="hidden",
+        )
+
         # Running data fetcher in main event loop
         interface.load(
             fn=fetch_intersection_data,

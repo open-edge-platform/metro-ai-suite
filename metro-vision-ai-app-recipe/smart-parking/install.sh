@@ -1,5 +1,30 @@
 #!/bin/bash -e
 
+APP_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+MODEL_PATH="${APP_DIR}/src/dlstreamer-pipeline-server/models/public/yolo11s/INT8/yolo11s.xml"
+
+if [ ! -e "${MODEL_PATH}" ]; then
+    echo
+    echo "The Smart Parking sample uses the YOLOv11s model for object detection."
+    echo "This model is provided by Ultralytics and is subject to its license:"
+    echo "  https://github.com/ultralytics/ultralytics/blob/main/LICENSE"
+    echo "Disclaimer: by downloading and using this model, you confirm that you accept the"
+    echo "license terms and agree to comply with any applicable model-use and privacy requirements."
+    while true; do
+        read -r -p "Proceed with the YOLOv11s model download and usage? [y/N]: " answer
+        case "${answer:-N}" in
+            [Yy]|[Yy][Ee][Ss])
+                echo "Continuing with the YOLOv11s model download..."
+                break
+                ;;
+            *)
+                echo "YOLOv11s model download cancelled. Exiting install.sh."
+                exit 1
+                ;;
+        esac
+    done
+fi
+
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 MODE="${2:-def}"
 
@@ -65,7 +90,7 @@ ENV_FILE="${SCRIPT_DIR}/../.env"
 if [ -f "$ENV_FILE" ]; then
   # Remove any existing smart-parking SceneScape settings first
   sed -i -e '/^# SceneScape settings for smart-parking/d' \
-         -e '/^\(SCENESCAPE_ENABLED\|SS_SCENE_DB\|SS_INFLUX_BUCKET\|SS_MODELS_SRC\|SS_MODELS_TARGET\|SS_ENABLE_WEBRTC\|SS_TZ\|COMPOSE_PROFILES\)=/d' "$ENV_FILE"
+         -e '/^\(SCENESCAPE_ENABLED\|SS_INFLUX_BUCKET\|SS_MODELS_SRC\|SS_MODELS_TARGET\|SS_ENABLE_WEBRTC\|SS_TZ\|COMPOSE_PROFILES\)=/d' "$ENV_FILE"
   sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$ENV_FILE"
 
   if [ "$MODE" = "ss" ]; then
@@ -73,7 +98,6 @@ if [ -f "$ENV_FILE" ]; then
 
 # SceneScape settings for smart-parking
 SCENESCAPE_ENABLED=true
-SS_SCENE_DB=smart-parking-ri.tar.bz2
 SS_INFLUX_BUCKET=SS-Parking
 SS_MODELS_SRC=models
 SS_MODELS_TARGET=/home/pipeline-server/models
@@ -96,8 +120,9 @@ docker run --rm -t --user "$(id -u):$(id -g)" \
 
 docker run --rm --user=root \
   -e http_proxy -e https_proxy -e no_proxy \
-  -v "$(dirname "$(readlink -f "$0")"):/opt/project" \
-   intel/dlstreamer:2026.2.0-ubuntu24 bash -c "$(cat <<EOF
+  -e YOLOV11S_DOWNLOAD_CONFIRMED=1 \
+  -v "${APP_DIR}:/opt/project" \
+   intel/dlstreamer:2026.3.0-ubuntu24-rc1 bash -c "$(cat <<EOF
 
 cd /opt/project
 export HOST_IP="${1:-$(hostname -I | cut -f1 -d' ')}"
@@ -114,6 +139,11 @@ mkdir -p src/dlstreamer-pipeline-server/models/public
 export MODELS_PATH=/opt/project/src/dlstreamer-pipeline-server/models
 chmod +x /home/dlstreamer/dlstreamer/samples/download_public_models.sh
 if [ ! -e "src/dlstreamer-pipeline-server/models/public/yolo11s/INT8/yolo11s.xml" ]; then
+    if [ "\${YOLOV11S_DOWNLOAD_CONFIRMED:-0}" != "1" ]; then
+        echo "YOLOv11s model download requires explicit confirmation."
+        exit 1
+    fi
+
     for attempt in {1..3}; do
         echo "Attempt $attempt: Running model download and quantization..."
         if /home/dlstreamer/dlstreamer/samples/download_public_models.sh yolo11s coco128; then
@@ -139,7 +169,14 @@ declare -A video_urls=(
 for video_name in "\${!video_urls[@]}"; do
     if [ ! -f src/dlstreamer-pipeline-server/videos/\${video_name} ]; then
         echo "Download \${video_name}..."
-        curl -L -o "src/dlstreamer-pipeline-server/videos/\${video_name}" "\${video_urls[\$video_name]}" 
+        curl -f -L -o "src/dlstreamer-pipeline-server/videos/\${video_name}" "\${video_urls[\$video_name]}"
+    fi
+done
+
+for video_name in "\${!video_urls[@]}"; do
+    if [ ! -f "src/dlstreamer-pipeline-server/videos/\${video_name}" ]; then
+        echo "Error: Failed to download \${video_name}"
+        exit 1
     fi
 done
 

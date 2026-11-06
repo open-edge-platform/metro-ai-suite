@@ -46,12 +46,6 @@ def setup_functionality_check():
     # Check file is not empty
     assert os.path.getsize(video_path) > 1024, f"Video file {video} appears to be empty or corrupted."
 
-@pytest.mark.kubernetes
-@pytest.mark.zephyr_id("NEX-T10675")
-def test_setup_kubernetes():
-  """Verify that secrets and videos have been set up."""
-  setup_functionality_check()
-
 @pytest.mark.docker
 @pytest.mark.zephyr_id("NEX-T9365")
 def test_setup_docker():

@@ -1,5 +1,6 @@
 # Release Notes: Image-Based Video Search
 
+- [Version 1.5.0](#version-150)
 - [Version 1.4.0](#version-140)
 - [Version 1.3.0](#version-130)
 - [Version 1.2.0](#version-120)
@@ -9,6 +10,17 @@
 
 Details about the changes, improvements, and known issues in this release of the
 application.
+
+## Version 1.5.0
+
+**New**:
+
+- Added a QR code in app UI that links to the documentation.
+
+**Improved**:
+
+- Consumed the latest DL Streamer version 2026.3.0.
+- Python libraries and npm package updates.
 
 ## Version 1.4.0
 

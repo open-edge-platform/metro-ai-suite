@@ -65,3 +65,22 @@ async def test_delete_rule_not_found(client):
     with patch("api.router.redis_store.delete_rule", fake_delete_rule):
         resp = client.delete("/rules/rule1")
         assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {**RULE_OBJ, "count": -1},
+        {**RULE_OBJ, "event_type": "unsupported"},
+        {**RULE_OBJ, "duration_seconds": 0},
+        {**RULE_OBJ, "near_miss_distance_m": -0.1},
+        {**RULE_OBJ, "region_thresholds": {"vehicle": -1}},
+    ],
+)
+async def test_add_rule_validation_rejects_invalid_ranges_and_event_type(client, payload):
+    add_rule_mock = AsyncMock(return_value=True)
+    with patch("api.router.redis_store.add_rule", add_rule_mock):
+        resp = client.post("/rules/", json=payload)
+    assert resp.status_code == 422
+    add_rule_mock.assert_not_called()

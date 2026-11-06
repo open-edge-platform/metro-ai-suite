@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any, Optional
 import structlog
 from pydantic import BaseModel
 
-from plugin.core.models.domain import AnalysisResult, MetadataEvent
+from plugin.core.models.domain import AnalysisResult, AnalyticsEvent, MetadataEvent
 from plugin.base.interfaces import IAnalyticsAppShim
 from .config import LiveCaptioningAnalyticsAppConfig
 from .api_client import LvcApiClient
@@ -67,16 +67,16 @@ class LiveCaptioningAnalyticsAppShim(IAnalyticsAppShim):
         self._api = LvcApiClient(base_url=config.base_url)
         self._schema_mgr = LvcSchemaManager()
         self._mqtt_subscriber: Optional[LvcMqttSubscriber] = None
-        # run_id → camera_id mapping for Nx Witness write-back
+        # run_id → camera_id mapping for VMS write-back
         self._run_camera_map: dict[str, str] = {}
         self._vms_shim_sets: list[VmsShimSet] = []
 
     def set_vms_shims(self, vms_shim_sets: list[VmsShimSet]) -> None:
-        """Inject VMS shim sets so LVC captions can be pushed to Nx Witness."""
+        """Inject VMS shim sets so LVC captions can be published to the VMS."""
         self._vms_shim_sets = vms_shim_sets
 
     def register_run(self, run_id: str, camera_id: str) -> None:
-        """Record which camera a run belongs to for Nx Witness write-back."""
+        """Record which camera a run belongs to for VMS write-back."""
         self._run_camera_map[run_id] = camera_id
         logger.info("lvc_run_registered", run_id=run_id, camera_id=camera_id)
 
@@ -98,9 +98,9 @@ class LiveCaptioningAnalyticsAppShim(IAnalyticsAppShim):
         subscriber = LvcMqttSubscriber()
         self.set_subscriber(subscriber)
 
-        # Wire Nx Witness write-back if any VMS shims support bookmarks.
+        # Publish captions back to the VMS when any VMS shims are attached.
         if self._vms_shim_sets:
-            subscriber.set_nx_write_back(self._push_caption_to_nx)
+            subscriber.set_write_back(self._publish_caption)
 
         task = asyncio.create_task(
             subscriber.run(
@@ -118,28 +118,33 @@ class LiveCaptioningAnalyticsAppShim(IAnalyticsAppShim):
             mqtt_port=orchestrator.config.mqtt.port,
         )
 
-    async def _push_caption_to_nx(self, run_id: str, caption: str) -> None:
-        """Push an LVC caption as a bookmark to the Nx Witness camera timeline."""
+    async def _publish_caption(self, run_id: str, caption: str) -> None:
+        """Publish an LVC caption through the VMS shim that owns the run's camera."""
         camera_id = self._run_camera_map.get(run_id)
         if not camera_id:
             return
 
+        event = AnalyticsEvent(
+            kind="caption",
+            text=caption,
+            timestamp=datetime.now(tz=timezone.utc),
+            app_id=self.app_id,
+            run_id=run_id,
+        )
         for ss in self._vms_shim_sets:
             if not camera_id.startswith(ss.vms_shim.camera_id_prefix):
                 continue
-            if not hasattr(ss.vms_shim, "set_bookmark"):
-                continue
             try:
-                await ss.vms_shim.set_bookmark(camera_id, datetime.now(tz=timezone.utc), caption[:500])
+                ok = await ss.vms_shim.publish_event(camera_id, event)
                 logger.info(
-                    "lvc_caption_bookmark_pushed",
+                    "lvc_caption_published" if ok else "lvc_caption_not_published",
                     camera_id=camera_id,
                     run_id=run_id,
                     caption_len=len(caption),
                 )
             except Exception as exc:
                 logger.warning(
-                    "lvc_caption_bookmark_failed",
+                    "lvc_caption_publish_failed",
                     camera_id=camera_id,
                     run_id=run_id,
                     error=str(exc),

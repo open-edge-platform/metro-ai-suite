@@ -44,6 +44,11 @@ window.Console = window.Console || {};
     return m ? m.label : modelId;
   };
 
+  // Single source of truth for panel titles - Start, reload recovery and zone re-apply must match.
+  C.panelTitle = function (pipelineNum, modelId, device) {
+    return "Pipeline " + pipelineNum + " \u00b7 " + C.modelLabel(modelId) + " \u00b7 " + (device || "?");
+  };
+
   function loadModels(force) {
     return C.apiGet("api/models" + (force ? "?refresh=1" : "")).then(function (d) {
       MODELS.length = 0;
@@ -74,14 +79,13 @@ window.Console = window.Console || {};
   }
 
   function startOne(pipelineNum, modelId, device, source, rtsp, zone, watermark) {
-    var m = MODELS.filter(function (x) { return x.id === modelId; })[0];
     return C.apiPost("api/pipelines/start", {
       source: source, rtsp: rtsp, model: modelId, device: device, zone: zone, watermark: watermark
     }).then(function (r) {
       C.createPanel({
         peer_id: r.peer_id,
         whep_url: r.whep_url,
-        title: "Pipeline " + pipelineNum + " \u00b7 " + ((m && m.label) || modelId) + " \u00b7 " + device,
+        title: C.panelTitle(pipelineNum, modelId, device),
         zone: r.zone
       });
       C.markCardStarted(pipelineNum, r.peer_id);
@@ -99,13 +103,19 @@ window.Console = window.Console || {};
     var watermark = byId("watermarkToggle").checked;
     btn.disabled = true;
     var prev = btn.textContent;
-    btn.textContent = "Starting\u2026";
-    Promise.all(configs.map(function (cfg) {
-      return startOne(cfg.pipelineNum, cfg.model, cfg.device, cfg.source, cfg.rtsp, cfg.zone, watermark).catch(function (e) {
-        alert("Could not start " + cfg.model + ": " + (e && e.message ? e.message : e));
-        return null;
+    // One at a time, in card order: DLSPS serves a single start at a time (a cold GPU/NPU
+    // compile blocks it), and parallel requests made panels appear in completion order.
+    var chain = Promise.resolve();
+    configs.forEach(function (cfg, i) {
+      chain = chain.then(function () {
+        btn.textContent = "Starting " + (i + 1) + "/" + configs.length + "\u2026";
+        return startOne(cfg.pipelineNum, cfg.model, cfg.device, cfg.source, cfg.rtsp, cfg.zone, watermark).catch(function (e) {
+          alert("Could not start " + C.modelLabel(cfg.model) + ": " + (e && e.message ? e.message : e));
+          return null;
+        });
       });
-    })).then(function () {
+    });
+    chain.then(function () {
       btn.disabled = false;
       btn.textContent = prev;
       C.updateEmptyState();

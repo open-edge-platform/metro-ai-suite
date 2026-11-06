@@ -3,8 +3,8 @@
 ## Project Structure
 
 ```text
-config/          Model files, and pipeline and tracker configuration
-datasets/        Looping video files per scene (Git LFS)
+config/          Pipeline and tracker configuration; models are downloaded by `setup.sh`
+datasets/        Looping video files per scene (downloaded by `setup.sh`)
 scenes/          Scene zip bundles and sensor event data
 scripts/
   narrator.py        Converts MQTT tracks to rolling scene narrative and alerts
@@ -84,7 +84,6 @@ Key variables in the `.env` file:
 | `DASHBOARD_URL` | `http://$PUBLIC_HOSTNAME:$DASHBOARD_PORT` | Browser URL for the analytics dashboard |
 | `SNAPSHOT_INTERVAL` | `10` | Seconds between narrator snapshots |
 | `DASHBOARD_PORT` | `7000` | Host port for the analytics dashboard |
-| `SCENESCAPE_IMAGE_TAG` | `2026.2.0-rc3` | Scenescape image tag pulled from Docker Hub |
 | `MODEL_NAME` | `smartbuilding-int8` | Detection model variant; set to `smartbuilding-fp16` for FP16 |
 
 ## Add a New Scene
