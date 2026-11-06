@@ -186,32 +186,38 @@ UI_HTTPS_PORT=3443
 > [!NOTE]
 > Replace `host.docker.internal` with the actual IP address if LVC runs on a different host.
 
-### 3.2 Verify `config/config.yaml`
+### 3.2 Generate `config/config.yaml`
 
-Open `config/config.yaml`, and confirm the following sections match your setup. The file
-uses `${ENV_VAR}` placeholders resolved from `.env` at startup.
+Generate `config/config.yaml` for Nx Witness and Live Video Captioning:
 
-**LVC Analytics App (always required):**
-
-```yaml
-analytics_apps:
-  - type: live_captioning
-    display_name: "Live Video Captioning"
-    base_url: "http://${LVC_HOST:-host.docker.internal}:${LVC_PORT:-4173}"
-    mediamtx_url: "http://${MEDIAMTX_HOST:-host.docker.internal}:${MEDIAMTX_PORT:-8889}"
+```bash
+./setup.sh --vms nx --apps lvc
 ```
 
-**Nx Witness VMS instance:**
+`setup.sh` builds the file from the configuration fragments of the selected VMS and app, and
+warns about their variables that are not set in `.env`. The file uses `${ENV_VAR}` placeholders
+resolved from `.env` at startup. To change a setting below, edit the fragment and run
+`setup.sh` again; do not edit `config/config.yaml` directly.
+
+**LVC Analytics App** (`analytics_app_shim/lvc/vap-config.yaml`):
 
 ```yaml
-vms_instances:
-  - name: nx-main
-    vendor: nx_witness
-    base_url: "https://${NX_HOST}:7001"
-    auth:
-      username: "${NX_USERNAME}"
-      password: "${NX_PASSWORD}"
-      auth_type: digest
+- type: live_captioning
+  display_name: "Live Video Captioning"
+  base_url: "http://${LVC_HOST:-host.docker.internal}:${LVC_PORT:-4173}"
+  mediamtx_url: "http://${MEDIAMTX_HOST:-host.docker.internal}:${MEDIAMTX_PORT:-8889}"
+```
+
+**Nx Witness VMS instance** (`vms_shim/nxwitness/vap-config.yaml`):
+
+```yaml
+- name: nx-main
+  vendor: nx_witness
+  base_url: "https://${NX_HOST}:7001"
+  auth:
+    username: "${NX_USERNAME}"
+    password: "${NX_PASSWORD}"
+    auth_type: digest
 ```
 
 ### 3.3 Allow API Integrations registration requests
@@ -552,7 +558,7 @@ Apps**.
 | Install and start LVC and MediaMTX | `metro-ai-suite/live-video-analysis/live-video-captioning/` → `docker compose up -d` |
 | **Nx Witness:** install Client & Server, add cameras, enable digest auth, enable API Integrations | Nx Witness Desktop Client |
 | Set `LVC_BASE_URL`, `MEDIAMTX_URL`, and VMS credentials in `.env` | `metro-ai-suite/vms-adapter-plugin/.env` |
-| Configure VMS instance(s) in `config.yaml` | `config/config.yaml` |
+| Generate `config.yaml` for Nx Witness and LVC | `./setup.sh --vms nx --apps lvc` |
 | Start VAP | `cd metro-ai-suite/vms-adapter-plugin` → `docker compose up -d --build` |
 | Discover cameras | Dashboard → Discover Cameras |
 | Enable cameras for analytics | Dashboard → Camera toggle |

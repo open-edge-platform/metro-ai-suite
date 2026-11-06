@@ -273,50 +273,56 @@ self-signed certificates. Set either value to `true` to enforce certificate veri
 enabled, set the matching `*_CA_BUNDLE` to a Certificate Authority (CA) certificate path that
 exists inside the `vms-adapter-backend` container.
 
-### 3.2 Configure VAP `config.yaml`
+### 3.2 Generate the VAP `config.yaml`
 
-Open `config/config.yaml`, and confirm the following sections match your setup. The file
-uses `${ENV_VAR}` placeholders resolved from `.env` at startup.
+Generate `config/config.yaml` for Nx Witness and Loitering Detection:
 
-**Nx Witness VMS instance:**
+```bash
+./setup.sh --vms nx --apps ld
+```
+
+`setup.sh` builds the file from the configuration fragments of the selected VMS and app, and
+warns about their variables that are not set in `.env`. The file uses `${ENV_VAR}` placeholders
+resolved from `.env` at startup. To change a setting below, edit the fragment and run
+`setup.sh` again; do not edit `config/config.yaml` directly.
+
+**Nx Witness VMS instance** (`vms_shim/nxwitness/vap-config.yaml`):
 
 ```yaml
-vms_instances:
-  - name: nx-main
-    vendor: nx_witness
-    base_url: "https://${NX_HOST}:7001"
-    tls_verify: ${NX_TLS_VERIFY:-false}
-    tls_ca_bundle: "${NX_CA_BUNDLE:-}"
-    auth:
-      username: "${NX_USERNAME}"
-      password: "${NX_PASSWORD}"
-      auth_type: digest
+- name: nx-main
+  vendor: nx_witness
+  base_url: "https://${NX_HOST}:7001"
+  tls_verify: ${NX_TLS_VERIFY:-false}
+  tls_ca_bundle: "${NX_CA_BUNDLE:-}"
+  auth:
+    username: "${NX_USERNAME}"
+    password: "${NX_PASSWORD}"
+    auth_type: digest
 ```
 
 The `analytics_manifest_path` is **optional**. VAP automatically uses the bundled manifest at
 `vms_shim/nxwitness/nx_integration.json` when this field is absent. Set it only if you need to
 supply a custom manifest.
 
-**`dls_vision` Analytics App:**
+**`dls_vision` Analytics App** (`analytics_app_shim/object_detection/vap-config.yaml`):
 
 ```yaml
-analytics_apps:
-  - type: object_detection
-    app_id: "dls_vision"
-    display_name: "Loitering Detection"
-    base_url: "http://${DLS_VISION_HOST:-host.docker.internal}:${DLS_VISION_PORT:-8080}/pipelines"
-    tls_verify: ${DLS_VISION_TLS_VERIFY:-false}
-    tls_ca_bundle: "${DLS_VISION_CA_BUNDLE:-}"
-    mqtt_host: "${MQTT_HOST:-host.docker.internal}"
-    mqtt_port: ${MQTT_PORT:-1883}
-    pipeline:
-      cpu: ${DLS_PIPELINE_CPU:-}
-      gpu: ${DLS_PIPELINE_GPU:-}
-      npu: ${DLS_PIPELINE_NPU:-}
-    label_map:
-      vehicle: vehicle
-      pedestrian: pedestrian
-      background: background
+- type: object_detection
+  app_id: "dls_vision"
+  display_name: "Loitering Detection"
+  base_url: "https://${DLS_VISION_HOST:-host.docker.internal}:${DLS_VISION_PORT:-443}/api"
+  tls_verify: ${DLS_VISION_TLS_VERIFY:-false}
+  tls_ca_bundle: "${DLS_VISION_CA_BUNDLE:-}"
+  mqtt_host: "${MQTT_HOST:-host.docker.internal}"
+  mqtt_port: ${MQTT_PORT:-1883}
+  pipeline:
+    cpu: ${DLS_PIPELINE_CPU:-}
+    gpu: ${DLS_PIPELINE_GPU:-}
+    npu: ${DLS_PIPELINE_NPU:-}
+  label_map:
+    vehicle: vehicle
+    pedestrian: pedestrian
+    background: background
 ```
 
 At least one of `DLS_PIPELINE_CPU`, `DLS_PIPELINE_GPU`, or `DLS_PIPELINE_NPU` must be set.
@@ -339,7 +345,9 @@ deprecated but still accepted.
 - Labels not listed in the map fall back to `"python.detected.object"`.
 
 **Customize for your model:** If your model detects labels different from the ones listed above
-(for example, `"car"`, `"person"`, etc.), add them to the map.
+(for example, `"car"`, `"person"`, etc.), add them to the `label_map` in
+`analytics_app_shim/object_detection/vap-config.yaml`, and run `./setup.sh --vms nx --apps ld`
+again.
 
 ```yaml
 label_map:
@@ -398,8 +406,9 @@ When VAP starts, the Orchestrator automatically registers the analytics integrat
 Witness. You do not need to register it manually. The process is:
 
 1. VAP reads the integration manifest — the bundled `vms_shim/nxwitness/nx_integration.json`
-   by default, or a custom path if `analytics_manifest_path` is set in `config.yaml`.
-2. The categories from each app's `label_map` in `config.yaml` are resolved to typeIds and merged into the manifest automatically
+   by default, or a custom path if `analytics_manifest_path` is set on the Nx instance in
+   `vms_shim/nxwitness/vap-config.yaml`.
+2. The categories from each app's `label_map` are resolved to typeIds and merged into the manifest automatically
    (so Nx knows all typeIds without manual edits).
 3. VAP calls `POST /rest/v4/analytics/integrations/*/requests` on the Nx API.
 4. VAP immediately approves the request via `POST .../requests/{requestId}/approve`.
@@ -793,8 +802,9 @@ Server.
   docker compose exec vms-adapter-backend curl http://${DLS_VISION_HOST}:${DLS_VISION_PORT}/pipelines
   ```
 
-- If `dls_vision` uses HTTPS (for example, via nginx on port 443), update `base_url` in
-  `config.yaml` accordingly.
+- If `dls_vision` uses a different URL, update `base_url` in
+  `analytics_app_shim/object_detection/vap-config.yaml`, and run
+  `./setup.sh --vms nx --apps ld` again.
 - Verify `loitering_` appears in the pipeline list returned by `GET /pipelines`.
 
 ### RTSP Stream Not Reachable from `dls_vision`
@@ -818,7 +828,7 @@ Server.
 | Start `dls_vision` with MQTT broker exposed to host | `metro-vision-ai-app-recipe/loitering-detection/` → `docker compose up -d` |
 | **Nx Witness:** install Server + Client, add cameras, enable digest auth, enable API Integrations | Nx Witness Desktop Client |
 | Configure Nx Witness connection and MQTT settings in `.env` | `metro-ai-suite/vms-adapter-plugin/.env` |
-| Configure `app_id`, `display_name`, `label_map` in `config.yaml` | `config/config.yaml` |
+| Generate `config.yaml` for Nx Witness and Loitering Detection | `./setup.sh --vms nx --apps ld` |
 | Start VAP (integration auto-registers on startup) | `cd metro-ai-suite/vms-adapter-plugin` → `docker compose up -d --build` |
 | Discover cameras | Dashboard → Discover Cameras |
 | Enable cameras for analytics | Dashboard → Camera toggle |

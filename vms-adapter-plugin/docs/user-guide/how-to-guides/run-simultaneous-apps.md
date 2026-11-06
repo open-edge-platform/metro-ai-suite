@@ -39,10 +39,11 @@ following changes to avoid clashes:
    MQTT_PORT=1884
    ```
 
-4. Start VAP (already configured with both apps in `config.yaml`):
+4. Generate the VAP configuration with both apps, and start VAP:
 
    ```bash
    cd metro-ai-suite/vms-adapter-plugin
+   ./setup.sh --vms nx --apps ld,lvc
    docker compose up -d
    ```
 

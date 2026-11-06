@@ -65,7 +65,6 @@ dlstreamer-pipeline-server:
 
 ### 1.4 Start the application
 
-
 ```bash
 docker compose up -d
 docker compose ps
@@ -117,42 +116,56 @@ MQTT_PORT=1883
 Set at least one of `DLS_PIPELINE_CPU`, `DLS_PIPELINE_GPU` and `DLS_PIPELINE_NPU`. The pipeline names you provide much be available in Loitering detection application. If using GPU or NPU pipelines, ensure host supports it. Refer to app's gpu and npu setup documentation for that. Only the devices you set can be chosen when you start a pipeline. `host.docker.internal`
 works when Loitering Detection runs on the same host as VAP; otherwise use its address.
 
-### 2.3 Check `config/config.yaml`
+### 2.3 Generate `config/config.yaml`
 
-The default `config/config.yaml` already has a Milestone instance and the Loitering
-Detection app; the values come from `.env`. Check these parts.
+Generate the VAP configuration for Milestone and Loitering Detection:
 
-**The Milestone instance:**
+```bash
+./setup.sh --vms milestone --apps ld
+```
+
+`setup.sh` builds `config/config.yaml` from the configuration fragments below, and warns about
+their variables that are not set in `.env`. The values come from `.env` at startup, so you do
+not need to run `setup.sh` again after editing `.env`.
+
+| Fragment | Content |
+| --- | --- |
+| `vms_shim/milestone/vap-config.yaml` | The Milestone instance |
+| `analytics_app_shim/object_detection/vap-config.yaml` | The Loitering Detection app |
+
+To change a setting, edit the fragment and run `setup.sh` again; do not edit
+`config/config.yaml`, as `setup.sh` overwrites it. Check these parts.
+
+**The Milestone instance**, in `vms_shim/milestone/vap-config.yaml`:
 
 ```yaml
-vms_instances:
-  - name: milestone
-    vendor: milestone
-    base_url: "http://${AIB_HOST}:${AIB_GRAPHQL_PORT:-4000}"
-    vendor_options:
-      graphql_url: "http://${AIB_HOST}:${AIB_GRAPHQL_PORT:-4000}/api/bridge/graphql"
-      dashboard_url: "https://${AIB_APP_HOSTNAME}:${UI_HTTPS_PORT:-3443}"
-      metadata_format: ONVIF_ANALYTICS_FRAME
-      event_min_interval_s: 10
+- name: milestone
+  vendor: milestone
+  base_url: "http://${AIB_HOST}:${AIB_GRAPHQL_PORT:-4000}"
+  vendor_options:
+    graphql_url: "http://${AIB_HOST}:${AIB_GRAPHQL_PORT:-4000}/api/bridge/graphql"
+    dashboard_url: "https://${AIB_APP_HOSTNAME}:${UI_HTTPS_PORT:-3443}"
+    metadata_format: ONVIF_ANALYTICS_FRAME
+    event_min_interval_s: 10
 ```
 
 `dashboard_url` is the VAP page Management Client shows for the app, so the XProtect
 host must be able to open it.
 
-**The loitering zone, threshold and events** in the `object_detection` app:
+**The loitering zone, threshold and events**, in
+`analytics_app_shim/object_detection/vap-config.yaml`:
 
 ```yaml
-analytics_apps:
-  - type: object_detection
-    app_id: "dls_vision"
-    display_name: "Loitering Detection"
-    zones:
-      region1:
-        label: "Loitering Zone"
-        bounding_box: [0.0, 0.25, 0.3, 0.7]
-    default_zone_polygon: [[0.0, 0.25], [0.3, 0.25], [0.3, 0.7], [0.0, 0.7]]
-    loitering_threshold_s: "${LOITERING_THRESHOLD_SEC:-5.0}"
-    events_enabled: true
+- type: object_detection
+  app_id: "dls_vision"
+  display_name: "Loitering Detection"
+  zones:
+    region1:
+      label: "Loitering Zone"
+      bounding_box: [0.0, 0.25, 0.3, 0.7]
+  default_zone_polygon: [[0.0, 0.25], [0.3, 0.25], [0.3, 0.7], [0.0, 0.7]]
+  loitering_threshold_s: "${LOITERING_THRESHOLD_SEC:-5.0}"
+  events_enabled: true
 ```
 
 - `default_zone_polygon` is the zone the pipeline measures loitering in, as fractions of
@@ -213,7 +226,6 @@ metadata topic for that camera.
 3. Under **Loitering Detection**, tick **dls_vision-metadata**.
 4. Click **Save**.
 
-  
     ![Management Client showing Loitering Detection topics available for camera to subscribe](../../../_assets/milestone-mc-metadata-sub.png "Management Client camera page")
 
 The events topic, `dls_vision-events`, does not need ticking.

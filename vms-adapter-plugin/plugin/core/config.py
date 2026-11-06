@@ -253,7 +253,11 @@ def load_config(path: str | Path | None = None) -> AppConfig:
     settings = Settings()
     config_path = Path(path) if path else Path(settings.config_path)
     if not config_path.exists():
-        print(f"FATAL: config file not found: {config_path}", file=sys.stderr)
+        print(
+            f"FATAL: config file not found: {config_path}\n"
+            "Generate it with: ./setup.sh --vms <vms> --apps <apps>  (see ./setup.sh --help)",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     with open(config_path) as f:

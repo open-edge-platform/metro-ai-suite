@@ -49,31 +49,30 @@ alarm definition triggers on the analytics event that AI Bridge creates for the 
 
 ## Step 1: Check that events are enabled in VAP
 
-In `config/config.yaml`, under the `object_detection` app:
+In `analytics_app_shim/object_detection/vap-config.yaml`:
 
 ```yaml
-analytics_apps:
-  - type: object_detection
-    app_id: "dls_vision"
-    events_enabled: true
-    # Must match DEST_TOPIC_SUFFIX in the recipe .env.
-    event_topic_suffix: "${DLS_EVENT_TOPIC_SUFFIX:-loiterstatus}"
+- type: object_detection
+  app_id: "dls_vision"
+  events_enabled: true
+  # Must match DEST_TOPIC_SUFFIX in the recipe .env.
+  event_topic_suffix: "${DLS_EVENT_TOPIC_SUFFIX:-loiterstatus}"
 ```
 
-And under the Milestone instance:
+And in `vms_shim/milestone/vap-config.yaml`:
 
 ```yaml
-vms_instances:
-  - name: milestone
-    vendor_options:
-      # Minimum seconds between events for the same person on the same camera.
-      # 0 sends every row, about one event per second per loiterer.
-      event_min_interval_s: 10
+- name: milestone
+  vendor_options:
+    # Minimum seconds between events for the same person on the same camera.
+    # 0 sends every row, about one event per second per loiterer.
+    event_min_interval_s: 10
 ```
 
-If you change either, recreate the backend:
+If you change either, generate the configuration again and recreate the backend:
 
 ```bash
+./setup.sh --vms milestone --apps ld
 docker compose up -d --force-recreate backend
 ```
 

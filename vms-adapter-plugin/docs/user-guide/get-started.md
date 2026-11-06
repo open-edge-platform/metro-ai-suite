@@ -24,8 +24,7 @@ Check the [folder layout](#folder-layout) to familiarize yourself with the code 
 - Verify that your system meets the [minimum requirements](./get-started/system-requirements.md).
 - Install the Docker platform: [Installation Guide](https://docs.docker.com/get-docker/).
 - Install the Docker Compose tool: [Installation Guide](https://docs.docker.com/compose/install/).
-- **Nx Witness** VMS with an accessible REST API (`NX_HOST`,
-  `NX_USERNAME`, `NX_PASSWORD`). This document does not cover Nx Witness or Nx Cloud setup.
+- **Nx Witness** VMS is required. Both NX Witness Server and Client can be installed using official documentation from Network Optix [here](https://support.networkoptix.com/hc/en-us/articles/360010535793-Ubuntu-Linux-OS-Installation-Guide). For our integration, we deployed server in an Ubuntu 24.04 with Nx client running in a Windows machine. Note the username and password while first time setup. You would need it later during integration
 - At least one Analytics Application running before VAP starts:
   - **Live Video Captioning (LVC)** — for Vision-Language Model (VLM) based AI captioning.
   - **Loitering Detection (DL Streamer Vision based)** — for real-time detection of loitering behavior in
@@ -86,6 +85,8 @@ cp .env.example .env
 ```
 
 Open `.env` and update the variables for your environment. Variables are grouped by scope. Within each analytics app group, **Mandatory** applies only if you are using that app.
+`.env.example` lists the variables of every supported VMS and analytics app; only those of the VMS
+and apps you select in [Step 4](#step-4--generate-the-vap-configuration) are used.
 
 **Common (VAP with Nx Witness):**
 
@@ -120,7 +121,42 @@ Open `.env` and update the variables for your environment. Variables are grouped
 For certificate path examples and TLS behavior details, see
 [TLS and Certificate Configuration](./how-to-guides/tls-and-certificates.md).
 
-## Step 4 — Build and Start VAP
+## Step 4 — Generate the VAP Configuration
+
+VAP reads its configuration from `config/config.yaml`. The `setup.sh` script generates this file
+from the configuration fragments of the VMS and analytics apps you select. Both `--vms` and
+`--apps` are required:
+
+```bash
+./setup.sh --vms nx --apps ld,lvc
+```
+
+| **Option** | **Values**                                                                 |
+| ---------- | -------------------------------------------------------------------------- |
+| `--vms`    | Comma-separated list of `nx` (Nx Witness) and `milestone` (Milestone XProtect) |
+| `--apps`   | Comma-separated list of `ld` (Loitering Detection) and `lvc` (Live Video Captioning) |
+
+Run `./setup.sh --list` to see the available VMS and apps, and `./setup.sh --help` for all
+options. The script warns about variables of the selected VMS and apps that are not set in
+`.env`.
+
+The generated file references `.env` variables as `${ENV_VAR}` placeholders, which VAP resolves
+at startup, so you do not need to run `setup.sh` again after editing `.env`. Run it again when
+you change the selected VMS or apps, then restart the backend with `docker compose restart backend`.
+
+> [!NOTE]
+> Do not edit `config/config.yaml` directly; `setup.sh` overwrites it. To change a VMS or app
+> setting, edit its fragment and run `setup.sh` again:
+>
+> | **Fragment**                                           | **Content**                     |
+> | ------------------------------------------------------ | ------------------------------- |
+> | `config/base.yaml`                                     | API, database, LVC MQTT broker, logging |
+> | `vms_shim/nxwitness/vap-config.yaml`                   | Nx Witness instance             |
+> | `vms_shim/milestone/vap-config.yaml`                   | Milestone XProtect instance     |
+> | `analytics_app_shim/object_detection/vap-config.yaml`  | Loitering Detection app         |
+> | `analytics_app_shim/lvc/vap-config.yaml`               | Live Video Captioning app       |
+
+## Step 5 — Build and Start VAP
 
 ```bash
 docker compose up -d --build
@@ -147,7 +183,7 @@ Verify the dockers are up and running:
 docker ps
 ```
 
-## Step 5 — Discover Cameras
+## Step 6 — Discover Cameras
 
 Trigger camera discovery once after VAP starts. VAP queries Nx Witness and persists the
 results to PostgreSQL:
@@ -156,7 +192,7 @@ results to PostgreSQL:
 curl -k -X POST https://localhost:3443/v1/cameras/discover
 ```
 
-## Step 6 — Start Analytics from the Nx Witness Client
+## Step 7 — Start Analytics from the Nx Witness Client
 
 The recommended way to start and stop pipelines is directly from the **Nx Witness desktop
 client**. VAP polls Nx Witness every 5 seconds and reacts to per-camera settings changes
@@ -231,15 +267,23 @@ vms-adapter/
 │   ├── frigate/
 │   │   ├── shim.py                 #  FrigateVmsShim — discovers cameras via local config
 │   │   └── config/                 #  Frigate config.yml (cameras, go2rtc, etc.)
+│   ├── milestone/
+│   │   ├── shim.py                 #  MilestoneVmsShim — Milestone AI Bridge GraphQL API
+│   │   └── vap-config.yaml         #  Milestone instance config fragment
 │   └── nxwitness/
-│       └── shim.py                 #  NxWitnessVmsShim — Nx Witness REST API v4
+│       ├── shim.py                 #  NxWitnessVmsShim — Nx Witness REST API v4
+│       └── vap-config.yaml         #  Nx Witness instance config fragment
 │
 ├── analytics_app_shim/                  # Concrete Analytics App shims
+│   ├── object_detection/
+│   │   ├── shim.py                 #  ObjectDetectionAnalyticsAppShim — DL Streamer vision apps
+│   │   └── vap-config.yaml         #  Loitering Detection app config fragment
 │   └── lvc/
 │       ├── api_client.py           #  LvcApiClient — all HTTP calls to LVC backend
 │       ├── schema.py               #  LvcSchemaManager — OpenAPI fetch, $ref resolution,
 │       │                           #    UI annotations, Pydantic model building
-│       └── shim.py                 #  LiveCaptioningAnalyticsAppShim — composes api_client + schema
+│       ├── shim.py                 #  LiveCaptioningAnalyticsAppShim — composes api_client + schema
+│       └── vap-config.yaml         #  Live Video Captioning app config fragment
 │
 ├── ui/                             # React 19 / Vite frontend served by nginx
 │   ├── src/
@@ -257,7 +301,9 @@ vms-adapter/
 │   └── nginx.conf                  #  Reverse proxy: /v1 → backend, /whep → MediaMTX
 │
 ├── config/
-│   └── config.yaml                 # Runtime config (cameras, VMS endpoints, LVC URL)
+│   ├── base.yaml                   # Shared config sections (API, database, MQTT, logging)
+│   └── config.yaml                 # Runtime config generated by setup.sh (not tracked in git)
+├── setup.sh                        # Generates config/config.yaml for the selected VMS and apps
 ├── tests/                          # pytest unit + integration tests
 ├── Dockerfile                      # Backend image
 ├── docker-compose.yml              # backend + ui + postgres
