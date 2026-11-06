@@ -4,7 +4,7 @@
 """Unit tests for the LVC caption write-back to VMS shims."""
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -51,3 +51,34 @@ async def test_caption_for_unknown_run_or_failure_is_ignored():
     shim.register_run("r1", "nx:cam")
     await shim._publish_caption("r1", "x")  # must not raise
     nx.publish_event.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_startup_without_mqtt_host_skips_subscriber():
+    shim = LiveCaptioningAnalyticsAppShim(LiveCaptioningAnalyticsAppConfig(base_url="http://lvc"))
+    orchestrator = SimpleNamespace(add_background_task=MagicMock())
+
+    with patch("analytics_app_shim.lvc.shim.LvcMqttSubscriber") as subscriber_cls:
+        await shim.on_startup(orchestrator)
+
+    subscriber_cls.assert_not_called()
+    orchestrator.add_background_task.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_startup_subscribes_to_the_apps_own_broker():
+    config = LiveCaptioningAnalyticsAppConfig(
+        base_url="http://lvc", mqtt_host="lvc-broker", mqtt_port=8883,
+    )
+    shim = LiveCaptioningAnalyticsAppShim(config)
+    orchestrator = SimpleNamespace(add_background_task=MagicMock())
+
+    with patch("analytics_app_shim.lvc.shim.LvcMqttSubscriber") as subscriber_cls:
+        subscriber_cls.return_value.run = AsyncMock()
+        await shim.on_startup(orchestrator)
+        task = orchestrator.add_background_task.call_args.args[0]
+        await task
+
+    subscriber_cls.return_value.run.assert_awaited_once_with(
+        mqtt_host="lvc-broker", mqtt_port=8883, tls_context=None,
+    )

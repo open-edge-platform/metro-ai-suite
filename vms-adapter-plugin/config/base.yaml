@@ -9,15 +9,6 @@ api:
   port: 8080
   api_key: "${VMS_PLUGIN_API_KEY:-}"
 
-# Broker of the Live Video Captioning stack; unused when LVC is not selected.
-mqtt:
-  host: "${MQTT_BROKER_HOST:-}"
-  port: ${MQTT_BROKER_PORT:-1883}
-  tls_enabled: ${MQTT_BROKER_TLS_ENABLED:-false}
-  tls_ca_bundle: "${MQTT_BROKER_CA_BUNDLE:-}"
-  tls_client_cert: "${MQTT_BROKER_CLIENT_CERT:-}"
-  tls_client_key: "${MQTT_BROKER_CLIENT_KEY:-}"
-
 database:
   url: "postgresql+asyncpg://${PG_USER:-vms}:${PG_PASSWORD:-vms}@${PG_HOST:-postgres}:${PG_PORT:-5434}/vms_plugin"
 

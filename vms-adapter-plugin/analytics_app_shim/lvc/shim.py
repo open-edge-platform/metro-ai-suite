@@ -46,13 +46,13 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 
-def _make_tls_context(cfg) -> ssl.SSLContext | None:
-    """Build an SSLContext from MqttConfig TLS fields, or None when TLS is disabled."""
-    if not cfg.tls_enabled:
+def _make_tls_context(cfg: LiveCaptioningAnalyticsAppConfig) -> ssl.SSLContext | None:
+    """Build an SSLContext from the app's MQTT TLS fields, or None when TLS is disabled."""
+    if not cfg.mqtt_tls_enabled:
         return None
-    ctx = ssl.create_default_context(cafile=cfg.tls_ca_bundle or None)
-    if cfg.tls_client_cert and cfg.tls_client_key:
-        ctx.load_cert_chain(certfile=cfg.tls_client_cert, keyfile=cfg.tls_client_key)
+    ctx = ssl.create_default_context(cafile=cfg.mqtt_ca_bundle or None)
+    if cfg.mqtt_client_cert and cfg.mqtt_client_key:
+        ctx.load_cert_chain(certfile=cfg.mqtt_client_cert, keyfile=cfg.mqtt_client_key)
     return ctx
 
 
@@ -92,7 +92,7 @@ class LiveCaptioningAnalyticsAppShim(IAnalyticsAppShim):
 
     async def on_startup(self, orchestrator: Orchestrator) -> None:
         """Start LVC MQTT subscriber background task."""
-        if not orchestrator.config.mqtt.host:
+        if not self._config.mqtt_host:
             logger.info("lvc_mqtt_not_configured_skipping", app_id=self.app_id)
             return
         subscriber = LvcMqttSubscriber()
@@ -104,9 +104,9 @@ class LiveCaptioningAnalyticsAppShim(IAnalyticsAppShim):
 
         task = asyncio.create_task(
             subscriber.run(
-                mqtt_host=orchestrator.config.mqtt.host,
-                mqtt_port=orchestrator.config.mqtt.port,
-                tls_context=_make_tls_context(orchestrator.config.mqtt),
+                mqtt_host=self._config.mqtt_host,
+                mqtt_port=self._config.mqtt_port,
+                tls_context=_make_tls_context(self._config),
             ),
             name=f"lvc-mqtt-subscriber-{self.app_id}",
         )
@@ -114,8 +114,8 @@ class LiveCaptioningAnalyticsAppShim(IAnalyticsAppShim):
         logger.info(
             "lvc_mqtt_subscriber_task_started",
             app_id=self.app_id,
-            mqtt_host=orchestrator.config.mqtt.host,
-            mqtt_port=orchestrator.config.mqtt.port,
+            mqtt_host=self._config.mqtt_host,
+            mqtt_port=self._config.mqtt_port,
         )
 
     async def _publish_caption(self, run_id: str, caption: str) -> None:

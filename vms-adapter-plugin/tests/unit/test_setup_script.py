@@ -53,6 +53,18 @@ def test_generated_config_loads(env, tmp_path, vms, apps, vendors, app_types):
     assert config.api.port == 8080
 
 
+def test_lvc_broker_comes_from_mqtt_broker_env(env, tmp_path, monkeypatch):
+    monkeypatch.setenv("MQTT_BROKER_HOST", "lvc-broker")
+    monkeypatch.setenv("MQTT_BROKER_PORT", "8883")
+    monkeypatch.setenv("MQTT_HOST", "ld-broker")
+    out = tmp_path / "config.yaml"
+    assert _run("--vms", "nx", "--apps", "ld,lvc", "--output", str(out)).returncode == 0
+
+    ld, lvc = load_config(out).analytics_apps
+    assert (lvc.mqtt_host, lvc.mqtt_port) == ("lvc-broker", 8883)
+    assert ld.mqtt_host == "ld-broker"
+
+
 @pytest.mark.parametrize("args", [["--apps", "ld"], ["--vms", "nx"], []])
 def test_vms_and_apps_are_required(tmp_path, args):
     result = _run(*args, "--output", str(tmp_path / "config.yaml"))
