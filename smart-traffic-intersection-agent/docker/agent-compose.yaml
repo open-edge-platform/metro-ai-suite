@@ -20,6 +20,8 @@ services:
     restart: unless-stopped
     devices:
       - /dev/dri:/dev/dri
+    # video/render GIDs differ across Ubuntu releases (22.04/24.04/26.04);
+    # setup.sh resolves them from the host, the defaults are only a fallback.
     group_add:
       - ${USER_GROUP_ID:-1000}
       - ${VIDEO_GROUP_ID:-44}
