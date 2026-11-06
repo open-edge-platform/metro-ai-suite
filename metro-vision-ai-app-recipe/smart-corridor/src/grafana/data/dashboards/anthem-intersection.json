@@ -201,11 +201,24 @@
       "type": "gauge"
     },
     {
+      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 72
+      },
+      "id": 106,
+      "panels": [],
+      "title": "Documentation",
+      "type": "row"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 73
       },
       "id": 104,
       "options": {
@@ -230,7 +243,7 @@
         "h": 10,
         "w": 6,
         "x": 9,
-        "y": 73
+        "y": 74
       },
       "id": 105,
       "options": {

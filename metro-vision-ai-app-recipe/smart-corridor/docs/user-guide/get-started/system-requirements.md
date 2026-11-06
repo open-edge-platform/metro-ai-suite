@@ -19,8 +19,8 @@ This page provides detailed hardware, software, and platform requirements to hel
 - Include supported operating systems, versions, and platform-specific notes.
 -->
 **Operating Systems**
-- Ubuntu 22.04 LTS
 - Ubuntu 24.04 LTS
+- Ubuntu 26.04 LTS
 
 
 ## Minimum Requirements
