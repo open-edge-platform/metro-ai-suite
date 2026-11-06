@@ -19,32 +19,18 @@ USER_GID=$(stat -c '%g' "${SOURCE}"/* | sort -rn | head -1)
 echo "UID=$USER_UID" > .env
 echo "GID=$USER_GID" >> .env
 
-if [ ! -d "${SOURCE}/dlstreamer-pipeline-server/videos" ] || [ -z "$(find "${SOURCE}/dlstreamer-pipeline-server/videos" -type f -name "*.ts" 2>/dev/null)" ]; then
+VIDEO_DIR="${SOURCE}/dlstreamer-pipeline-server/videos"
+if [ ! -d "${VIDEO_DIR}" ] || [ -z "$(find "${VIDEO_DIR}" -maxdepth 1 -type f -name "*.ts" 2>/dev/null)" ]; then
   VIDEO_BRANCH="main"
-  VIDEO_URL="https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/${VIDEO_BRANCH}/videos/synthetic_data"
-  VIDEOS=(
-    "intersection_2_1.ts"
-    "intersection_4_1.ts"
-    "intersection_4_2.ts"
-    "intersection_4_3.ts"
-    "intersection_4_4.ts"
-    "intersection_5_1.ts"
-    "intersection_5_2.ts"
-    "intersection_5_3.ts"
-    "intersection_5_4.ts"
-    "intersection_9_1.ts"
-    "intersection_9_2.ts"
-    "intersection_9_3.ts"
-    "intersection_9_4.ts"
-  )
-  VIDEO_DIR="${SOURCE}/dlstreamer-pipeline-server/videos"
+  VIDEO_URL="https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/${VIDEO_BRANCH}/videos"
+  VIDEOS=("1122east_h264.ts" "1122west_h264.ts" "1122north_h264.ts" "1122south_h264.ts")
 
   mkdir -p "${VIDEO_DIR}"
   
   echo "Downloading videos in parallel..."
   for VIDEO in "${VIDEOS[@]}"; do
     # -f makes HTTP errors (e.g. 504) fail instead of saving an error page
-    ( curl -fkL -sS --retry 3 --retry-delay 5 "${VIDEO_URL}/${VIDEO}" -o "${VIDEO_DIR}/${VIDEO}" \
+    ( curl -fL -sS --retry 3 --retry-delay 5 "${VIDEO_URL}/${VIDEO}" -o "${VIDEO_DIR}/${VIDEO}" \
       || rm -f "${VIDEO_DIR}/${VIDEO}" ) &
   done
   
@@ -61,6 +47,30 @@ if [ ! -d "${SOURCE}/dlstreamer-pipeline-server/videos" ] || [ -z "$(find "${SOU
     fi
   done
 fi
+
+# Name the intersection camera feeds: copy each downloaded video to its
+# intersection_4 name, then rename the original to its intersection_5 name
+VIDEO_DIR="${SOURCE}/dlstreamer-pipeline-server/videos"
+VIDEO_NAMES=(
+  "1122north_h264|intersection_5_1|intersection_4_1"
+  "1122east_h264|intersection_5_2|intersection_4_2"
+  "1122south_h264|intersection_5_3|intersection_4_3"
+  "1122west_h264|intersection_5_4|intersection_4_4"
+)
+for ENTRY in "${VIDEO_NAMES[@]}"; do
+  IFS='|' read -r SRC_BASE FIVE_BASE FOUR_BASE <<< "${ENTRY}"
+  SRC="${VIDEO_DIR}/${SRC_BASE}.ts"
+  if [ -s "${SRC}" ]; then
+    cp -f "${SRC}" "${VIDEO_DIR}/${FOUR_BASE}.ts"
+    mv -f "${SRC}" "${VIDEO_DIR}/${FIVE_BASE}.ts"
+  fi
+  for NAME in "${FIVE_BASE}" "${FOUR_BASE}"; do
+    if [ ! -s "${VIDEO_DIR}/${NAME}.ts" ]; then
+      echo "Error: ${NAME}.ts is missing and its source ${SRC_BASE}.ts is not available"
+      exit 1
+    fi
+  done
+done
 
 # Download vehicle-reid-0001 model if not present
 if [ ! -d "${SOURCE}/dlstreamer-pipeline-server/models/vehicle_reid" ]; then

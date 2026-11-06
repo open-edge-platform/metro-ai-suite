@@ -89,10 +89,11 @@ sed -i -e '/^# SceneScape settings for smart-parking/d' \
 sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$ENV_FILE"
 
 # Copy appropriate docker-compose file
-if [ "$SAMPLE_APP" = "smart-intersection" ] || [ "$SCENESCAPE_ENABLED" = "true" ]; then
+if [ "$SAMPLE_APP" = "smart-corridor" ]; then
+    docker compose -f compose-scenescape.yml -f smart-corridor/compose-smart-corridor-overlay.yml config \
+        --no-interpolate --no-normalize --no-path-resolution --no-env-resolution > docker-compose.yml
+elif [ "$SAMPLE_APP" = "smart-intersection" ] || [ "$SCENESCAPE_ENABLED" = "true" ]; then
     cp compose-scenescape.yml docker-compose.yml
-elif [ "$SAMPLE_APP" = "smart-corridor" ]; then
-    cp compose-reid-scenescape.yml docker-compose.yml
 else
     cp compose-without-scenescape.yml docker-compose.yml
 fi
