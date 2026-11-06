@@ -257,7 +257,6 @@ services:
       - HTTP_PROXY=${http_proxy}
       - HTTPS_PROXY=${https_proxy}
       - SUPASS=${SUPASS}
-      - EXAMPLEDB=/home/scenescape/Scenescape/${SS_SCENE_DB:-smart-intersection-ri.tar.bz2}
       - DBHOST=pgserver
       - DBPORT=5432
       - SCENESCAPE_ALLOWED_HOSTS=${HOST_IP}

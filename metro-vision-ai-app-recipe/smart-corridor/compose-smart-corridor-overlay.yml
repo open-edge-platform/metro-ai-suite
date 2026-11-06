@@ -1,0 +1,122 @@
+# Copyright (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Smart Corridor overlay for compose-scenescape.yml.
+# Applied by install.sh as: -f compose-scenescape.yml -f smart-corridor/compose-smart-corridor-overlay.yml
+# scene-uploader is inherited from the base file and remains enabled.
+
+services:
+  ntpserver:
+    restart: unless-stopped
+
+  broker:
+    ports:
+      - "1883:1883"
+    restart: unless-stopped
+
+  node-red:
+    volumes:
+      - smart_corridor_images:/images_data:rw
+    restart: unless-stopped
+
+  influxdb2:
+    restart: unless-stopped
+
+  grafana:
+    restart: unless-stopped
+
+  dlstreamer-pipeline-server:
+    volumes:
+      - ./${SAMPLE_APP}/src/dlstreamer-pipeline-server/models/vehicle_reid:/home/pipeline-server/models/vehicle_reid
+    restart: unless-stopped
+
+  pgserver:
+    restart: unless-stopped
+
+  web:
+    environment:
+      - DISPLAY=:99
+    restart: unless-stopped
+
+  scene-uploader:
+    command:
+      - --restauth
+      - /run/secrets/controller.auth
+      - --rootcert
+      - /run/secrets/certs/scenescape-ca.pem
+      - --wait
+      - "300"
+      - --import-timeout
+      - "150"
+      - https://web.scenescape.intel.com/api/v1
+      - /scenes
+
+  scene:
+    depends_on:
+      vdms:
+        condition: service_started
+    environment:
+      - REID_HOSTNAME=vdms.scenescape.intel.com
+      - REID_CLIENT_CERT=/run/secrets/certs/scenescape-vdms-c.crt
+      - REID_CLIENT_KEY=/run/secrets/certs/scenescape-vdms-c.key
+    secrets:
+      - source: vdms-client-cert
+        target: certs/scenescape-vdms-c.crt
+      - source: vdms-client-key
+        target: certs/scenescape-vdms-c.key
+    restart: unless-stopped
+
+  analytics:
+    restart: unless-stopped
+
+  nginx:
+    volumes:
+      - smart_corridor_images:/images_data:ro
+    restart: unless-stopped
+
+  prometheus:
+    restart: unless-stopped
+
+  vdms:
+    image: intellabs/vdms:v2.12.0
+    init: true
+    networks:
+      scenescape:
+        aliases:
+          - vdms.scenescape.intel.com
+    environment:
+      - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
+      - OVERRIDE_cert_file=/run/secrets/certs/scenescape-vdms-s.crt
+      - OVERRIDE_key_file=/run/secrets/certs/scenescape-vdms-s.key
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: vdms-server-cert
+        target: certs/scenescape-vdms-s.crt
+      - source: vdms-server-key
+        target: certs/scenescape-vdms-s.key
+    restart: unless-stopped
+
+  ca-server:
+    image: busybox:1.37
+    ports:
+      - "${CA_SERVER_PORT:-8888}:8888"
+    volumes:
+      - ./${SAMPLE_APP}/src/secrets/certs/scenescape-ca.pem:/var/www/scenescape-ca.pem:ro
+    command: ["httpd", "-f", "-p", "8888", "-h", "/var/www"]
+    networks:
+      - scenescape
+    restart: unless-stopped
+
+volumes:
+  smart_corridor_images:
+
+secrets:
+  vdms-server-cert:
+    file: ./${SAMPLE_APP}/src/secrets/certs/scenescape-vdms-s.crt
+  vdms-server-key:
+    file: ./${SAMPLE_APP}/src/secrets/certs/scenescape-vdms-s.key
+  vdms-client-cert:
+    file: ./${SAMPLE_APP}/src/secrets/certs/scenescape-vdms-c.crt
+  vdms-client-key:
+    file: ./${SAMPLE_APP}/src/secrets/certs/scenescape-vdms-c.key

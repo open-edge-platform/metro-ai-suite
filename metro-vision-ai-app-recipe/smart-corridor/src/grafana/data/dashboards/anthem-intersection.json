@@ -1,0 +1,302 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 4,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 61
+      },
+      "id": 100,
+      "panels": [],
+      "repeat": "intersection",
+      "title": "",
+      "type": "row"
+    },
+    {
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 62
+      },
+      "id": 103,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "# Intersection $intersection",
+        "mode": "markdown"
+      },
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "xU6Z19aVk"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "mappings": [],
+          "min": 0,
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "displayName": "${__field.labels.region}",
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 64
+      },
+      "id": 101,
+      "options": {
+        "displayMode": "lcd",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "maxVizHeight": 300,
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "xU6Z19aVk"
+          },
+          "query": "from(bucket: \"SS-Anthem\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r[\"_measurement\"] == \"region_obj_dwell_2\")\r\n  |> filter(fn: (r) => r[\"location\"] == \"$intersection\")\r\n  |> filter(fn: (r) => r[\"object\"] == \"vehicle\")\r\n  |> filter(fn: (r) => r[\"_field\"] == \"dwell_time\")\r\n  |> group(columns: [\"region\"])\r\n  |> aggregateWindow(every: v.windowPeriod, fn: count, createEmpty: false)\r\n  |> yield(name: \"count\")",
+          "refId": "A"
+        }
+      ],
+      "title": "Vehicles Through Each Lane (Selected Period)",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "xU6Z19aVk"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "displayName": "${__field.labels.region}",
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 64
+      },
+      "id": 102,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "xU6Z19aVk"
+          },
+          "query": "from(bucket: \"SS-Anthem\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r[\"_measurement\"] == \"region_obj_dwell_2\")\r\n  |> filter(fn: (r) => r[\"_field\"] == \"dwell_time\")\r\n  |> filter(fn: (r) => r[\"location\"] == \"$intersection\")\r\n  |> filter(fn: (r) => r[\"object\"] == \"vehicle\")\r\n  |> group(columns: [\"region\"])\r\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\r\n  |> yield(name: \"mean\")",
+          "refId": "A"
+        }
+      ],
+      "title": "Dwell Time by Lane",
+      "type": "gauge"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 72
+      },
+      "id": 106,
+      "panels": [],
+      "title": "Documentation",
+      "type": "row"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 73
+      },
+      "id": 104,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "",
+        "mode": "markdown"
+      },
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 6,
+        "x": 9,
+        "y": 74
+      },
+      "id": 105,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style=\"display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center\">\n  <h3 style=\"margin:0 0 8px 0\">Scan for Documentation</h3>\n  <img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUgAAAFIAQMAAAAI2vVwAAAABlBMVEUAAAD///+l2Z/dAAAAAnRSTlP//8i138cAAAAJcEhZcwAACxIAAAsSAdLdfvwAAAG0SURBVGiB7dXBUgMxDANQ/f9Pm6GW5HQKxeEAFy1Dt+u8XBzVi9peiIz8D4m++L1v9Si8rkYuJBurcj9+fnn8u+2RW9kVt5hdf16NvJWlZteZ3MjfSnSC5cA0R15LToYuzwNLX8yQyHeSI+GbPw+MyJ3UpQAXN6Iz7eXIneQPX8192cB4R26lTqADK8XTmFLkVuJYY2rh3ZwQkRfSWdUOZ5g4ci/LtXKIeRZwoiPXspeKvS63XzryVk7vKWdg1BH4yK2ccToXJwI/ItfySLHHq24uR17Ibq1ifByCjgSRe6m4eiRg1ifUkVtZZ3jddg0MPkXuZU0VdY4KftebLPJCzmIfhvc44JE7OWmFKEYAWozcymk3h0Sdy70nci31bnL3VddRzKbIn+Xkli1/3oxjhkQu5PHO0ivreQWRN/JRmNS67eq+VeRKHvOgD4C7ZrvDHLmQusBud5+hEJ/dj1xInH3u4dBHgNIzIi9kTaTBTPcSNDg0GSJX0r9+blHJI0JJjryQCiw8HHibo4m8kGemHeWmbn7kRlZpUY3uIKPGR64lf/7uP1RX0xXuyI1cXpGRfy8/AALcS1vwXdTIAAAAAElFTkSuQmCC\" style=\"width:140px;height:140px\" alt=\"QR code linking to the smart corridor documentation\"/>\n  <a href=\"https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/smart-corridor/index.html\" target=\"_blank\" rel=\"noopener noreferrer\" style=\"margin-top:8px;font-size:12px\">Smart Corridor Documentation</a>\n</div>",
+        "mode": "html"
+      },
+      "pluginVersion": "11.5.4",
+      "title": "",
+      "type": "text"
+    }
+  ],
+  "preload": false,
+  "refresh": "5s",
+  "schemaVersion": 40,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "allValue": null,
+        "current": {},
+        "datasource": {
+          "type": "influxdb",
+          "uid": "xU6Z19aVk"
+        },
+        "definition": "import \"influxdata/influxdb/schema\"\n\nschema.tagValues(\n  bucket: \"SS-Anthem\",\n  tag: \"location\",\n  predicate: (r) => r._measurement == \"region_obj_count_2\" and r.location =~ /^Smart-Corridor-Intersection-/,\n  start: -30d\n)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Intersection",
+        "multi": true,
+        "name": "intersection",
+        "options": [],
+        "query": "import \"influxdata/influxdb/schema\"\n\nschema.tagValues(\n  bucket: \"SS-Anthem\",\n  tag: \"location\",\n  predicate: (r) => r._measurement == \"region_obj_count_2\" and r.location =~ /^Smart-Corridor-Intersection-/,\n  start: -30d\n)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Smart Corridor - Generic Data",
+  "uid": "qgKVVMBVz1",
+  "version": 16,
+  "weekStart": ""
+}
