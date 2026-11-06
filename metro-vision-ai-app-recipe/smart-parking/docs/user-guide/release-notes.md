@@ -1,5 +1,16 @@
 # Release Notes: Smart Parking
 
+## Version 1.7.0
+
+**New**:
+
+- Added a hardware information and usage panel (CPU/GPU/NPU) to the Grafana dashboard.
+- Added a QR code to the Grafana dashboard that links to the documentation.
+
+**Improved**:
+
+- Consumed the latest DL Streamer version 2026.3.0.
+
 ## Version 1.6.0
 
 **Release Date**: September 10, 2026

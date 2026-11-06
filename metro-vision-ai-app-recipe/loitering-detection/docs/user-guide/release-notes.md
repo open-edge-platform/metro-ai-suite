@@ -1,6 +1,6 @@
 # Release Notes: Loitering Detection
 
-## Version 2.0.0 (Yet to be released)
+## Version 1.7.0
 
 **New**:
 
@@ -11,6 +11,8 @@
   one-row-per-object summaries so the Grafana status table renders correctly.
 - Zones are now defined per stream as JSON polygon/circle configs, so adding or editing zones
   requires no pipeline or dashboard changes.
+- Added a hardware information and usage panel (CPU/GPU/NPU) to the Grafana dashboard.
+- Added a QR code to the Grafana dashboard that links to the documentation.
 
 **Removed**:
 
@@ -20,6 +22,7 @@
 **Improved**:
 
 - Consolidated the Grafana dashboard's per-stream tables into a single status table.
+- Consumed the latest DL Streamer version 2026.3.0.
 
 ## Version 1.6.0
 
