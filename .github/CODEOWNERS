@@ -33,9 +33,9 @@
 /sensor-fusion-for-traffic-management/README.md                         @lijiunderstand @chaofanchen-intel @thegreatchaos @xwu2intel  @open-edge-platform/open-edge-platform-docs-write
 /sensor-fusion-for-traffic-management/intermediate-fusion/README.md     @lijiunderstand @chaofanchen-intel @thegreatchaos @xwu2intel  @open-edge-platform/open-edge-platform-docs-write
 /sensor-fusion-for-traffic-management/post-fusion/README.md             @lijiunderstand @chaofanchen-intel @thegreatchaos @xwu2intel  @open-edge-platform/open-edge-platform-docs-write
-/smart-nvr/                                              @bharagha @yogeshmpandey @bhardwaj-nakul @xwu2intel
-/smart-nvr/docs/                                         @bharagha @yogeshmpandey @bhardwaj-nakul @xwu2intel  @open-edge-platform/open-edge-platform-docs-write
-/smart-nvr/README.md                                     @bharagha @yogeshmpandey @bhardwaj-nakul @xwu2intel  @open-edge-platform/open-edge-platform-docs-write
+/smart-nvr/                                              @bharagha @yogeshmpandey @bhardwaj-nakul @xwu2intel @kumarsjr
+/smart-nvr/docs/                                         @bharagha @yogeshmpandey @bhardwaj-nakul @xwu2intel @kumarsjr  @open-edge-platform/open-edge-platform-docs-write
+/smart-nvr/README.md                                     @bharagha @yogeshmpandey @bhardwaj-nakul @xwu2intel @kumarsjr  @open-edge-platform/open-edge-platform-docs-write
 /smart-route-planning-agent/                             @bharagha @yogeshmpandey @madhuri-rai07 @krish918
 /smart-route-planning-agent/docs/                        @bharagha @yogeshmpandey @madhuri-rai07 @krish918  @open-edge-platform/open-edge-platform-docs-write
 /smart-route-planning-agent/README.md                    @bharagha @yogeshmpandey @madhuri-rai07 @krish918  @open-edge-platform/open-edge-platform-docs-write

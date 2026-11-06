@@ -2,7 +2,7 @@
 name = "smart-nvr"
 version = "0.1.0"
 description = "Smart NVR microservice + UI"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.11,<3.13"
 dependencies = [
     "watchdog>=6.0.0,<7",
     "fastapi>=0.137.1,<0.138",
@@ -32,6 +32,10 @@ dev = [
 # not an installable library, so uv must not try to build/install it.
 [tool.uv]
 package = false
+# gradio caps pillow<13, but the critical Pillow CVEs are only fixed in 13.0.0.
+override-dependencies = [
+    "pillow>=13.0.0",
+]
 # Force transitive dep pulled in by gradio to a patched, CVE-free version.
 constraint-dependencies = [
     "pillow>=12.3.0",

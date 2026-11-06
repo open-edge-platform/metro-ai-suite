@@ -1,8 +1,37 @@
 # Release Notes: Smart NVR
 
+- [Version 2026.3.0-rc1](#version-202630-rc1)
 - [Version 2026.2.0](#version-202620)
 - [Version 2026.1.0](#version-202610)
 - [Version 1.2.4](#version-124)
+
+## Version 2026.3.0-rc1
+
+**Release Date**: November, 2026
+
+**New**:
+
+- Scenescape region events: subscribe to region topics alongside camera topics. Brokers now take `camera_topic` and `region_topic`.
+- Region-based Auto-Route rules with `count`, `dwell_time`, and `near_miss` event types, plus `GET /scenes` and `GET /regions` endpoints.
+- Frigate camera names follow the broker `id` in `brokers.yaml` (for example `intersection_1`). The ID must end with the node number, 1 to 20.
+
+**Changed**:
+
+- The `topic` broker field is replaced by `camera_topic` and `region_topic` (at least one is required). Update existing `brokers.yaml` entries and `/brokers/` API payloads.
+- Removed the AI-Powered Event Viewer (Frigate GenAI and VLM).
+
+**Improved**:
+
+- `start-nvr` reads each node's `rtsp_host` and `rtsp_port` from `brokers.yaml` instead of prompting.
+- Raised the Frigate open-file limit and made startup health checks more tolerant, for deployments with many cameras.
+
+**Fixed**:
+
+- Updated Gradio and dependency minimums to address reported vulnerabilities.
+
+**Known Issues**:
+
+- Scenescape integration is currently not supported when deploying with Helm charts.
 
 ## Version 2026.2.0
 
