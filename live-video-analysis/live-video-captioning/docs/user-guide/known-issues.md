@@ -156,7 +156,8 @@ Symptoms:
 
 Checks:
 
-- Verify `HOST_IP` in `.env` is reachable from the browser client.
+- On the same host, open the dashboard at `http://localhost:4173`. This also works with the network disconnected.
+- From another machine, verify `HOST_IP` in `.env` is reachable from the browser client.
 - Confirm firewall rules allow the configured ports.
 
 ## Camera not supported (hardware-encoded webcam format)
