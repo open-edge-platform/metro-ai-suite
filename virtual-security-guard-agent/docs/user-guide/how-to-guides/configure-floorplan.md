@@ -6,11 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 # Configure the Floorplan
 
 The **Floorplan** page draws your cameras, their fields of view and the
-subject's route.
-
-The default plan is a file on the host, in `deploy/floorplans/`. It is mounted
-read-only into the container and served as `/floorplan.json`. Two plans ship
-there:
+subject's route. Two plans ship with the application:
 
 - `simple.json`: **Simple (4 cameras)**, one camera per zone, keyed
   `camera_1` to `camera_4`. This is the default.
@@ -20,8 +16,7 @@ there:
 To use your own plan, put it in `deploy/floorplans/` (for example
 `site-a.json`), set `VSG_FLOORPLAN=site-a` in `deploy/.env` and run `make up`.
 No rebuild is needed. After you edit the file, refresh the browser. The
-container does not start if the file is missing. `npm run dev` serves the same
-folder (set `VSG_FLOORPLAN` in `ui/.env.local`).
+container does not start if the file is missing.
 
 You can also upload a plan on the **Floorplan** page. It is stored in that
 browser and replaces the default there; **Use default** goes back.
@@ -94,5 +89,4 @@ Camera tags come from VSS video tags (for example
 `P_Lev_4_Entry_Way_ip_107`). A sighting is drawn only if its camera is on the
 plan. Live cameras take their tag from the plan: see
 [Manage Live Cameras](./manage-live-cameras.md). Every camera's location
-(reports, match cards, the **Live cameras** page) is the zone from the plan;
-VSS is not changed.
+(reports, match cards, the **Live cameras** page) is the zone from the plan.

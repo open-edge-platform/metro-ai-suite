@@ -15,5 +15,6 @@ export const env = {
   useMocks: String(import.meta.env.VITE_USE_MOCKS ?? "false") === "true",
   /** Title prefix used to recognise VSG investigations among Hermes sessions. */
   sessionPrefix: "VSG · ",
-  appVersion: "2026.3.0",
+  /** Release version; `version` in ui/package.json is the single source. */
+  appVersion: __APP_VERSION__,
 } as const;

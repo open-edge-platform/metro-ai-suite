@@ -15,18 +15,13 @@ panel on the right shows the subject, the review counts and the route.
    investigation.
 2. Describe the person, attach a photo with the image button (or drag and
    drop it), or both.
-3. Optionally name cameras or a time range in the text, for example
-   "search camera_1 and camera_3 between 2 and 3 pm". The VSG agent maps camera
-   names to VSS tags and says which cameras it searched. Time ranges match
-   when footage was ingested into VSS, not the camera clock.
-4. Press **Enter** or the send button.
+3. Press **Enter** or the send button.
 
 VSG uploads the photo to VSS, creates a Hermes session for the investigation
 and starts a VSG agent run. The VSG agent calls the VSS search tool and replies with a
 short summary and a grid of potential matches. The search covers everything
 VSS has indexed: uploaded videos and what the live cameras have already
-recorded. Each match names its camera by tag (for example `camera_1`). Nothing
-watches the cameras going forward until you start a live search (step 6).
+recorded. Each match names its camera by tag (for example `camera_1`).
 
 Your message appears on the right; a photo shows above it. The VSG agent's reply
 appears on the left next to its eye icon: a short summary of what it searched
@@ -174,7 +169,7 @@ parameters. They are stored in the browser.
 
 | Setting | Default | Effect |
 |---|---|---|
-| Minimum score (of the top match) | `0.60` | Fraction of the best match's score a match needs to be shown for review and join the route. Lower shows more sightings but adds noise. |
+| Minimum score (of the top match) | `0.60` | Fraction of the best match's score a match needs to be shown for review, appear as a live sighting, and join the route. Lower shows more sightings but adds noise. |
 | Matches per search | `20` | Candidates the VSG agent asks VSS for. The grid shows up to 20 of them that reach the minimum score. |
 | Live watch time limit | `30` min | Live search stops by itself after this. |
 | Stop when quiet for | `10` min | Live search stops after this long without a new sighting. |

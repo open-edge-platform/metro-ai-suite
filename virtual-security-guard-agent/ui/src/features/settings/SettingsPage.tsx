@@ -213,7 +213,7 @@ function Investigation() {
         label={
           <Label htmlFor="min-score">Minimum score (of the top match)</Label>
         }
-        hint="A match must score at least this fraction of the best match in its search to be shown for review or join the route. Lower values show more sightings but add noise."
+        hint="A match must score at least this fraction of the best match in its search to be shown for review, appear as a live sighting, or join the route. Lower values show more sightings but add noise."
       >
         <div className="flex items-center gap-3">
           <input

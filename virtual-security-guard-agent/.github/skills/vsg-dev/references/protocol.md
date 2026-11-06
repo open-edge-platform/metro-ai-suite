@@ -87,7 +87,7 @@ matches them to PDF rows. The PDF adds a Movement section from
 - Started only by the operator, from the route card button. The UI uses the
   current subject (latest searched image, else latest search prompt):
   `POST /vss/manager/search` + `PATCH /vss/manager/search/:id/watch`. Argus
-  never calls `vss_watch_search`.
+  never calls `vss_watch_search` or `vss_stop_watch`.
 - Polls `GET /vss/manager/search/:id` every 10 s (`POLL_MS` in
   `stores/watch.ts`). Hits fold into per-camera sightings (60 s gap,
   `SIGHTING_GAP_MS`) in `stores/liveTimeline.ts`, shown as a timeline. The

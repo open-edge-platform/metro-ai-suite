@@ -63,7 +63,7 @@ To change other settings, edit `deploy/.env`:
 (see [Build from Source](./get-started/build-from-source.md)).
 
 > [!IMPORTANT]
-> `deploy/.env` holds the Hermes API key. It is gitignored; never commit it.
+> `deploy/.env` holds the Hermes API key. Never commit it.
 
 If your network uses a proxy, add the Hermes and VSS hosts to `no_proxy`.
 

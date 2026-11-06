@@ -6,6 +6,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { readFile } from "node:fs/promises";
 import path from "path";
+import pkg from "./package.json" with { type: "json" };
 
 /**
  * Dev-server proxy mirroring the production nginx BFF (ui/nginx/default.conf.template):
@@ -40,6 +41,8 @@ export default defineConfig(({ mode }) => {
   };
 
   return {
+    // Release version shown in the UI footer; bump it with `npm version`.
+    define: { __APP_VERSION__: JSON.stringify(pkg.version) },
     plugins: [
       react(),
       tailwindcss(),

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { create } from "zustand";
 import { getAdapters } from "@/adapters";
 import { VssError } from "@/adapters/vss/types";
+import { scoreCutoff } from "@/lib/hits";
 import { useLiveTimelineStore } from "./liveTimeline";
 import { useSettingsStore } from "./settings";
 
@@ -114,8 +115,13 @@ export const useWatchStore = create<WatchState>()((set, get) => {
           });
         return;
       }
+      const cutoff = scoreCutoff(
+        q.hits,
+        useSettingsStore.getState().minTraceScore,
+      );
+      const hits = q.hits.filter((h) => h.score >= cutoff);
       // VSS and browser clocks may differ: idle time is measured in browser time.
-      if (useLiveTimelineStore.getState().addHits(sessionId, queryId, q.hits))
+      if (useLiveTimelineStore.getState().addHits(sessionId, queryId, hits))
         set({ lastSightingAt: Date.now() });
       failures = 0;
       set({ error: undefined });

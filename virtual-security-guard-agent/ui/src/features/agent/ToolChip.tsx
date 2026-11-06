@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 const FRIENDLY: Record<string, string> = {
   vss_search_video: "Searching footage",
   vss_watch_search: "Live watch",
+  vss_stop_watch: "Stopping live watch",
   vss_list_streams: "Listing live cameras",
   vss_add_stream: "Adding a camera",
   vss_update_stream: "Updating a camera",

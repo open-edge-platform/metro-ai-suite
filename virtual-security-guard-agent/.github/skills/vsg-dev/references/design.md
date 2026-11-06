@@ -41,7 +41,8 @@ from the tool result. If the transcript cannot be read, the grid shows a
 
 - **Score cut-off**: a hit is eligible when its score is at least
   *minimum score* (Settings, default 0.6) × the peak score of that search
-  (`lib/hits.ts`). Argus applies the same rule to `keep`.
+  (`lib/hits.ts`). Argus applies the same rule to `keep`, and live search to
+  live sightings.
 - **Grid**: six at a time, up to 20 per search
   (`features/agent/ValidationGrid.tsx`). Shown but unconfirmed matches are
   sent as `reject`.
@@ -74,8 +75,8 @@ connected. A watch starts only on an operator action:
 
 **Start live camera search** sends `POST /vss/manager/search` (image or
 description, 5-minute window, all live cameras) then `PATCH /vss/manager/search/{id}/watch`.
-Argus never calls `vss_watch_search`; asked in chat, it points the operator to
-the button.
+Argus never calls `vss_watch_search` or `vss_stop_watch`; asked in chat, it
+points the operator to the button.
 
 The UI then polls `GET /vss/manager/search/{id}` every 10 s, without LLM
 calls. The watched query only ranks a rolling 5-minute window and keeps no

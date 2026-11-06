@@ -1,7 +1,7 @@
 {
   "name": "vsg-ui",
   "private": true,
-  "version": "1.0.0",
+  "version": "2026.3.0-rc1",
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {

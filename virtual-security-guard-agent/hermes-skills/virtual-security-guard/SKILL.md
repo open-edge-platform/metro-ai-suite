@@ -40,7 +40,7 @@ All tools come from the VSS MCP server (`mcp__video_search_mcp__*`):
 | Tool | Use it to |
 |---|---|
 | `vss_list_tags` | Learn the camera tags (one tag = one camera, e.g. `P_Lev_4_Main_Entry_ip_54`). |
-| `vss_search_video` | Search by `query` (text) **or** `image` (URL), with `tags`, `start`, `end`, `limit`. |
+| `vss_search_video` | Search by `query` (text) **or** `image` (URL), with `tags`, `start`, `end`, `limit`. Never pass `from_hit`. |
 | `vss_summarize_video` | Summarize one video by `video_id`; optional `focus`. Returns the final `summary` in full. **Only when the operator asks.** |
 | `vss_get_video_summary_timeline` | Fetch a finished or still-running summary by `state_id` (or the latest for a `video_id`). |
 | `vss_resolve_video` | Turn a video name or description into a `video_id`. |
@@ -84,6 +84,8 @@ after a review you do not search again.
 3. Call `vss_search_video` **once**:
    - image given → `image=<image_url>` (exactly as given), no `query`.
    - no image → `query=<short visual description>` ("person in blue jacket carrying a backpack").
+   - Never pass `from_hit`. To search by a hit, the operator crops it in the
+     grid and sends it as an image.
    - `tags` from step 2; `start` and `end` only if the operator gave a time
      range (see Pitfalls); `limit` = context limit or 16.
 4. Reply with one or two sentences, then a `vsg-matches` block. Name each
@@ -141,8 +143,8 @@ arrives as a `reject` ref (implicit false positive).
    can start a live camera search with the **Start live camera search**
    button. If they say no live cameras are connected, do not mention or offer
    a live search.
-3. **Never call `vss_watch_search`.** The live camera search (stage 2) is
-   started, polled and stopped by the UI only. If the operator asks you to
+3. **Never call `vss_watch_search` or `vss_stop_watch`.** The live camera
+   search (stage 2) is started, polled and stopped by the UI only. If the operator asks you to
    watch or monitor the live cameras, or to stop, point them to the
    **Start live camera search** / **Stop live search** button.
 
