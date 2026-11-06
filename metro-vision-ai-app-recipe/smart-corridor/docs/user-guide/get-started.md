@@ -288,17 +288,6 @@ instead of `localhost` for external access:
     docker compose down
     ```
 
-## Security Enablement
-
-With AI systems handling sensitive city data and making autonomous decisions, robust security
-is essential. Intel platforms provide built-in security features to protect data, infrastructure,
-and AI processing. See the [Security Enablement Guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/application-security.html)
-that uses the example of Smart Corridor to show how to secure Open Edge Platform
-applications.
-
-## Learn More
-
-- [Security Enablement Guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/application-security.html)
 - [Troubleshooting](./troubleshooting.md): Find detailed steps to resolve common issues during deployments.
 - [DL Streamer Pipeline Server](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/index.html): Intel microservice based on Python for video ingestion and deep learning inferencing functions.
 - [Scenescape](https://docs.openedgeplatform.intel.com/dev/scenescape/index.html): Intel Scene-based AI software framework.
