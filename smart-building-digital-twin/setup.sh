@@ -346,7 +346,7 @@ SCENESCAPE_PLUGINS_DIR="$SCRIPT_DIR/generated/scenescape-plugins"
 # SCENESCAPE_PLUGINS_REF selects the branch or tag for the gstplugins sparse clone independently of the image SCENESCAPE_IMAGE_TAG
 SCENESCAPE_PLUGINS_REF="${SCENESCAPE_PLUGINS_REF:-$(grep -E '^SCENESCAPE_PLUGINS_REF=' .env 2>/dev/null | head -n1 | cut -d'=' -f2-)}"
 SCENESCAPE_PLUGINS_REF="${SCENESCAPE_PLUGINS_REF:-$(read_example_var "SCENESCAPE_PLUGINS_REF")}"
-SCENESCAPE_PLUGINS_REF="${SCENESCAPE_PLUGINS_REF:-2026.2.0}"
+SCENESCAPE_PLUGINS_REF="${SCENESCAPE_PLUGINS_REF:-2026.3.0-rc1}"
 
 scenescape_valid() {
     [ -d "$1/dlstreamer-pipeline-server/user_scripts/gstplugins" ]
@@ -742,7 +742,7 @@ success "Docker images ready"
 # Verify Scenescape images are available (pulled from Docker Hub)
 info "Verifying Scenescape images are available..."
 REQUIRED_IMAGE_VERSION="${SCENESCAPE_IMAGE_TAG:-$(read_env_var "SCENESCAPE_IMAGE_TAG")}"
-REQUIRED_IMAGE_VERSION="${REQUIRED_IMAGE_VERSION:-2026.2.0}"
+REQUIRED_IMAGE_VERSION="${REQUIRED_IMAGE_VERSION:-2026.3.0-rc1}"
 missing_images=()
 for img in scenescape-manager scenescape-controller scenescape-autocalibration scenescape-analytics; do
     if ! docker image inspect "intel/${img}:${REQUIRED_IMAGE_VERSION}" >/dev/null 2>&1; then
