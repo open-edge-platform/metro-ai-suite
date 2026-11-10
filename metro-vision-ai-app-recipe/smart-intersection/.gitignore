@@ -11,3 +11,5 @@ src/dlstreamer-pipeline-server/videos/*.ts
 src/nginx/ssl/
 __pycache__/
 venv/
+src/dlstreamer-pipeline-server/models/intersection/openvino.xml
+src/dlstreamer-pipeline-server/models/intersection/openvino.bin

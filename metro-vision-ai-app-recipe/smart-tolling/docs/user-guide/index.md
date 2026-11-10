@@ -66,6 +66,7 @@ The system uses the **Metro Edge Architecture** based on three key layers:
 - [Get Started](./get-started.md)
 - [How it works](./how-it-works.md)
 - [Troubleshooting](./troubleshooting.md)
+- [Release Notes](./release-notes.md)
 
 <!--hide_directive
 :::{toctree}
@@ -74,6 +75,7 @@ The system uses the **Metro Edge Architecture** based on three key layers:
 get-started
 how-it-works
 troubleshooting
+Release Notes <./release-notes.md>
 
 :::
 hide_directive-->
