@@ -72,6 +72,29 @@ for ENTRY in "${VIDEO_NAMES[@]}"; do
   done
 done
 
+# Download the intersection detection model from edge-ai-resources if not present
+INTERSECTION_MODEL_DIR="${SOURCE}/dlstreamer-pipeline-server/models/intersection"
+if [ ! -s "${INTERSECTION_MODEL_DIR}/openvino.xml" ] || [ ! -s "${INTERSECTION_MODEL_DIR}/openvino.bin" ]; then
+  MODEL_BRANCH="main"
+  MODEL_URL="https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/${MODEL_BRANCH}/models/INT8/smart_intersection.zip"
+  MODEL_TMP_DIR=$(mktemp -d)
+
+  echo "Downloading intersection model..."
+  # -f makes HTTP errors fail instead of saving an error page
+  if ! curl -fL -sS --retry 3 --retry-delay 5 "${MODEL_URL}" -o "${MODEL_TMP_DIR}/smart_intersection.zip" \
+    || ! python3 -m zipfile -e "${MODEL_TMP_DIR}/smart_intersection.zip" "${MODEL_TMP_DIR}/extracted" \
+    || [ ! -s "${MODEL_TMP_DIR}/extracted/openvino.xml" ] || [ ! -s "${MODEL_TMP_DIR}/extracted/openvino.bin" ]; then
+    echo "Error: Failed to download or extract the intersection model from ${MODEL_URL}"
+    rm -rf "${MODEL_TMP_DIR}"
+    exit 1
+  fi
+
+  mkdir -p "${INTERSECTION_MODEL_DIR}"
+  cp -f "${MODEL_TMP_DIR}/extracted/openvino.xml" "${MODEL_TMP_DIR}/extracted/openvino.bin" "${INTERSECTION_MODEL_DIR}/"
+  rm -rf "${MODEL_TMP_DIR}"
+  echo "Intersection model downloaded successfully"
+fi
+
 # Download vehicle-reid-0001 model if not present
 if [ ! -d "${SOURCE}/dlstreamer-pipeline-server/models/vehicle_reid" ]; then
   echo "Downloading vehicle-reid-0001 model..."
