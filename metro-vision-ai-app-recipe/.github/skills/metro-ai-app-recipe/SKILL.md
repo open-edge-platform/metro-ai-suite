@@ -14,9 +14,8 @@ compatibility: >-
   Docker Hub, ghcr.io, and github.com (for model + sample video downloads).
   Ports 80 and 443 (Nginx) plus 3478/udp (Coturn TURN) must be free on the
   host; WebRTC also publishes MediaMTX port 8189 (tcp+udp) for ICE, with
-  signalling proxied via Nginx. Tested
-  with the open-edge-platform Metro Vision AI App Recipe reference
-  (v2026.2.0 image tags).
+  signalling proxied via Nginx. Uses the latest stable image tags compatible
+  with the requested recipe, resolved when the stack is generated.
 ---
 
 # Metro AI App Recipe — DLSPS + WebRTC + Mosquitto + Node-RED + Grafana + Nginx
@@ -170,21 +169,41 @@ Architecture, images, validation, criteria in
 [`references/SCENESCAPE.md`](references/SCENESCAPE.md); load only on this branch.
 Default (`{{SCENESCAPE}}=no`) path is unchanged.
 
-## Images — pin to the latest available tag (never `:latest`)
+## Image tags — resolve at build time, then pin (never `:latest`)
 
-Resolve each image to the **newest published stable tag on Docker Hub** (query
-the repo's `tags` API with `ordering=last_updated`), pin it, and ignore
-`*-weekly` pre-releases. **Grafana is the one exception:** keep it pinned to
-`11.5.4` (the MQTT datasource plugin only works on that tag).
+Before generating the stack, resolve each container image to the newest
+published **stable, compatible** tag from its image registry. For Docker Hub,
+inspect the repository's tags API (ordered by `last_updated`) and compare tag
+versions/release dates; do not assume the first result is the right release.
+Exclude prereleases such as `weekly`, `rc`, `alpha`, `beta`, `nightly`, and
+`dev`. Preserve required variants such as Ubuntu version and architecture.
+Verify that each selected tag exists for the target platform and that related
+images have compatible releases. For Scenescape, select a mutually compatible
+stable release across its services rather than mixing release versions.
 
-- `intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24`
-- `eclipse-mosquitto:2.1.2-alpine`
-- `nodered/node-red:5.0.4`
-- `nginx:1.31.3-alpine`
-- `bluenviron/mediamtx:1.20.0` (WebRTC: WHIP in, WHEP out)
-- `coturn/coturn:4.17.0` (ICE/TURN)
-- `grafana/grafana:11.5.4` (**pinned — do not upgrade**) with `GF_INSTALL_PLUGINS="grafana-mqtt-datasource 1.3.3,yesoreyeram-infinity-datasource 3.11.1"` — a bad plugin version kills the container → Nginx 502
-- `intel/dlstreamer:2026.2.0-ubuntu24` (one-shot in `install.sh`: model dl + INT8 quantize + TLS cert)
+Grafana must also be compatible with the configured
+`grafana-mqtt-datasource` and `yesoreyeram-infinity-datasource` plugin versions.
+Choose the newest Grafana tag verified to work with those plugins; do not
+upgrade Grafana or plugins based only on tag recency.
+
+After resolving, write the concrete tags into the generated Compose file,
+`.env`, and install commands. Do not leave tag placeholders, use the mutable
+`:latest` tag, or copy version examples from older generated stacks. Record the
+selected image tags in the generated README so users can reproduce the build.
+If registry metadata is unavailable or compatibility cannot be verified, stop
+and tell the user which image could not be resolved; ask before using an older
+known-compatible tag. Never claim an unverified tag is the latest.
+
+Resolve these images at generation time, applying the compatibility rules
+above:
+
+- DL Streamer Pipeline Server (required OS variant preserved; also used by the
+  stack at runtime)
+- DL Streamer (matching compatible release for one-shot model download,
+  quantization, and TLS setup in `install.sh`)
+- Mosquitto, Node-RED, Nginx, MediaMTX (WHIP/WHEP), and Coturn (ICE/TURN)
+- Grafana (newest version verified with the configured plugins)
+- Scenescape services, when enabled (newest mutually compatible stable release)
 
 ## Layout (flat)
 
