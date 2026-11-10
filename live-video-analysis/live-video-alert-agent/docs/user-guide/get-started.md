@@ -53,7 +53,7 @@ This guide covers the rapid deployment of the Live Video Alert Agent system usin
    Optional environment variables:
 
    ```bash
-   # Pre-configure a video stream
+   # Optional: Pre-configure a video stream
    export RTSP_URL=rtsp://<camera-ip>:<port>/stream
 
    # VLM model selection
@@ -158,10 +158,59 @@ This guide covers the rapid deployment of the Live Video Alert Agent system usin
 
 1. In the sidebar under **Stream Configuration**, enter:
    - **Stream Name**: A descriptive name (e.g., "Lobby Camera")
-   - **RTSP URL**: Your camera's RTSP stream URL
+   - **RTSP URL**: Your camera's RTSP stream URL (or the sample stream from [Create a Sample RTSP Stream](#create-a-sample-rtsp-stream))
 2. Click **Add New Stream**
 
-### Configuring Alerts
+
+## Create a Sample RTSP Stream
+
+If you do not have an RTSP camera, you can publish a public sample video from
+[intel-iot-devkit/sample-videos](https://github.com/intel-iot-devkit/sample-videos)
+as an RTSP stream. No video is bundled with this application.
+
+1. Download a sample video (for example, `person-bicycle-car-detection.mp4`):
+
+   ```bash
+   curl -L -o sample.mp4 \
+     https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4
+   ```
+
+2. Start an RTSP server (MediaMTX):
+
+   ```bash
+   docker run -d --rm --name rtsp-server -p 8554:8554 bluenviron/mediamtx:1.9.3
+   ```
+
+3. Publish the video in a loop to the RTSP server (requires `ffmpeg`, install it if necessary:
+
+   ```bash
+   sudo apt install ffmpeg
+   ```
+   Then start the video loop with the following command:
+   ```bash
+   ffmpeg -re -stream_loop -1 -i sample.mp4 -c copy -f rtsp -rtsp_transport tcp \
+     rtsp://localhost:8554/stream
+   ```
+
+   Keep this command running in its own terminal.
+
+4. Use the stream URL in the application. The URL must be reachable from the
+   `live-video-alert-agent` container, so use the host IP address rather than
+   `localhost`:
+
+   ```text
+   rtsp://<host-ip>:8554/stream
+   ```
+
+   Set it as `RTSP_URL` before deployment, or enter it as the **RTSP URL** when
+   [adding a stream](#adding-video-streams) in the dashboard.
+
+5. When finished, stop the `ffmpeg` command (Ctrl+C) and the server:
+
+   ```bash
+   docker stop rtsp-server
+   ```
+## Configuring Alerts
 
 1. Under **AI Agent Alerts** section:
    - Click **Create New Alert**
