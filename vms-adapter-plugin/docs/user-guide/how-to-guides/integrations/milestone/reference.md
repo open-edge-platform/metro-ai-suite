@@ -5,6 +5,12 @@ the Milestone XProtect integration.
 
 ## Configuration reference
 
+`setup.sh` generates `config/config.yaml` from `config/base.yaml` and the fragments of the
+selected VMS and apps. For this integration, the Milestone instance is in
+`vms_shim/milestone/vap-config.yaml` and the Loitering Detection app in
+`analytics_app_shim/object_detection/vap-config.yaml`. Edit the fragments, not
+`config/config.yaml`, and run `./setup.sh --vms milestone --apps ld` again.
+
 ### Environment variables
 
 | Variable | Default | Description |
@@ -27,7 +33,7 @@ the Milestone XProtect integration.
 | `app_ids` | derived | App id → GUID map, for example `{dls_vision: <guid>}`. See [App GUIDs](#app-guids). |
 | `metadata_format` | `ONVIF_ANALYTICS_FRAME` | Metadata format for `object_detection` apps: `ONVIF_ANALYTICS_FRAME` or `ONVIF_ANALYTICS`. `DEEPSTREAM_MINIMAL` is accepted at registration, but VAP cannot produce it, so every frame fails with `milestone_metadata_translation_failed`. |
 | `class_map` | built in | Category → ONVIF object class, overriding the defaults (`person`, `pedestrian`, `human` → `Human`; `vehicle` → `Vehicle`). Other categories are sent as they are. |
-| `event_min_interval_s` | `0` (no limit) | Minimum seconds between analytics events for the same person on the same camera (for captions, per camera). The shipped `config.yaml` sets `10`. |
+| `event_min_interval_s` | `0` (no limit) | Minimum seconds between analytics events for the same person on the same camera (for captions, per camera). The Milestone fragment sets `10`. |
 | `app_version`, `manufacturer_name` | `1.0`, `Intel Corporation` | Shown in Management Client. |
 | `manifest_path` | bundled | Hand-written AI Bridge manifest. Used only by the register endpoint when no configured app maps to a topic; startup registration skips registering instead. |
 
@@ -74,14 +80,15 @@ An app whose type has no mapping is skipped and logged as
 `milestone_unmapped_analytics_app_type`. VAP never registers video topics: each would
 use one XProtect device license per stream.
 
-To register again without restarting, for example after editing `config.yaml`:
+To register again without restarting, for example after changing a fragment and running
+`setup.sh` again:
 
 ```bash
 curl -k -X POST https://localhost:3443/v1/vms/milestone/register \
   -H 'Content-Type: application/json' -d '{}'
 ```
 
-`milestone` in the path is the instance `name` in `config.yaml`. If `VMS_PLUGIN_API_KEY`
+`milestone` in the path is the instance `name` in `vms_shim/milestone/vap-config.yaml`. If `VMS_PLUGIN_API_KEY`
 is set, add `-H 'X-API-Key: <key>'`.
 
 Restart the XProtect Event Server afterwards (see

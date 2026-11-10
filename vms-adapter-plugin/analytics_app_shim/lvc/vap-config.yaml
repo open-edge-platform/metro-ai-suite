@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Live Video Captioning. Set LVC_*, MEDIAMTX_* and MQTT_BROKER_* in .env.
+- type: live_captioning
+  display_name: "Live Video Captioning"
+  base_url: "http://${LVC_HOST:-host.docker.internal}:${LVC_PORT:-4173}"
+  mediamtx_url: "http://${MEDIAMTX_HOST:-host.docker.internal}:${MEDIAMTX_PORT:-8889}"
+  # MQTT broker of the LVC stack, as seen by VAP; captions are not received when empty.
+  mqtt_host: "${MQTT_BROKER_HOST:-}"
+  mqtt_port: ${MQTT_BROKER_PORT:-1883}
+  mqtt_tls_enabled: ${MQTT_BROKER_TLS_ENABLED:-false}
+  mqtt_ca_bundle: "${MQTT_BROKER_CA_BUNDLE:-}"
+  mqtt_client_cert: "${MQTT_BROKER_CLIENT_CERT:-}"
+  mqtt_client_key: "${MQTT_BROKER_CLIENT_KEY:-}"

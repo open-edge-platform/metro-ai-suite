@@ -19,6 +19,13 @@ class LiveCaptioningAnalyticsAppConfig(BaseModel):
     # Default LVC pipeline name.  Leave empty to let VAP resolve the first
     # available pipeline from the LVC OpenAPI spec at run time.
     pipeline_name: str = ""
+    # MQTT broker of the LVC stack; captions are not subscribed to when empty.
+    mqtt_host: str = ""
+    mqtt_port: int = 1883
+    mqtt_tls_enabled: bool = False
+    mqtt_ca_bundle: str = ""
+    mqtt_client_cert: str = ""
+    mqtt_client_key: str = ""
 
     def control_params(self) -> list[dict]:
         """Declare this app's per-camera control knobs (VMS-neutral).

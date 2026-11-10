@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Sections shared by every deployment. setup.sh appends these after the
+# vms_instances / analytics_apps fragments of the selected VMS and apps.
+
+api:
+  host: "0.0.0.0"
+  port: 8080
+  api_key: "${VMS_PLUGIN_API_KEY:-}"
+
+database:
+  url: "postgresql+asyncpg://${PG_USER:-vms}:${PG_PASSWORD:-vms}@${PG_HOST:-postgres}:${PG_PORT:-5434}/vms_plugin"
+
+logging:
+  level: "info"

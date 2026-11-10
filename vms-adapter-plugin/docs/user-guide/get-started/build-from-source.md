@@ -48,12 +48,27 @@ Set at minimum the following variables before building:
 | `MQTT_BROKER_TLS_ENABLED` / `MQTT_BROKER_CA_BUNDLE` / `MQTT_BROKER_CLIENT_CERT` / `MQTT_BROKER_CLIENT_KEY` | MQTT TLS, CA bundle, and optional mutual TLS client certificate for the LVC broker subscriber |
 | `PG_PASSWORD`                                 | PostgreSQL password (change from default)                               |
 
-Refer to `.env.example` for all available variables.
+Refer to `.env.example` for all available variables. Only the variables of the VMS and apps
+selected in Step 3 are used.
 
 For certificate path examples and TLS behavior details, see
 [TLS and Certificate Configuration](../how-to-guides/tls-and-certificates.md).
 
-## Step 3: Build and Start with Docker Compose
+## Step 3: Generate the Configuration
+
+Generate `config/config.yaml` for the VMS and analytics apps you use. Both `--vms` and
+`--apps` are required; for example, Nx Witness with Loitering Detection and Live Video
+Captioning:
+
+```bash
+./setup.sh --vms nx --apps ld,lvc
+```
+
+Run `./setup.sh --list` for the available VMS and apps. See
+[Configure VAP](../get-started.md#configure-vap) for
+details.
+
+## Step 4: Build and Start with Docker Compose
 
 Build all images and start the full stack:
 
@@ -75,7 +90,7 @@ export TAG=<your-tag>                                # e.g. "1.0.0" or "latest"
 > If `REGISTRY_URL` or `TAG` are not set, the defaults in the Docker Compose file
 > are used.
 
-## Step 4: Verify the Build
+## Step 5: Verify the Build
 
 Check that all services are running:
 
@@ -106,6 +121,7 @@ To run the backend outside Docker for local development:
 
 ```bash
 pip install -e ".[dev]"
+./setup.sh --vms nx --apps ld,lvc
 export VMS_PLUGIN_CONFIG_PATH=$PWD/config/config.yaml
 uvicorn plugin.analytics.main:app --reload --port 8082
 ```

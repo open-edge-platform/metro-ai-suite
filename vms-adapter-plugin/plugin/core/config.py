@@ -105,15 +105,6 @@ _DiscriminatedAnalyticsAppConfig = Annotated[
 ]
 
 
-class MqttConfig(BaseModel):
-    host: str = ""
-    port: int = 1883
-    tls_enabled: bool = False
-    tls_ca_bundle: str = ""
-    tls_client_cert: str = ""
-    tls_client_key: str = ""
-
-
 class ApiConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = 8080
@@ -133,7 +124,6 @@ class AppConfig(BaseModel):
     analytics_apps: list[_DiscriminatedAnalyticsAppConfig] = Field(default_factory=list)  # type: ignore[valid-type]
     api: ApiConfig = Field(default_factory=ApiConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
-    mqtt: MqttConfig = Field(default_factory=MqttConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
 
     @model_validator(mode="before")
@@ -253,7 +243,11 @@ def load_config(path: str | Path | None = None) -> AppConfig:
     settings = Settings()
     config_path = Path(path) if path else Path(settings.config_path)
     if not config_path.exists():
-        print(f"FATAL: config file not found: {config_path}", file=sys.stderr)
+        print(
+            f"FATAL: config file not found: {config_path}\n"
+            "Generate it with: ./setup.sh --vms <vms> --apps <apps>  (see ./setup.sh --help)",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     with open(config_path) as f:

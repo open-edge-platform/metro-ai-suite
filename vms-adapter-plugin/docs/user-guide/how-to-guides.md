@@ -2,31 +2,25 @@
 
 Step-by-step guides for common VAP workflows and integrations.
 
-## Tutorials
+## Integrations
 
-- [Live Video Captioning with Nx Witness](./how-to-guides/lvc-with-nx-witness.md) — Full end-to-end tutorial: bring up LVC, configure Nx Witness cameras, start a captioning pipeline from the dashboard, and view live AI captions on the WebRTC video feed.
+- [Nx Witness Integration](./how-to-guides/integrations/nx-witness/index.md) — Connect VAP to
+  Nx Witness: concepts, Nx Witness setup, running Loitering Detection and Live Video Captioning
+  on Nx Witness cameras from the Desktop Client, detections and bookmarks, and a configuration
+  and troubleshooting reference.
 
-- [Loitering Detection with Nx Witness](./how-to-guides/dls-vision-with-nx-witness.md) — Full end-to-end tutorial: bring up Loitering Detection application, configure Nx Witness, register the analytics integration, enable detection for a camera, launch a pipeline from the dashboard, and observe bounding-box overlays in Nx Witness.
+- [Milestone XProtect Integration](./how-to-guides/integrations/milestone/index.md) — Connect VAP to Milestone XProtect through Milestone AI Bridge: concepts, XProtect and AI Bridge setup, running Loitering Detection on XProtect cameras with overlays in Smart Client, loitering events and alarms, and a configuration and troubleshooting reference.
 
 ## Guides
 
 - [Transport Layer Security and Certificate Configuration](./how-to-guides/tls-and-certificates.md) — Configure certificate verification for Nx Witness and DL Streamer Vision HTTPS connections.
 
-- [Run Both Applications Simultaneously](./how-to-guides/run-simultaneous-apps.md) — Bring up both Live Video Captioning and Loitering Detection applications on the same host as VAP, with proper configuration for each application to avoid port conflicts.
-
-## Integrations
-
-- [Milestone XProtect Integration](./how-to-guides/integrations/milestone/index.md) — Connect VAP to Milestone XProtect through Milestone AI Bridge: concepts, XProtect and AI Bridge setup, running Loitering Detection on XProtect cameras with overlays in Smart Client, loitering events and alarms, and a configuration and troubleshooting reference.
-
 <!--hide_directive
 :::{toctree}
 :hidden:
 
-Tutorial: LVC with NX Witness <./how-to-guides/lvc-with-nx-witness.md>
-Tutorial: Loitering Detection with NX Witness <./how-to-guides/dls-vision-with-nx-witness.md>
-Run Simultaneous Applications <./how-to-guides/run-simultaneous-apps.md>
-TLS and Certificates <./how-to-guides/tls-and-certificates.md>
 Integrations <./how-to-guides/integrations>
+TLS and Certificates <./how-to-guides/tls-and-certificates.md>
 
 :::
 hide_directive-->

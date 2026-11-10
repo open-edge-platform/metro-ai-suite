@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Nx Witness. Set NX_* in .env.
+- name: nx-main
+  vendor: nx_witness
+  base_url: "https://${NX_HOST}:7001"
+  tls_verify: ${NX_TLS_VERIFY:-false}
+  tls_ca_bundle: "${NX_CA_BUNDLE:-}"
+  auth:
+    username: "${NX_USERNAME}"
+    password: "${NX_PASSWORD}"
+    auth_type: digest

@@ -1,0 +1,79 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Loitering Detection (DL Streamer Pipeline Server). Set DLS_* and MQTT_* in .env.
+- type: object_detection
+  app_id: "dls_vision"
+  display_name: "Loitering Detection"
+  base_url: "https://${DLS_VISION_HOST:-host.docker.internal}:${DLS_VISION_PORT:-443}/api"
+  tls_verify: ${DLS_VISION_TLS_VERIFY:-false}
+  tls_ca_bundle: "${DLS_VISION_CA_BUNDLE:-}"
+  mqtt_host: "${MQTT_HOST:-host.docker.internal}"
+  mqtt_port: ${MQTT_PORT:-1883}
+  mqtt_tls_enabled: ${MQTT_TLS_ENABLED:-false}
+  mqtt_ca_bundle: "${MQTT_CA_BUNDLE:-}"
+  mqtt_client_cert: "${MQTT_CLIENT_CERT:-}"
+  mqtt_client_key: "${MQTT_CLIENT_KEY:-}"
+  # Topic prefix for publishing/subscribing inference metadata - matches the
+  # LD app's OWN existing convention (metro-vision-ai-app-recipe's
+  # SOURCE_TOPIC_PREFIX, see loitering-detection/sample_start.sh), so the
+  # recipe's mqtt-table-flattener (and its default .env) needs no changes.
+  # Part of payload when starting loitering app
+  metadata_topic_prefix: "${DLS_METADATA_TOPIC_PREFIX:-object_tracking}"
+  # DLS pipelines to run per selected Nx UI device option (CPU/GPU/NPU).
+  # At least one of these must be specified for the plugin to start successfully.
+  pipeline:
+    cpu: ${DLS_PIPELINE_CPU:-}
+    gpu: ${DLS_PIPELINE_GPU:-}
+    npu: ${DLS_PIPELINE_NPU:-}
+
+  # Map detection labels (case-insensitive) to vendor-neutral categories.
+  # Each VMS maps a category to its own type: Nx uses typeId "vap.<category>"
+  # (registered in the Nx manifest at startup), Milestone uses an ONVIF class
+  # (person/pedestrian -> Human, vehicle -> Vehicle). Override per VMS instance
+  # with vendor_options.type_map (Nx) or vendor_options.class_map (Milestone).
+  # Labels not listed here fall back to "python.detected.object" on Nx.
+  # (label_type_map with typeId values is still accepted but deprecated.)
+  label_map:
+    vehicle: vehicle
+    pedestrian: pedestrian
+    background: background
+
+  # The DLSPS pipeline runs detection full-frame (gvaanalytics zone/dwell
+  # analytics)
+  # When disabled, Nx would show a box for every detected person, not just loiterers inside
+  # the zone. Only objects with a "zone_violations"/"dwell_times" entry are
+  # pushed when enabled.
+  zone_filter_enabled: false
+  # Static zone geometry, drawn on every frame as a persistent labelled box in
+  # Nx and in Milestone Smart Client (colored per class automatically).
+  # Keep bounding_box equal to default_zone_polygon below, which is the zone
+  # the pipeline measures loitering in (normalized [x_min, y_min, x_max, y_max]).
+  # At run start VAP scales the zone to each camera's resolution and sends it to
+  # gvaanalytics, and its bounding rectangle as the ROI to pipelines that expose
+  # roi-properties (x_min,y_min,x_max,y_max in pixels; 1920x1080 -> 0,270,576,756).
+  # This rectangle covers where people stand in the AXIS view (about x 0.10,
+  # y 0.56), so they accumulate dwell time. The original recipe zone was
+  # [0, 0.277778, 0.234375, 0.555556] (gvaattachroi roi=0,200,300,400 at 1280x720).
+  zones:
+    region1:
+      label: "Loitering Zone"
+      bounding_box: [0.0, 0.25, 0.3, 0.7]
+  # Default "zone" control value: the zone sent to the pipeline at run start,
+  # as normalized (0-1) [x, y] polygon points. Same rectangle as region1 above.
+  default_zone_polygon: [[0.0, 0.25], [0.3, 0.25], [0.3, 0.7], [0.0, 0.7]]
+
+  # Seconds in the zone before a person counts as loitering. Sent to the
+  # pipeline at run start as loitering-watermark-properties.loitering-threshold
+  # (the on-video text colour). Use the same value as the loitering sidecar's
+  # LOITERING_THRESHOLD_SEC (recipe .env): the sidecar decides when events are
+  # published. Same variable, so one setting drives both.
+  loitering_threshold_s: "${LOITERING_THRESHOLD_SEC:-5.0}"
+
+  # Publish every message on the app's status-event mqtt topic
+  # "<this app's metadata topic>/<event_topic_suffix>" as an analytics event:
+  # an Nx bookmark, or a Milestone ANALYTICS_EVENT on "<app_id>-events"
+  # (named "Loitering detected", with the loiterer's box when known).
+  # (event_bookmark_enabled is still accepted as a deprecated alias.)
+  events_enabled: true
+  event_topic_suffix: "${DLS_EVENT_TOPIC_SUFFIX:-loiterstatus}"
