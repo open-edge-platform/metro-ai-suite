@@ -80,13 +80,7 @@ them in `.env`. Variables of VMS and apps that you did not select are not checke
 
 ### No Cameras Discovered from Nx Witness
 
-**Symptoms**: Nx Witness cameras are missing after discovery.
-
-**Checks**:
-
-- Verify `NX_HOST`, `NX_USERNAME`, and `NX_PASSWORD` are set correctly in `.env`.
-- Confirm the Nx Witness REST API is reachable: `curl -k https://<NX_HOST>:7001/rest/v4/devices`.
-- Check that the Nx Witness user has sufficient permissions to list devices.
+See the [Nx Witness troubleshooting](./how-to-guides/integrations/nx-witness/reference.md#vap-and-nx-witness).
 
 ---
 
@@ -150,24 +144,7 @@ docker compose restart vms-adapter-backend
 
 ### No Bounding Boxes Appear in Nx Witness
 
-**Symptoms**: `dls_vision` runs start successfully but detections are not shown in the Nx Witness client.
-
-**Checks**:
-
-- Confirm the MQTT broker is running and reachable at `MQTT_HOST:MQTT_PORT`.
-- Verify that the DL Streamer Pipeline Server is publishing inference results to MQTT on the
-  expected topic (`{metadata_topic_prefix}/{vms_name}:{camera_id}`, default prefix
-  `object_tracking`).
-- Check that the Nx Witness analytics integration was registered successfully: look for
-  `register_analytics` in the `vms-adapter-backend` logs.
-- Verify integration credentials: if the integration was reused from a previous run, the
-  password may not be available. In that case, remove the integration from Nx Witness and
-  restart VAP to recreate it.
-- Close any camera visualizer window that was already open in the Nx Witness client before the
-  pipeline started. With the camera window closed, stop the pipeline and start it again, then
-  reopen the camera. A visualizer window opened before strating the analytics does not render overlays correctly. This is Nx Optix limitaion and is being tracked with the Nx team
-  in the
-  [Network Optix developer forum](https://support.networkoptix.com/hc/en-us/community/posts/42656716334871-Analytics-bounding-box-overlay-not-shown-on-live-camera-view-REST-API-based-integration).
+See the [Nx Witness troubleshooting](./how-to-guides/integrations/nx-witness/reference.md#pipeline-and-detections).
 
 ### MQTT Messages Not Received
 

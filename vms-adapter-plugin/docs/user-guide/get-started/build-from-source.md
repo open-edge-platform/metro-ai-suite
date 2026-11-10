@@ -65,7 +65,7 @@ Captioning:
 ```
 
 Run `./setup.sh --list` for the available VMS and apps. See
-[Generate the VAP Configuration](../get-started.md#step-4--generate-the-vap-configuration) for
+[Configure VAP](../get-started.md#configure-vap) for
 details.
 
 ## Step 4: Build and Start with Docker Compose
