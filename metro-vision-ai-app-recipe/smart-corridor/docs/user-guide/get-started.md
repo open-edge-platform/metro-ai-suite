@@ -138,15 +138,15 @@ On the parent machine, configure the [.env](../../../.env) file to declare how m
 
    ```bash
    TOTAL_REMOTE_CHILD=1
-   REMOTE_IP_1=<CHILD_MACHINE_IP>
+   REMOTE_IP_1=<IP_ADDRESS_CHILD_NODE_1>
    ```
 
    For multiple child nodes:
 
    ```bash
    TOTAL_REMOTE_CHILD=2
-   REMOTE_IP_1=10.223.22.20
-   REMOTE_IP_2=10.223.22.30
+   REMOTE_IP_1=<IP_ADDRESS_CHILD_NODE_1>
+   REMOTE_IP_2=<IP_ADDRESS_CHILD_NODE_2>
    ```
 
 3. Run the install script:

@@ -21,8 +21,8 @@ echo "GID=$USER_GID" >> .env
 
 VIDEO_DIR="${SOURCE}/dlstreamer-pipeline-server/videos"
 if [ ! -d "${VIDEO_DIR}" ] || [ -z "$(find "${VIDEO_DIR}" -maxdepth 1 -type f -name "*.ts" 2>/dev/null)" ]; then
-  VIDEO_BRANCH="main"
-  VIDEO_URL="https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/${VIDEO_BRANCH}/videos"
+  VIDEO_COMMIT="765c906f46e86480a270fbffcbeb036ed50e2d77"
+  VIDEO_URL="https://github.com/open-edge-platform/edge-ai-resources/raw/${VIDEO_COMMIT}/videos"
   VIDEOS=("1122east_h264.ts" "1122west_h264.ts" "1122north_h264.ts" "1122south_h264.ts")
 
   mkdir -p "${VIDEO_DIR}"
@@ -75,8 +75,8 @@ done
 # Download the intersection detection model from edge-ai-resources if not present
 INTERSECTION_MODEL_DIR="${SOURCE}/dlstreamer-pipeline-server/models/intersection"
 if [ ! -s "${INTERSECTION_MODEL_DIR}/openvino.xml" ] || [ ! -s "${INTERSECTION_MODEL_DIR}/openvino.bin" ]; then
-  MODEL_BRANCH="main"
-  MODEL_URL="https://github.com/open-edge-platform/edge-ai-resources/raw/refs/heads/${MODEL_BRANCH}/models/INT8/smart_intersection.zip"
+  MODEL_COMMIT="368e2437d73d39ca28324a03779d9220f3ac65c6"
+  MODEL_URL="https://github.com/open-edge-platform/edge-ai-resources/raw/${MODEL_COMMIT}/models/INT8/smart_intersection.zip"
   MODEL_TMP_DIR=$(mktemp -d)
 
   echo "Downloading intersection model..."
