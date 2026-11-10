@@ -80,7 +80,7 @@ services:
 
   # Scenescape Web UI
   web:
-    image: intel/scenescape-manager:${SCENESCAPE_IMAGE_TAG:-2026.2.0}
+    image: intel/scenescape-manager:${SCENESCAPE_IMAGE_TAG:-2026.3.0-rc1}
     init: true
     networks:
       scenescape:
@@ -146,7 +146,7 @@ services:
       - vol-datasets:/data/datasets
 
   autocalibration:
-    image: intel/scenescape-autocalibration:${SCENESCAPE_IMAGE_TAG:-2026.2.0}
+    image: intel/scenescape-autocalibration:${SCENESCAPE_IMAGE_TAG:-2026.3.0-rc1}
     init: true
     networks:
       scenescape:
@@ -200,7 +200,7 @@ services:
 
   # Scenescape Controller
   scene:
-    image: intel/scenescape-controller:${SCENESCAPE_IMAGE_TAG:-2026.2.0}
+    image: intel/scenescape-controller:${SCENESCAPE_IMAGE_TAG:-2026.3.0-rc1}
     init: true
     networks:
       scenescape:
@@ -239,7 +239,7 @@ services:
 
   # Sensor Replay (primary scene)
   sensor-replay-showcase:
-    image: intel/scenescape-controller:${SCENESCAPE_IMAGE_TAG:-2026.2.0}
+    image: intel/scenescape-controller:${SCENESCAPE_IMAGE_TAG:-2026.3.0-rc1}
     networks:
       scenescape:
     depends_on:
@@ -317,7 +317,7 @@ services:
 
   # DL-Streamer Cameras
   showcase-cameras:
-    image: ${DLSTREAMER_PIPELINE_SERVER_IMAGE:-docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24}
+    image: ${DLSTREAMER_PIPELINE_SERVER_IMAGE:-docker.io/intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-rc1}
     networks:
       scenescape:
     tty: true
@@ -329,6 +329,7 @@ services:
     group_add:
       - "109"
       - "110"
+      - "990"
       - "992"
       - "993"
     device_cgroup_rules:
@@ -375,7 +376,7 @@ services:
 
   # Scenescape Analytics — region/tripwire/sensor analytics (decoupled from the controller)
   analytics:
-    image: intel/scenescape-analytics:${SCENESCAPE_IMAGE_TAG:-2026.2.0}
+    image: intel/scenescape-analytics:${SCENESCAPE_IMAGE_TAG:-2026.3.0-rc1}
     init: true
     user: "${UID:-1000}:${GID:-1000}"
     networks:

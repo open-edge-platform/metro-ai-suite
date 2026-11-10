@@ -114,5 +114,8 @@ trap - EXIT
 
 echo "Created ${ENV_FILE}"
 echo "HOST_IP=${HOST_IP}"
-echo "LVC Dashboard URL: http://${HOST_IP}:4173"
-echo "RAG Dashboard URL: http://${HOST_IP}:4172"
+echo "RAG chatbot mode options: embedded (in-LVC dashboard) or detached (browser tab)"
+echo "LVC Dashboard URL (this host): http://localhost:4173"
+echo "LVC Dashboard URL (other machines): http://${HOST_IP}:4173"
+echo "RAG Dashboard URL (this host): http://localhost:4172"
+echo "RAG Dashboard URL (other machines): http://${HOST_IP}:4172"

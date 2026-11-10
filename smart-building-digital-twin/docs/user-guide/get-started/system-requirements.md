@@ -8,6 +8,7 @@ run the application.
 **Operating Systems**
 
 - Ubuntu 24.04 LTS
+- Ubuntu 26.04 LTS
 
 ## Minimum Requirements
 

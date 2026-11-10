@@ -15,9 +15,9 @@
   and analytics apps, for example `./setup.sh --vms milestone --apps ld`. Each VMS and app keeps its
   settings in a `vap-config.yaml` file in its shim directory.
 
-- **Loitering Detection configuration updates**:
+- **Loitering Detection updates**:
+  - Consumed the new Loitering Detection pipeline.
   - Introduced `event_min_interval_s` to limit how often events are sent for the same person.
-
   - Configurable Loitering Zone and Threshold. Set the loitering zone per camera from the Nx
   Witness camera settings or the VAP camera page. VAP scales it to the camera's resolution at
   run start. The loitering threshold is set with `LOITERING_THRESHOLD_SEC`.

@@ -5,8 +5,8 @@ This section provides detailed hardware, software, and platform requirements to 
 ## Supported Platforms
 
 **Operating Systems**
-- Ubuntu 22.04 LTS
 - Ubuntu 24.04 LTS
+- Ubuntu 26.04 LTS
 
 ## Minimum Requirements
 

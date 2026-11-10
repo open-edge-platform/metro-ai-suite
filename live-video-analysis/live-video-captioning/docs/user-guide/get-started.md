@@ -50,7 +50,7 @@ This script sets these important values:
 
 | Variable | Default | Purpose |
 |----------|---------|--------|
-| `HOST_IP` | *(auto-detected)* | Host address reachable by the browser for WebRTC signaling. |
+| `HOST_IP` | *(auto-detected)* | Host address advertised to browsers on other machines for WebRTC media. Not needed when the browser runs on the same host. |
 | `REGISTRY` | `intel/` | Image registry prefix. |
 | `TAG` | `latest` | Docker image tag. |
 | `DASHBOARD_PORT` | `4173` | Port for the web dashboard. |
@@ -159,11 +159,15 @@ docker compose up -d
 
 ### 6. Use the dashboard
 
-Open:
+Open the dashboard from a browser on the same host:
 
 ```text
-http://<HOST_IP>:4173
+http://localhost:4173
 ```
+
+From another machine on the network, use `http://<HOST_IP>:4173` instead.
+
+> **Offline / air-gapped use:** after the images, models, and videos are downloaded, the application runs without Internet or LAN access. Open `http://localhost:4173` on the host itself; no network configuration is required.
 
 Then:
 

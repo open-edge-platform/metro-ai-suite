@@ -6,8 +6,8 @@ This section provides detailed hardware, software, and platform requirements to 
 
 **Operating Systems**
 
-- Ubuntu 22.04 LTS
 - Ubuntu 24.04 LTS
+- Ubuntu 26.04 LTS
 
 **Hardware Platforms**
 
