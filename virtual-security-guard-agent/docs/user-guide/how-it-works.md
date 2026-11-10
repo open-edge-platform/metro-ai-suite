@@ -25,7 +25,7 @@ tools through the VSS server, which exposes them using the Model Context Protoco
 | Hermes agent server | Runs the VSG agent, keeps one session per investigation, and streams run events over Server-Sent Events (SSE). |
 | VSG Hermes skills | Provide the `virtual-security-guard` and `vsg-incident-report` skills installed on the Hermes host. |
 | VSS MCP server | Provides the agent with VSS tools. |
-| VSS | Stores and indexes footage, runs searches, and serves clips and frames. |
+| VSS gateway | Stores and indexes footage, runs searches, and serves clips and frames. |
 | Model server | Provides the LLM used by the VSG agent, such as OpenVINO™ model server. |
 
 ## Investigation Flow

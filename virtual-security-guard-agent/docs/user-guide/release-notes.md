@@ -1,7 +1,7 @@
 ```{eval-rst}
 .. meta::
   :description: Release notes for the Virtual Security Guard Agent.
-  :keywords: Virtual Security Guard Agent, release notes, 2026.3.0.
+  :keywords: Virtual Security Guard Agent, release notes, 2026.3.0-rc1.
 ```
 
 <!--
@@ -11,7 +11,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Release Notes: Virtual Security Guard Agent
 
-## Version 2026.3.0
+## Version 2026.3.0-rc1
 
 Virtual Security Guard (VSG) Agent is a new sample application that searches recorded and live
 camera footage through Intel's Video Search and Summarization (VSS).
