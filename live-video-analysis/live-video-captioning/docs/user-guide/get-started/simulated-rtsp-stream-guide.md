@@ -50,6 +50,18 @@ Ensure that `Docker` is installed on your system.
 
 ## Usage
 
+### Get a Sample Video (Optional)
+
+If you do not have a video file, you can publish a public sample video from
+[intel-iot-devkit/sample-videos](https://github.com/intel-iot-devkit/sample-videos) as an RTSP stream. No video is bundled with the application.
+
+Download a sample video (for example, `person-bicycle-car-detection.mp4`):
+
+```bash
+curl -L -o sample.mp4 \
+https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4
+```
+
 ### Basic Usage
 
 Before running the command, make sure the video file exists.
