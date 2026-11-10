@@ -266,13 +266,14 @@ instead of `localhost` for external access:
 
 ## Verify the Application
 
-- **Fused object tracks**: in Scene Management UI, click on the Intersection-Demo card to
-  navigate to the Scene. On the Scene page, you will see fused tracks moving on the map. You
+- **Fused object tracks**: in Scene Management UI, click on the Smart-Corridor or Smart-Corridor-Intersection cards to
+  navigate to the Scene. On the individual intersection scene pages, you will see fused tracks moving on the map. You
   will also see greyed out frames from each camera. Toggle the "Live View" button to see the
   incoming camera frames. The object detections in the camera feeds will correlate to the
   tracks on the map.
 
-  ![Intersection Scene Homepage](./_assets/scenescape.png "intersection scene homepage")
+  ![Corridor Scene Homepage](./_assets/scenescape.png "corridor scene homepage")
+  ![Smart-Corridor Scene Page](./_assets/smart-corridor.png "smart-corridor scene page")
 
 - **Grafana Dashboard**: In Grafana UI, observe aggregated analytics of different regions of
   interests in the grafana dashboard. After navigating to Grafana home page, click on

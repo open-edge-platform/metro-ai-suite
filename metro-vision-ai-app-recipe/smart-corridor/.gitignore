@@ -8,10 +8,10 @@ src/secrets/*.auth
 src/secrets/*.auth.*
 src/secrets/*.token
 src/secrets/supass
-src/dlstreamer-pipeline-server/models/vehicle_reid/
+src/dlstreamer-pipeline-server/models/
 src/dlstreamer-pipeline-server/videos/
 src/dlstreamer-pipeline-server/config.json
-src/webserver/smart-corridor-ri.tar.bz2
+src/webserver/scenes/
 src/nginx/ssl/
 __pycache__/
 venv/
