@@ -1,3 +1,9 @@
+```{eval-rst}
+.. meta::
+    :description: Set up VSS, the Hermes agent server, and the Virtual Security Guard Agent prerequisite stack.
+    :keywords: Virtual Security Guard Agent, VSS, Hermes agent server, OpenVINO model server, prerequisite stack
+```
+
 <!--
 SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
@@ -5,14 +11,14 @@ SPDX-License-Identifier: Apache-2.0
 
 # Set Up the Prerequisite Stack
 
-VSG needs two services: **VSS** in search mode, which indexes and searches the
-camera footage, and a **Hermes** agent server, where the VSG agent runs with a model on
-**OpenVINO™ Model Server** (OVMS). Set up both on one host, VSS first. If VSS
-runs on another host, replace `<vss-host>` below with its address.
+The VSG agent needs two services: VSS in search mode, which indexes and searches camera footage,
+and a **Hermes** agent server, where the VSG agent runs with a model served by the
+OpenVINO™ model server. Set up both on one host, with VSS first. If VSS
+runs on another host, replace `<vss-host>` with the host address, in the **Set Up VSS in Search Mode** step.
 
-![VSG console calls the Hermes API server on port 8642, which reasons with the Inference Router and OVMS on the same host and calls tools on the VSS MCP server](../_assets/vsg-prerequisite-stack.svg)
+![The VSG console calls the Hermes API server on port 8642, which reasons with the Inference Router and OpenVINO model server on the same host and calls tools on the VSS Model Context Protocol (MCP) server](../_assets/vsg-prerequisite-stack.svg)
 
-## 1. Get the sources
+## 1. Get the Sources
 
 VSS and the Hermes installer are both in `edge-ai-libraries`. Step 5 installs
 the VSG agent skills from the VSG source in `metro-ai-suite`. Clone both into
@@ -27,7 +33,7 @@ git -C metro-ai-suite sparse-checkout set virtual-security-guard-agent
 
 The later steps start from this directory.
 
-## 2. Set up VSS in search mode
+## 2. Set Up VSS in Search Mode
 
 Choose the service credentials and start VSS:
 
@@ -43,20 +49,19 @@ source setup.sh --search
 ```
 
 Open `http://<vss-host>:12345/` to check that VSS is up. VSG and the VSS MCP
-server both use this address. For GPU embedding, Milvus, proxies and other
-options, see the VSS
+server both use this address. For GPU embedding, the Milvus vector database
+backend, proxy settings, and other options, see the VSS
 [Get Started](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/sample-applications/video-search-and-summarization/docs/user-guide/get-started.md)
 guide.
 
-## 3. Install Hermes and OVMS
+## 3. Install the Hermes Agent Server and OpenVINO Model Server
 
-The
-[agent-harness-install](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/frameworks/agent-harness-install)
-installer starts OVMS and an **Inference Router** in Docker, installs Hermes,
-and connects Hermes to the router. It does not configure Hermes for VSG; steps
-4 to 7 do that.
+The [agent-harness-install](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/frameworks/agent-harness-install)
+installer starts the OpenVINO model server and the **Inference Router** in Docker,
+installs the Hermes agent server, and connects the agent server to the router.
+Follow steps 4 through 7 to configure the Hermes agent server for VSG.
 
-Install Hermes and serve the model:
+Install the Hermes agent server and serve the model:
 
 ```bash
 cd edge-ai-libraries/frameworks/agent-harness-install
@@ -65,29 +70,32 @@ export SERVED_MODEL="${MODEL##*/}"
 export HARNESS_OVMS_REST_PORT=8450 && ./install.sh --harness hermes --model "$MODEL"
 ```
 
-> **Note:** The VSG agent needs a model that keeps to a strict reply format and calls
-> tools correctly. `Qwen3.6-35B-A3B` is a mixture-of-experts model with about
-> 3B active parameters, so it is quick but still reliable. Smaller models often
-> break the reply format or misuse tools. Dense models like `OpenVINO/Qwen3.8-27B-int4-ov` are more accurate but are slow. 
+> **Note:** The VSG agent needs a model that follows a strict reply format and
+> calls tools correctly. `Qwen3.6-35B-A3B` is a mixture-of-experts model with
+> about 3 billion active parameters, so it is quick but still reliable. Smaller
+> models often break the reply format or misuse tools. Dense models such as
+> `OpenVINO/Qwen3.8-27B-int4-ov` are more accurate but run slowly.
 
 - When the installer prompts for **Runtime [host/openshell]**, press Enter to
-  keep `host`. `openshell` runs Hermes in an OpenShell sandbox.
+  keep `host`. `openshell` runs the Hermes agent server in an OpenShell sandbox.
 - When the installer prompts for **Host/IP to advertise in printed endpoint
   URLs**, enter the host's IP address (`<HOST_IP>`) so the printed URLs work
   from other machines.
-- The installer installs Docker, Node.js and Python if they are missing, and
-  checks the Intel GPU. Read its
+- The installer installs Docker Engine, Node.js runtime, and the Python interpreter
+  if they are missing, and checks the Intel® GPU. See
   [Get Started](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/frameworks/agent-harness-install/docs/user-guide/get-started.md)
-  guide for all options.
-- The model is already in OpenVINO IR format, so OVMS downloads it without
-  converting it. The GPU (for an integrated GPU, system memory) must hold the
-  model weights, the KV cache and the VSS models together.
+  for all options.
+- The model is already in OpenVINO IR format, so OpenVINO model server downloads
+  it without
+  converting it. The GPU, or system memory for an integrated GPU, must hold the
+  model weights, KV cache, and VSS models together.
 - Behind a proxy, export `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` first.
   `NO_PROXY` (and `no_proxy`) must include `localhost`, `127.0.0.1`,
-  `<HOST_IP>` and `<vss-host>`, so that Hermes reaches the Inference Router
-  and the VSS MCP server directly instead of through the proxy.
+  `<HOST_IP>`, and `<vss-host>` so that the Hermes agent server reaches the
+  Inference Router and the VSS MCP server directly instead of through the proxy.
 
-Point Hermes at the router and the model, then check the installation:
+Point the Hermes agent server at the router and the model, then check the
+installation:
 
 ```bash
 hermes config set model.provider custom
@@ -96,7 +104,7 @@ hermes config set model.default "$SERVED_MODEL"
 ./install.sh status
 ```
 
-## 4. Register the VSS MCP server
+## 4. Register the VSS MCP Server
 
 From the installer directory:
 
@@ -107,24 +115,25 @@ From the installer directory:
 This adds `mcp_servers.vss` to `~/.hermes/config.yaml`. The VSS MCP server
 must be the only entry under `mcp_servers`. Remove any other entries.
 
-> **Note:** Behind a proxy, Hermes can reach the VSS MCP server only if
-> `<vss-host>` is in `NO_PROXY` and `no_proxy` (see step 3). Otherwise its
+> **Note:** Behind a proxy, the Hermes agent server can reach the VSS MCP
+> server only if the
+> `<vss-host>` is in `NO_PROXY` and `no_proxy` (see step 3). Otherwise, its
 > requests go to the proxy, and the VSG agent cannot search.
 
-## 5. Install the VSG agent skills
+## 5. Install the VSG Agent Skills
 
 The VSG agent, named Argus, is defined by the files in `hermes-skills/`:
 
 | File | Purpose |
 |---|---|
 | `SOUL.md` | The VSG agent's identity (the Argus persona) and boundaries. Installed as `~/.hermes/SOUL.md`, which applies to **every** agent on the Hermes host. |
-| `virtual-security-guard` | The search, validate, trace and report workflow, the VSS tool playbook, the reply format and the guardrails. |
+| `virtual-security-guard` | The search, validate, trace, and report workflow; the VSS tool playbook, reply format, and guardrails. |
 | `vsg-incident-report` | Turns confirmed sightings into a report draft. |
 
-The Hermes installer also adds bundled skills to `~/.hermes/skills`. Hermes
-loads every skill there, and they compete with the VSG agent for the model's
-attention. From the directory you cloned into in step 1, install the VSG agent
-skills and move all other skills aside:
+The Hermes installer also adds bundled skills to `~/.hermes/skills`. The Hermes
+gateway loads every skill in that directory, and the skills compete with the
+VSG agent for the model's attention. From the directory you cloned into in
+step 1, install the VSG agent skills and move all other skills aside:
 
 ```bash
 cd metro-ai-suite/virtual-security-guard-agent
@@ -136,40 +145,40 @@ The list must show only `virtual-security-guard` and `vsg-incident-report`.
 
 - `--exclusive` does not delete the other skills. It moves them to
   `~/.hermes/skills.removed.<timestamp>`; move a skill back to restore it.
-- An existing, different `SOUL.md` is backed up as
+- If a different `SOUL.md` already exists, the installer backs it up as
   `SOUL.md.bak.<timestamp>`.
 - `--no-restart` skips the gateway restart, because the gateway is not
-  running yet. Hermes loads the skills when you start it in step 7.
+  running yet. The Hermes gateway loads the skills when you start it in step 7.
 
 Later, run the command again without `--no-restart` whenever `hermes-skills/`
-changes, and after `hermes update` if the list shows the bundled skills
-again. It restarts the gateway, so start a new session in the console
-afterwards.
+changes, and after `hermes update` if the list shows the bundled skills again.
+The command restarts the gateway, so start a new console session afterward.
 
-## 6. Limit the tools (optional)
+## 6. Limit the Tools (Optional)
 
 The console has no login, so anyone who can open it can make the VSG agent use
 its tools. To give the agent only the tools it needs, run `hermes tools`,
 select the API server platform, and keep only `skills` and the `vss` MCP tools.
-Turn off the other toolsets, for example terminal, file, code execution,
-browser and web.
+Turn off the other toolsets, such as terminal, file, code execution, browser,
+and web.
 
-## 7. Enable the API server and start the gateway
+## 7. Enable the API Server and Start the Gateway
 
-The VSG console connects to Hermes through the Hermes **API server**, which
-runs inside the Hermes **gateway**. Both are off after the installer finishes.
+The VSG console connects to the Hermes agent server through the Hermes **API
+server**, which runs inside the Hermes **gateway**. Both are switched off after
+the installer finishes.
 
-Generate the API server key and keep it:
+Generate and save the API server key:
 
 ```bash
 openssl rand -hex 32
 ```
 
 > [!IMPORTANT]
-> This key protects the Hermes API server. You use it again as
+> This key protects the Hermes API server. Use it again as
 > `HERMES_API_KEY` in VSG's `deploy/.env`.
 
-Add these lines to `~/.hermes/.env`. Set `API_SERVER_KEY` to the generated key,
+Add these lines to `~/.hermes/.env`. Set `API_SERVER_KEY` to the generated key
 and `API_SERVER_HOST` to the Hermes host IP that the VSG host can reach:
 
 ```bash
@@ -219,5 +228,5 @@ From the installer directory:
 ./uninstall.sh --harness hermes --delete-models    # also deletes the model
 ```
 
-This removes Hermes with `~/.hermes`, OVMS and the router. Add
-`--keep-agent-data` to keep `~/.hermes`.
+This removes the Hermes agent server and its `~/.hermes` directory,
+OpenVINO model server, and the router. Add `--keep-agent-data` to keep `~/.hermes`.

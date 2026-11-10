@@ -1,3 +1,9 @@
+```{eval-rst}
+.. meta::
+   :description: Troubleshooting guidance for the Virtual Security Guard console.
+   :keywords: Virtual Security Guard, troubleshooting, VSS, Hermes.
+```
+
 <!--
 SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
@@ -5,12 +11,12 @@ SPDX-License-Identifier: Apache-2.0
 
 # Known Issues
 
-## Hermes or VSS shows "Unreachable"
+## Hermes or VSS Service Shows "Unreachable"
 
 Symptoms:
 
-- The sidebar or **Settings** page shows **Hermes** or **VSS** as not
-  reachable; searches never start.
+- The sidebar or **Settings** page shows **Hermes** or **VSS**
+  service as not reachable; searches never start.
 
 Checks:
 
@@ -22,34 +28,35 @@ Checks:
   done
   ```
 
-- `502`/`504`: the upstream is down or `HERMES_BASE_URL` / `VSS_BASE_URL` in
-  `deploy/.env` is wrong. Fix it and run `make up` to recreate the
-  container. Use `make logs` to see the nginx errors.
+- `502` or `504`: The upstream is down, or `HERMES_BASE_URL` or `VSS_BASE_URL` in
+  `deploy/.env` is incorrect. Run `make logs` to see the NGINX server errors.
+  If you fix the base URL, run `make up` to recreate the container.
 - `401` on Hermes: `HERMES_API_KEY` does not match the Hermes
   `API_SERVER_KEY`.
-- Behind a proxy: add the Hermes and VSS hosts to `no_proxy`.
+- Behind a proxy: Add the Hermes and VSS hosts to `no_proxy`.
 
-## The VSG agent replies but no grid is shown
+## The VSG Agent Replies but No Grid Is Shown
 
 Symptoms:
 
-- The VSG agent answers in text, but no review grid, report or status widget appears.
+- The VSG agent answers in text, but no review grid, report, or status widget appears.
 
 Details:
 
 - The console only renders fenced `vsg-*` blocks. If the Hermes skills are
   missing or out of date, the VSG agent answers in plain text.
 
-- This problem is more persistent with smaller models, those have weak tool calling capablity. 
+- Smaller models can make this problem more persistent because they have weaker
+  tool-calling capabilities.
 
 Checks:
 
 - Reinstall the skills on the Hermes host and start a new session. See
   [Install the VSG agent skills](./get-started/set-up-prerequisite-stack.md#5-install-the-vsg-agent-skills).
 - Check that **Settings → Directive protocol** matches the installed skill.
-- Use a better Agentic models
+- Use a model with stronger tool-calling capabilities.
 
-## The VSG agent never searches, or writes the tool call as text
+## The VSG Agent Never Searches or Writes the Tool Call as Text
 
 Symptoms:
 
@@ -58,20 +65,22 @@ Symptoms:
 
 Details:
 
-- OVMS returns structured `tool_calls` only when the model's tool parser is
-  set. If the graph does not set it, add `tool_parser` and `reasoning_parser`
-  to the LLM node in the model's `graph.pbtxt`, using the values on the model
-  card, then restart OVMS (`docker restart agent-harness-install-ovms`).
+- OpenVINO™ model server returns structured `tool_calls` only when the model's tool
+  parser is
+  set. If the graph does not set the tool parser, add
+  `tool_parser` and `reasoning_parser` to the LLM node in the model's
+  `graph.pbtxt`, using the values on the model card. Then restart the model
+  server with `docker restart agent-harness-install-ovms`.
 
 Checks:
 
-- Check which parsers OVMS chose:
+- Check which parsers the OpenVINO™ model server chose:
   `docker logs agent-harness-install-ovms 2>&1 | grep -E 'tool_parser|reasoning_parser'`.
 - Check that `hermes tools` keeps the `vss` MCP tools for the API server, and
   that `mcp_servers.vss` in `~/.hermes/config.yaml` points at the VSS MCP
   server.
 
-## The VSG agent ignores its workflow or uses other skills
+## The VSG Agent Ignores Its Workflow or Uses Other Skills
 
 Symptoms:
 
@@ -80,8 +89,8 @@ Symptoms:
 
 Details:
 
-- Hermes loads every skill under `~/.hermes/skills`. Its installer adds
-  bundled skills, and `hermes update` can add them again.
+- The Hermes installation loads every skill under `~/.hermes/skills`. Its
+  installer adds bundled skills, and `hermes update` can add them again.
 
 Checks:
 
@@ -89,7 +98,7 @@ Checks:
   than `virtual-security-guard` and `vsg-incident-report`, run
   `make install-skills INSTALL_ARGS=--exclusive` and start a new session.
 
-## Grid shows "Couldn't read the search results"
+## Grid Shows "Couldn't read the search results"
 
 Symptoms:
 
@@ -101,7 +110,7 @@ Details:
   Click **Retry** once Hermes is reachable. The console never falls back to
   clips the model wrote.
 
-## Route or floorplan shows no camera
+## Route or Floorplan Shows No Camera
 
 Symptoms:
 
@@ -113,24 +122,24 @@ Checks:
   lists VSS tags that are not on the plan; add them to the file. See
   [Configure the Floorplan](./how-to-guides/configure-floorplan.md).
 
-## Times look shifted
+## Times Look Shifted
 
 Details:
 
-- The VSS host and the browser can have different clocks or time zones.
-  Sightings are ordered by VSS time; the UI never compares them to the
-  browser clock. Keep the VSS host clock synchronized (NTP).
+- The VSS host and browser may use different clocks or time zones. Sightings
+  are ordered by VSS time, not the browser clock. Keep the VSS host clock
+  synchronized using the Network Time Protocol (NTP).
 
-## Live search does not find anything
+## Live Search Does Not Find Anything
 
 Checks:
 
-- Live search watches only cameras on the **Live cameras** page. Make sure
-  the RTSP streams are added and ingesting.
+- Live search watches only cameras on the **Live cameras** page. Ensure
+  the  Real-Time Streaming Protocol (RTSP) streams are added and ingesting.
 - RTSP hosts must be reachable from the VSS host (add them to `no_proxy`).
-- The watch stops after the time limit or quiet period set on **Settings**.
+- The watch stops after the time limit or quiet period set on the **Settings** page.
 
-## Reports disappear after reload
+## Reports Disappear After Reload
 
 Details:
 
@@ -138,7 +147,7 @@ Details:
   **Reports → Open in Argus** to open a past investigation on the VSG agent's
   **Argus** page and generate the PDF again from its report draft.
 
-## Floorplan and settings are per browser
+## Floorplan and Settings Are Per Browser
 
 Details:
 
@@ -146,7 +155,7 @@ Details:
   browser. Upload the plan again on another browser, or use
   **Settings → Clear local data** to reset.
 
-## Port conflicts
+## Port Conflicts
 
-If the console is not reachable, check whether port `12346` is in use and set
-`VSG_UI_PORT` in `deploy/.env`.
+If the console is unreachable, check whether another service is using port
+`12346`. If so, set `VSG_UI_PORT` in `deploy/.env` to an available port.

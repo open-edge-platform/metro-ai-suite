@@ -18,8 +18,9 @@ To use your own plan, put it in `deploy/floorplans/` (for example
 No rebuild is needed. After you edit the file, refresh the browser. The
 container does not start if the file is missing.
 
-You can also upload a plan on the **Floorplan** page. It is stored in that
-browser and replaces the default there; **Use default** goes back.
+You can upload a plan from the **Floorplan** page. The uploaded plan is stored
+in that browser and replaces its default plan. Select **Use default** to
+restore the default plan.
 
 ![Floorplan page with the sample plan](../_assets/floorplan.jpg "Floorplan")
 

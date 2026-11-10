@@ -1,3 +1,9 @@
+```{eval-rst}
+.. meta::
+   :description: Run unit tests for the Virtual Security Guard Agent user interface.
+   :keywords: Virtual Security Guard Agent, tests, Vitest, GNU Make, Node.js
+```
+
 <!--
 SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
@@ -5,8 +11,13 @@ SPDX-License-Identifier: Apache-2.0
 
 # Run Unit Tests
 
-The UI is tested with [Vitest](https://vitest.dev/). You need GNU Make and
-Node.js 22. From the `virtual-security-guard-agent` application directory:
+
+Run the following commands from the `virtual-security-guard-agent` application
+directory to test the UI with the [Vitest framework](https://vitest.dev/).
+
+## Prerequisites
+- GNU Make tool
+- Node.js 22 runtime.
 
 ```bash
 make install        # once: npm ci
