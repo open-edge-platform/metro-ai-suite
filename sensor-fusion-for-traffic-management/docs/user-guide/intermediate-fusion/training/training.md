@@ -7,16 +7,16 @@ This repo is the **training + ONNX-conversion** side for the deploy pipelines in
 Two parallel deploy pipelines are supported; pick the one matching your deploy target:
 
 | Pipeline | Deploy binary | Lidar encoder | ONNX artifacts | Custom ops (and where they live) | Deploy directories |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | **A — PointPillars-based** (§4) | `./bevfusion` | PillarFeatureNet + PointPillarsScatter | **4 independent ONNX**: `camera.backbone` / `lidar_pfe` / `fuser` / `head` | `bevpoolv2` + `pillarscatter` + voxelizer + post-processing: hand-written **SYCL** kernels (single-use ops) | `deploy/src/pointpillars/`, `deploy/src/pointpillars/voxelizer.cpp` |
 | **B — Second-based** (§5) | `./bevfusion_unified` | SparseEncoder (SparseConv3d + SubMConv3d) | **Single unified ONNX**: `bevfusion_unified.onnx` | `SparseConvolution` + `SubMConv3d` are called many times and fused with BN/ReLU, so they (and `BevPoolV2` / `SparseToDense`) live inside the **OpenVINO GPU plugin** | `deploy/src/bevfusion_unified/`, `deploy/src/bevfusion_unified/voxelizer_sycl.cpp` |
 
-**Dataset coverage**
+**Dataset coverage**:
 
 | Pipeline | V2X-I (DAIR-V2X-I) | KITTI |
-|---|---|---|
-| A — PointPillars (`./bevfusion`)         | ✅ (§4.3) | ✅ (§4.4) |
-| B — Second (`./bevfusion_unified`)       | ✅ (§5.3) | ✅ (§5.4) |
+| --- | --- | --- |
+| A — PointPillars (`./bevfusion`) | ✅ (§4.3) | ✅ (§4.4) |
+| B — Second (`./bevfusion_unified`) | ✅ (§5.3) | ✅ (§5.4) |
 
 Both pipelines use the same `--preset v2x|kitti` switch in deploy. Reference user commands (V2X-I is the default preset):
 
@@ -30,14 +30,16 @@ Both pipelines use the same `--preset v2x|kitti` switch in deploy. Reference use
 ./bevfusion <REPO>/training/data/kitti-v2x/training --num-samples 1000 --int8 --preset kitti
 ```
 
+> [!NOTE]
 > **Already have NVIDIA's CUDA-V2XFusion checkpoint?** If you only want to deploy
 > NVIDIA's reference `dense_epoch_100_.pth` (or your own CUDA-V2XFusion-trained
 > ckpt) on Intel GPU — no retraining, no in-repo training-side work — skip this
-> guide and follow [Running NVIDIA’s V2X-I PointPillars Dense FP16 Model on Intel GPU](nvidia_ckpt_to_intel_gpu.md).
+> guide and follow [Running NVIDIA’s V2X-I PointPillars Dense FP16 Model on Intel GPU](./nvidia_ckpt_to_intel_gpu.md).
 > It's a focused weight-conversion path: NVIDIA `.pth` → 4 ONNX + INT8 IR → drop
 > into `deploy/data/v2xfusion/pointpillars/`. Pipeline A + V2X-I only.
 
 Sections:
+
 1. Environment setup (shared)
 2. Dataset preparation (V2X-I, KITTI)
 3. Shared reference — custom ONNX ops, config inheritance
@@ -52,7 +54,7 @@ Throughout this document the following placeholders are used; substitute them
 with paths appropriate to your machine:
 
 | Placeholder | Meaning |
-|---|---|
+| --- | --- |
 | `<REPO>` | Absolute path to this repository's root (the parent of `training/` and `deploy/`) |
 | `<BEV_ENV>` | Python virtual env for training + ONNX export + Pipeline A INT8 quantization (see §1.1) |
 | `<SPCONV_ENV>` | Python virtual env for Pipeline B INT8 quantization + standalone OV inference (see §1.2) |
@@ -113,6 +115,7 @@ The OpenVINO build above must include the opset15 registration patch for
 saved INT8 IR cannot be read back.
 
 `spconvEnv` is used for:
+
 - Pipeline B unified quantization (`export/quantize_unified.py`, NNCF 3.1 + custom OV, §5.2.6).
 - Standalone OpenVINO-side inference tests (`tools/bevfusion_standalone_ov_inference.py`, §5.3).
 
@@ -127,7 +130,7 @@ Intel Arc **B580** is the reference GPU (exposed as `GPU.1`).
 Both pipelines read from `<REPO>/training/data/`. Two datasets are supported:
 
 | Dataset | Source | Final on-disk layout under `data/` |
-|---|---|---|
+| --- | --- | --- |
 | DAIR-V2X-I | [DAIR-V2X-I Google Drive bundle](https://drive.google.com/drive/folders/1FlBbtJfuoEOc0ey9wkkU1lGr5JtS4-gc) (`single-infrastructure-side-image/`, `single-infrastructure-side-velodyne/`, `single-infrastructure-side-label/`, `data_info.json`) | `data/dair-v2x-i/` (native) **+** `data/dair-v2x-i-kitti/` (KITTI-format mirror used by the evaluator) |
 | KITTI | [KITTI 3D Object](https://www.cvlibs.net/datasets/kitti/eval_object.php?obj_benchmark=3d) raw download (`training/{image_2,velodyne,calib,label_2}`, `testing/{image_2,velodyne,calib}`, `ImageSets/{train,val}.txt`) | `data/kitti-v2x/` (V2X-format mirror produced by `tools/convert_kitti_to_v2x_format.py`) |
 
@@ -148,7 +151,7 @@ this repo loads.
 **Final layout** (this is what `data/dair-v2x-i/` and `data/dair-v2x-i-kitti/`
 should look like after BEVHeight's prep is done):
 
-```
+```text
 data/
 ├── dair-v2x-i/                         # native DAIR-V2X-I
 │   ├── velodyne/                       # *.pcd / *.bin point clouds
@@ -192,14 +195,14 @@ files come from **upstream MMDetection3D v1.x** (`tools/create_data.py kitti`).
 After downloading the KITTI 3D Object archive into `<KITTI_RAW>/` with the
 standard layout:
 
-```
+```text
 <KITTI_RAW>/
 ├── ImageSets/{train,val,trainval,test}.txt
 ├── training/{calib,image_2,label_2,velodyne}/
 └── testing/{calib,image_2,velodyne}/
 ```
 
-run upstream MMDetection3D v1.x's KITTI converter (in any clone of
+Run upstream MMDetection3D v1.x's KITTI converter (in any clone of
 [open-mmlab/mmdetection3d](https://github.com/open-mmlab/mmdetection3d) at a
 v1.x tag — the converter is independent of this repo):
 
@@ -221,9 +224,9 @@ Substitute `./data/kitti` with `<KITTI_RAW>` (an absolute path or a path
 relative to the mmdet3d checkout).
 
 You should end up with the layout the user-side mmdet3d run produces (matches
-what's already on the reference machine):
+what is already on the reference machine):
 
-```
+```text
 <KITTI_RAW>/
 ├── gt_database/
 ├── kitti_dbinfos_train.pkl
@@ -265,7 +268,7 @@ The script (see [tools/convert_kitti_to_v2x_format.py](https://github.com/open-e
 
 **Final layout:**
 
-```
+```text
 data/
 └── kitti-v2x/
     ├── image/                          → <KITTI_RAW>/training/image_2 (symlink)
@@ -311,7 +314,7 @@ required if you placed the output here.
 All custom ops are registered under domain `org.openvinotoolkit`:
 
 | Operator | Used by | Where implemented | Description |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `BevPoolV2` | Pipeline B ONNX (camera branch) | OpenVINO GPU plugin | Camera-to-BEV view transform using precomputed geometry |
 | `SparseConvolution` | Pipeline B ONNX (lidar encoder) | OpenVINO GPU plugin | 3D sparse convolution with fused BN + optional ReLU |
 | `SparseToDense` | Pipeline B ONNX (lidar encoder) | OpenVINO GPU plugin | Sparse feature map → dense BEV tensor |
@@ -325,7 +328,7 @@ standard OpenVINO can load all 4 PP ONNXs unmodified.
 All configs follow a fixed recursive-override chain. Two encoder families live under distinct
 top-level neck directories (`lssfpn` for PointPillars, `secfpn` for Second):
 
-```
+```text
 configs/default.yaml
   └─ configs/<DATASET>/default.yaml                      # dataset, image_size, object_classes
        └─ configs/<DATASET>/det/default.yaml             # detection model type (BEVFusion)
@@ -350,13 +353,14 @@ directory: `resnet34`, `resnet50`, `fasternet`.
 Four independent ONNX files, each an independently quantizable / replaceable deploy stage:
 
 | Stage | ONNX file | Content | I/O |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | camera    | `camera.backbone.onnx` | ResNet34 → GeneralizedLSSFPN → DepthNet | `img [1,1,3,864,1536]` → `camera_feature`, `camera_depth_weights` |
 | lidar PFE | `lidar_pfe.onnx` / `lidar_pfe_v7000.onnx` | PillarFeatureNet (f_cluster / f_center / mask fused into the graph) | `features [V,100,4]`, `num_voxels [V]`, `coors [V,4]` → `pillar_features [V,64]` |
 | fuser     | `fuser.onnx` | ConvFuser + decoder.backbone + decoder.neck | `cam_bev [1,80,128,128]`, `lidar_bev [1,64,128,128]` → `middle [1,256,128,128]` |
 | head      | `head.onnx` | CenterHead (shared_conv + task_heads, no decoder) | `middle [1,256,128,128]` → 12 task tensors |
 
 **Stays outside ONNX** (SYCL kernels in deploy):
+
 - Voxelization — [deploy/src/pointpillars/voxelizer.cpp](https://github.com/open-edge-platform/metro-ai-suite/blob/main/sensor-fusion-for-traffic-management/intermediate-fusion/deploy/src/pointpillars/voxelizer.cpp)
 - `bevpoolv2` (camera BEV pooling) — deploy SYCL kernel
 - `PointPillarsScatter` (PFE output → dense BEV canvas) — deploy SYCL kernel
@@ -391,7 +395,7 @@ $PYTHON tools/inference_vis.py $PP_CONFIG $PP_CKPT \
 ```
 
 | Argument | Description | Default |
-|---|---|---|
+| --- | --- | --- |
 | `--mode` | `gt` or `pred` | `gt` |
 | `--split` | `train` or `val` | `val` |
 | `--bbox-score` | score threshold | `None` |
@@ -411,7 +415,7 @@ $PYTHON export/pointpillars/export_all.py \
 Reference output sizes (V2X-I):
 
 | File | Size | Nodes | Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `camera.backbone.onnx` | 88 MB | 113 | ResNet34 + LSSFPN + DepthNet |
 | `lidar_pfe.onnx` | 17 KB | 198 | dynamic V (up to 12000) |
 | `fuser.onnx` | 405 KB | 51 | ConvFuser + decoder.backbone + decoder.neck → `middle[1,256,128,128]` |
@@ -475,7 +479,6 @@ $PYTHON export/pointpillars/quantize_head.py --config $PP_CONFIG --ckpt $PP_CKPT
 
 **fuser/head split** — `fuser.onnx` contains decoder backbone+neck, and `head.onnx` contains CenterHead shared conv + task heads.
 
-
 #### 4.2.6 End-to-End Command Sequence
 
 ```bash
@@ -509,7 +512,7 @@ The deploy-side split-pipeline runner is `./bevfusion` in the sibling repo
 `<REPO>`.
 It loads the 4 split models from `deploy/data/<preset_dir>/pointpillars/`:
 
-```
+```text
 camera.backbone.onnx  / quantized_camera.xml
 lidar_pfe.onnx        / lidar_pfe_v7000.onnx / quantized_lidar_pfe.xml
 fuser.onnx            / quantized_fuser.xml
@@ -538,6 +541,7 @@ cd <REPO>/deploy/build
 ```
 
 Flags:
+
 - `--preset v2x` / `--preset kitti` selects both geometry (image size, BEV grid, pc_range, out_size_factor) and the model dir.
 - `--int8` turns on INT8 for all 4 stages; individual toggles let you mix.
 - `--dump-pred --pred-dir DIR` writes KITTI-format box txts for offline metric eval.
@@ -604,8 +608,8 @@ Backbone variants under `configs/Kitti/det/centerhead/lssfpn/camera+pointpillar/
 
 Geometry differences vs V2X-I (from `deploy/src/pipeline/dataset_preset.cpp`):
 
-| | KITTI | V2X-I |
-|---|---|---|
+| parameter | KITTI | V2X-I |
+| --- | --- | --- |
 | image (W×H) | 1280×384 | 1536×864 |
 | camera feat (W×H) | 80×24 | 96×54 |
 | BEV grid | 100×100 | 128×128 |
@@ -614,10 +618,8 @@ Geometry differences vs V2X-I (from `deploy/src/pipeline/dataset_preset.cpp`):
 | split_post_voxel_size | 0.1 | 0.2 |
 | out_size_factor | 8 | 4 |
 
-
-**KITTI-specific note:**
-
-- Always pass `--config` and `--ckpt` explicitly to quantization/export scripts.
+> [!NOTE]
+> **KITTI-specific note:** Always pass `--config` and `--ckpt` explicitly to quantization/export scripts.
 
 **End-to-end commands:**
 
@@ -672,6 +674,7 @@ A **single** `bevfusion_unified.onnx` merges camera + lidar + fuser + head. Unli
 These ops (plus `BevPoolV2` for camera and `SparseToDense` at the encoder boundary) therefore live as **OpenVINO GPU plugin custom ops** (§2.1) rather than as SYCL kernels outside the graph. Deploy runs one OpenVINO infer call per frame and the plugin dispatches sparse kernels internally.
 
 Deploy directories:
+
 - [deploy/src/bevfusion_unified/](https://github.com/open-edge-platform/metro-ai-suite/tree/main/sensor-fusion-for-traffic-management/intermediate-fusion/deploy/src/bevfusion_unified/) — pipeline driver + SYCL voxelizer (`voxelizer_sycl.cpp` lives here, `coors` = `(batch, z, y, x)`)
 - [deploy/test/bevfusion_unified.cpp](https://github.com/open-edge-platform/metro-ai-suite/blob/main/sensor-fusion-for-traffic-management/intermediate-fusion/deploy/test/bevfusion_unified.cpp) — `./bevfusion_unified` entry point
 
@@ -725,7 +728,7 @@ $PYTHON tools/inference_vis.py $CP_CONFIG $CP_CKPT \
 ```
 
 | Argument | Description | Default |
-|---|---|---|
+| --- | --- | --- |
 | `--mode` | `gt` or `pred` | `gt` |
 | `--split` | `train` or `val` | `val` |
 | `--bbox-score` | min confidence | `None` |
@@ -753,7 +756,7 @@ $PYTHON export/precompute_geometry.py $CP_CONFIG $CP_CKPT \
 Output (bev_latest compatible):
 
 | File | Format | Description |
-|---|---|---|
+| --- | --- | --- |
 | `indices.bin` | `[uint32 count][count * uint32]` | 466560 sorted point indices (full grid, sentinel included) |
 | `intervals.bin` | `[uint32 count][count * int3(start, end, bev_rank)]` | intervals with absolute offsets; sentinel has rank=-1 |
 | `geometry.pth` | PyTorch tensor dict | same data, PyTorch-native |
@@ -771,17 +774,19 @@ $PYTHON export/export_unified_onnx.py $CP_CONFIG $CP_CKPT \
 Unified model I/O:
 
 | Input | Shape | Description |
-|---|---|---|
+| --- | --- | --- |
 | `img` | `[1, 3, 864, 1536]` | camera image (NCHW) |
 | `indices` | `[num_points]` | BEVPoolV2 sorted indices (from geometry) |
 | `intervals` | `[num_intervals, 3]` | BEVPoolV2 intervals (start, end, bev_rank) |
 | `voxel_features` | `[N_vox, 4]` | voxelized lidar features |
 | `voxel_indices` | `[N_vox, 4]` | voxel coordinates (batch, z, y, x) |
 
-> Older unified exports may still use 5-D `img` (`[1, 1, 3, H, W]`) — both are supported by the standalone inference script.
+> [!NOTE]
+> Older unified exports may still use 5-D `img` (`[1, 1, 3, H, W]`) — both are supported by
+> the standalone inference script.
 
 | Output | Shape | Description |
-|---|---|---|
+| --- | --- | --- |
 | `task{i}_heatmap` | `[1, 5, 128, 128]` | per-task class heatmap |
 | `task{i}_reg` | `[1, 2, 128, 128]` | regression offset |
 | `task{i}_height` | `[1, 1, 128, 128]` | height |
@@ -809,9 +814,8 @@ Per-dataset argument values live in §5.3–§5.4.
 - Auto-adapts `img` rank for both 4-D NCHW (`[1,3,H,W]`) and legacy 5-D (`[1,1,3,H,W]`) unified ONNX formats.
 - **Geometry auto-detection**: `init_dataset_geometry_from_onnx()` reads `pc_range` / `voxel_size` / `sparse_shape` from ONNX attributes at startup, so the same script works across datasets without manual source edits.
 
-
 | Argument | Description | Default |
-|---|---|---|
+| --- | --- | --- |
 | `--onnx-path` | unified ONNX | (required) |
 | `--geometry-dir` | `indices.bin` + `intervals.bin` | (required) |
 | `--device` | OpenVINO device (`GPU.1` for Arc B580) | `CPU` |
@@ -870,7 +874,7 @@ $OV_PYTHON -u export/quantize_unified.py \
 **Recommended flags:**
 
 | Flag | Value | Reason |
-|---|---|---|
+| --- | --- | --- |
 | `--preset` | `mixed` | Recommended default preset. |
 | `--activation-range` | `histogram` | Recommended default activation range. |
 | `--plain-ptq` | — | Use plain PTQ mode. |
@@ -881,7 +885,7 @@ FP-only custom ops are handled automatically by `quantize_unified.py`.
 **Outputs:**
 
 | File | Notes |
-|---|---|
+| --- | --- |
 | `bevfusion_unified.onnx` | FP32 source |
 | `bevfusion_unified_int8.xml` | INT8 IR topology |
 | `bevfusion_unified_int8.bin` | INT8 weights |

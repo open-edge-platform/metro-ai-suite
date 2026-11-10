@@ -28,7 +28,6 @@ This guide covers the rapid deployment of the Live Video Alert Agent system usin
    cd live-video-analysis/live-video-alert-agent
    ```
 
-
 3. Configure the image registry and tag variables:
 
    ```bash
@@ -46,7 +45,9 @@ This guide covers the rapid deployment of the Live Video Alert Agent system usin
    export LLM_TARGET_DEVICE=NPU
    ```
 
-   Skip this step if you prefer to build the sample application from source. For detailed instructions, refer to [How to Build from Source](./get-started/build-from-source.md) guide for details.
+   Skip this step if you prefer to build the sample application from source. For detailed
+   instructions, refer to [How to Build from Source](./get-started/build-from-source.md) guide
+   for details.
 
 4. Configure the environment:
 
@@ -152,15 +153,14 @@ This guide covers the rapid deployment of the Live Video Alert Agent system usin
    Open your browser and navigate to `http://localhost:9000` (Replace `localhost` with your
    server IP if accessing remotely).
 
-## Using the Application
+## How To Use the Application
 
-### Adding Video Streams
+### Add Video Streams
 
 1. In the sidebar under **Stream Configuration**, enter:
    - **Stream Name**: A descriptive name (e.g., "Lobby Camera")
    - **RTSP URL**: Your camera's RTSP stream URL (or the sample stream from [Create a Sample RTSP Stream](#create-a-sample-rtsp-stream))
 2. Click **Add New Stream**
-
 
 ## Create a Sample RTSP Stream
 
@@ -186,7 +186,9 @@ as an RTSP stream. No video is bundled with this application.
    ```bash
    sudo apt install ffmpeg
    ```
+
    Then start the video loop with the following command:
+
    ```bash
    ffmpeg -re -stream_loop -1 -i sample.mp4 -c copy -f rtsp -rtsp_transport tcp \
      rtsp://localhost:8554/stream
@@ -203,14 +205,15 @@ as an RTSP stream. No video is bundled with this application.
    ```
 
    Set it as `RTSP_URL` before deployment, or enter it as the **RTSP URL** when
-   [adding a stream](#adding-video-streams) in the dashboard.
+   [adding a stream](#add-video-streams) in the dashboard.
 
 5. When finished, stop the `ffmpeg` command (Ctrl+C) and the server:
 
    ```bash
    docker stop rtsp-server
    ```
-## Configuring Alerts
+
+## Configure Alerts
 
 1. Under **AI Agent Alerts** section:
    - Click **Create New Alert**
@@ -239,14 +242,14 @@ as an RTSP stream. No video is bundled with this application.
      ]'
    ```
 
-### Viewing Results
+### View Results
 
 - The dashboard shows the live stream with analysis results below
 - Use the dropdown to filter alerts: "All Alerts" or individual alert types
 - Results update automatically via Server-Sent Events (SSE)
 - The `alert_action` event surface shows which tools were invoked and whether escalation occurred
 
-### Checking Health and Metrics
+### Check Health and Metrics
 
 ```bash
 # Liveness
@@ -262,9 +265,9 @@ curl http://localhost:9000/metrics
 curl http://localhost:9000/tools
 ```
 
-## Managing the Application
+## Manage the Application
 
-### Stopping Services
+### Stop the Services
 
 To stop all services:
 
@@ -272,7 +275,7 @@ To stop all services:
 docker compose -f docker/docker-compose.yml down
 ```
 
-### Restarting After Changes
+### Restart After Changes
 
 ```bash
 # Restart both services
@@ -282,7 +285,7 @@ docker compose -f docker/docker-compose.yml restart
 docker compose -f docker/docker-compose.yml restart live-video-alert-agent
 ```
 
-### Viewing Logs
+### View Logs
 
 ```bash
 # VLM service logs
@@ -295,7 +298,7 @@ docker logs -f alert-agent-service
 docker logs -f live-video-alert-agent
 ```
 
-### Clearing Model Cache
+### Clear Model Cache
 
 If you need to re-download the model or switch models:
 
