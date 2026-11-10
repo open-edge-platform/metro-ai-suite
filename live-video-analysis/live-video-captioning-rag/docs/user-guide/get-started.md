@@ -49,7 +49,7 @@ bash scripts/setup_env.sh --force
 This script sets the following important values:
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `HOST_IP` | Auto-detected from host network (fallback `127.0.0.1`) | Host IP used by browser-accessible services and dashboard URLs. |
+| `HOST_IP` | `(auto-detected)` | Host address advertised to browsers on other machines for WebRTC media. Not needed when the browser runs on the same host. |
 | `REGISTRY` | `intel/` | Image registry prefix. |
 | `TAG` | `latest` | Docker image tag. |
 | `LVC_DASHBOARD_PORT` | `4173` | Port for the LVC web dashboard. |
@@ -153,7 +153,11 @@ docker compose up -d
 
 Follow these steps to use the application:
 
-1. Open the Live Video Captioning UI at `http://<HOST_IP>:4173`.
+1. Open the Live Video Captioning UI.
+
+   Open the dashboard from a browser on the same host at `http://localhost:4173`.
+
+   From another machine on the network, use `http://<HOST_IP>:4173` instead.
 2. Start a captioning run with a valid RTSP stream.
 3. Confirm that captions are being generated.
 4. Click the `chat icon` in the top bar (visible only when embedding is enabled).
