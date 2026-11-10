@@ -86,4 +86,5 @@ trap - EXIT
 
 echo "Created ${ENV_FILE}"
 echo "HOST_IP=${HOST_IP}"
-echo "Dashboard URL: http://${HOST_IP}:4173"
+echo "Dashboard URL (this host): http://localhost:4173"
+echo "Dashboard URL (other machines): http://${HOST_IP}:4173"

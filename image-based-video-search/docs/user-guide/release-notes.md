@@ -17,10 +17,15 @@ application.
 
 - Added a QR code in app UI that links to the documentation.
 
+**Removed**:
+
+- Removed helm deployment.
+
 **Improved**:
 
 - Consumed the latest DL Streamer version 2026.3.0.
 - Python libraries and npm package updates.
+- Optimized image based video search and streaming pipeline docker image sizes
 
 ## Version 1.4.0
 

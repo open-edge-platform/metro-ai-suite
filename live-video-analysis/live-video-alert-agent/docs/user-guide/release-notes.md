@@ -1,5 +1,14 @@
 # Release Notes: Live Video Alert Agent
 
+## Version 2026.3.0
+
+**Release Date**: TBD
+
+**Improvements**:
+
+- Packages upgraded for CVE fixes.
+- Documentation updates: repository links updated to the Metro AI Suite repository.
+
 ## Version 2026.2.0
 
 **Release Date**: September 10, 2026

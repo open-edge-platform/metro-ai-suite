@@ -11,17 +11,22 @@
   one-row-per-object summaries so the Grafana status table renders correctly.
 - Zones are now defined per stream as JSON polygon/circle configs, so adding or editing zones
   requires no pipeline or dashboard changes.
-- Added a hardware information and usage panel (CPU/GPU/NPU) to the Grafana dashboard.
 - Added a QR code to the Grafana dashboard that links to the documentation.
+- Added support for Ubuntu 26.04 LTS
+- Added a new console UI application flow.
+- Added documentation showcasing NPU value addition.
 
 **Removed**:
 
 - Removed the Node-RED service and flow; its zone/dwell-time logic and Grafana data reshaping
   are now handled natively as described above.
+- Removed helm deployment.
 
 **Improved**:
 
 - Consolidated the Grafana dashboard's per-stream tables into a single status table.
+- More useful hardware telemetry details shown in the system performance dashboard panel in Grafana.
+- Stability and robustness improvements in the script that calculates stream density.
 - Consumed the latest DL Streamer version 2026.3.0.
 
 ## Version 1.6.0

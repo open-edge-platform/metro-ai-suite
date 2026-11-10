@@ -161,10 +161,12 @@ services:
     entrypoint: [ "./run.sh" ]
     extra_hosts:
       - "host.docker.internal:host-gateway"
-      # Air-gapped: resolve the public Google STUN host to the local host so
-      # WebRTC ICE never reaches out to the internet (paired with coturn
-      # listening on the Google STUN port 19302 below).
-      - "stun.l.google.com:${HOST_IP:-127.0.0.1}"
+      # Air-gapped: resolve the public Google STUN host to the Docker host
+      # gateway so WebRTC ICE never reaches out to the internet (paired with
+      # coturn listening on the Google STUN port 19302 below). host-gateway is
+      # used instead of HOST_IP because it stays reachable when the physical
+      # network is disconnected, and 127.0.0.1 would resolve to this container.
+      - "stun.l.google.com:host-gateway"
     depends_on:
       - mediamtx
       - mqtt-broker
@@ -247,8 +249,10 @@ services:
       - MTX_HLS=no
       - MTX_WEBRTCTRACKGATHERTIMEOUT=30s
       - MTX_WEBRTCADDRESS=:8889
-      # Advertise the host as a direct ICE candidate so same-host/LAN clients
-      # connect peer-to-peer; the TURN server below remains the NAT fallback.
+      # Advertise HOST_IP as an extra ICE candidate for LAN clients. Browsers on
+      # the same host can also use mediamtx's container IP on the Docker bridge,
+      # which stays up when the physical network is disconnected (air-gapped).
+      # The TURN server below remains the NAT fallback.
       - MTX_WEBRTCADDITIONALHOSTS=${HOST_IP:-localhost}
       - MTX_WEBRTCICESERVERS2_0_URL=turn:${HOST_IP:-localhost}:3478
       - MTX_WEBRTCICESERVERS2_0_USERNAME=${MTX_WEBRTCICESERVERS2_0_USERNAME:-localhost}
@@ -298,7 +302,10 @@ services:
       - MQTT_BROKER_PORT=1883
       - MQTT_TOPIC_PREFIX=live-video-captioning
       - WEBRTC_PEER_ID=${WEBRTC_PEER_ID:-stream}
-      - SIGNALING_URL=http://${HOST_IP:-localhost}:${WHIP_SERVER_PORT:-8889}
+      # localhost is rewritten by the UI to the host the dashboard was opened
+      # from, so signaling follows the browser (localhost offline, LAN IP
+      # remotely) instead of a HOST_IP that can vanish when the network drops.
+      - SIGNALING_URL=http://localhost:${WHIP_SERVER_PORT:-8889}
       - ALERT_MODE=${ALERT_MODE:-false}
       - DEFAULT_RTSP_URL=${DEFAULT_RTSP_URL:-}
       - ENABLE_DETECTION_PIPELINE=${ENABLE_DETECTION_PIPELINE:-false}
