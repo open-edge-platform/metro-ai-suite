@@ -39,7 +39,7 @@ To get started:
    cd metro-vision-ai-app-recipe/
    ```
 
-## Multi-Machine Deployment (Parent / Child)
+## Multi-Node Deployment (Parent / Child)
 
 The Smart Corridor application supports multi-machine deployments where one **parent** machine
 aggregates scene data from one or more **child** machines. Each child runs its own set of
@@ -68,7 +68,7 @@ Child Machine
 - **Network access**: Port 8888 (CA server) and port 1883 (MQTT TLS) must be accessible
   between machines.
 - **Scene configuration**: After deployment, add the remote child scene in the SceneScape
-  Web UI under the parent scene's settings (using the child's broker IP and port 1883).
+  Web UI under the parent scene's settings (see [Step 5](#deploy-a-parent-node) of Deploy a Parent Node).
 - **Time synchronization**: Ensure NTP is synchronized across all machines to avoid a delayed or no tracking behaviour in Smart-Corridor Scene.
 
 > **Note:** For a single-node deployment (no remote child), skip this below section and go
@@ -202,15 +202,60 @@ On the parent machine, configure the [.env](../../../.env) file to declare how m
 
    </details>
 
-2. **View the Application Output**:
-   - Open a browser and go to `https://localhost/grafana/` to access the Grafana dashboard.
-     - Change the localhost to your host IP if you are accessing it remotely.
-   - Log in with the following credentials:
-     - **Username**: `admin`
-     - **Password**: `admin`
-   - Check under the Dashboards section for the application-specific preloaded dashboard.
-   - **Expected Results**: The dashboard displays real-time video streams with AI overlays
-     and detection metrics.
+> **Note:** The following step is required for **Multi-Node (Parent / Child) deployments only**. For a Single-Node deployment, skip it and go to [Access the Application and Components](#access-the-application-and-components).
+
+5. **Link the Remote Child Scene to the Smart-Corridor Scene**:
+
+   The parent's Scene Controller only receives tracks from a child node after the child scene is
+   linked to the Smart-Corridor scene in the SceneScape UI. Do this once for every remote child node, after both the child and the parent are running. 
+
+   **Before you start**, make sure that:
+   - The child node is running and the parent can reach it on port `1883` (MQTT TLS) and port `8888` (CA server).
+   - The system time is synchronized between the parent and child nodes (see
+     [Troubleshooting](./troubleshooting.md)).
+
+   **Collect the following details from the child node:**
+
+   | Detail | Where to find it |
+   |---|---|
+   | Child scene name | The scene name on the child's SceneScape UI, for example `Smart-Corridor-Intersection-04`. It must be unique across the parent and child nodes. |
+   | Remote child ID | The UUID of the child scene. Open the child scene in the child's SceneScape UI (`https://<child_ip>/`) and copy the UUID from the browser address bar (`https://<child_ip>/<scene-uuid>/`). |
+   | Hostname or IP | The IP address of the child node (the same value as `REMOTE_IP_<n>` in the parent's [.env](../../../.env) file). |
+   | MQTT username and password | The `user` and `password` values in `./smart-corridor/src/secrets/controller.auth` on the child node. |
+
+   **Link the child scene on the parent node:**
+
+   1. Open the parent's SceneScape UI at `https://<parent_ip>/` and log in as `admin`.
+   2. Click the **Smart-Corridor** scene card to open the parent scene.
+   3. Select the **Children** tab below the scene map.
+   4. Click **+ Link Child Scene**.
+   5. Set **Child Type** to `remote` and fill in the form:
+      - **Child Name**: The child scene name, for example `Smart-Corridor-Intersection-04`.
+      - **Remote Child ID**: The child scene UUID.
+      - **Hostname or IP**: The IP address of the child node.
+      - **MQTT Username** and **MQTT Password**: The child node's MQTT credentials.
+      - **Transform type and values**: The position, rotation and scale that place the child scene
+        on the Smart-Corridor map. Keep the defaults if the child scene already shares the
+        parent's coordinate system.
+        For the default dataset, set **Transform type** to `Matrix` and change the value in
+        row 1, column 4 to `170.1594097946251`.
+      - **Retrack objects**: Keep it enabled so the parent tracker re-tracks the child's detections.
+   6. Click **Add Child Scene**.
+   7. Repeat steps 4–6 for every remaining remote child node, using that child's own scene name, UUID, IP address and credentials.
+
+   **Expected result:** the child scene is listed in the **Children** tab of the Smart-Corridor
+   scene, and its MQTT status indicator turns green. Vehicles tracked at the child intersection
+   then appear on the Smart-Corridor map.
+
+   > **Note:**
+   >
+   > - A scene can have only one parent, so link each child scene to the Smart-Corridor scene only once.
+   > - If the status indicator stays red, check that port `1883` on the child node is reachable from the
+   >   parent, that the CA certificates were fetched during the parent installation (`ca-bundle.sh`), and
+   >   that the child MQTT credentials are correct.
+   > - For details about local and remote child scenes, see the SceneScape guide
+   >   [Create and Manage a Scene Hierarchy](https://docs.openedgeplatform.intel.com/dev/scenescape/index.html).
+
 
 ## Access the Application and Components
 
@@ -279,7 +324,14 @@ instead of `localhost` for external access:
   interests in the grafana dashboard. After navigating to Grafana home page, click on
   "Dashboards" and click on item "Smart Corridor - Generic Data".
 
-  ![Intersection Grafana Dashboard](./_assets/grafana.png "intersection grafana dashboard")
+  ![Corridor Grafana Dashboard](./_assets/grafana.png "corridor grafana dashboard")
+
+  In the same Grafana UI, you can go to `Smart Corridor - Vehicle Events` dashboard to find Vehicle Events that get captured across intersections. For example: Vehicle Reappearance, Wrong Way and so on.
+
+  ![Vehicle Events Grafana Dashboard](./_assets/vehicle-events-dashboard.png "vehicle events grafana dashboard")
+
+  > **Note:** The Wrong Way event is currently configured with inverted logic, and only on one
+  > intersection, to demonstrate the functionality because there is no appropriate dataset available at present.
 
 ## **Stop the Application**
 

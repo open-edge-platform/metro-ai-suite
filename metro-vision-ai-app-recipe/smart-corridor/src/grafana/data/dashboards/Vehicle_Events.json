@@ -65,6 +65,263 @@
         "x": 0,
         "y": 0
       },
+      "id": 110,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style=\"padding:8px; border-left:4px solid #8b5cf6; background-color:#1a1a2e; color:#e5e7eb; font-size:15px; font-weight:bold;\">\n  \ud83d\udd01 Vehicle Reappearance Events\n</div>",
+        "mode": "html"
+      },
+      "pluginVersion": "11.6.0",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "xU6Z19aVk"
+      },
+      "description": "List of vehicles that were re-identified (ReID) after reappearing in an intersection.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "align": "center",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true,
+            "inspect": false,
+            "minWidth": 70
+          },
+          "links": [],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "_time"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Date & Time"
+              },
+              {
+                "id": "custom.minWidth",
+                "value": 180
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "event_url"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "frame_url"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "full_vehicle_id"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "region"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "vehicle_id"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Vehicle ID"
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Click to see Event Details",
+                    "url": "${__url.path}?orgId=1&from=${__from}&to=${__to}&timezone=browser&var-rr_location=${__data.fields.location}&var-rr_time=${__data.fields._time}&var-rr_full_id=${__data.fields.full_vehicle_id}&var-rr_region=${__data.fields.region}&var-rr_img=${__data.fields.event_url}&var-rr_frame=${__data.fields.frame_url}&kiosk=tv",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "location"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Location"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 18,
+        "w": 8,
+        "x": 0,
+        "y": 2
+      },
+      "id": 11,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "enablePagination": false,
+          "fields": "",
+          "reducer": [],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Date & Time"
+          }
+        ]
+      },
+      "pluginVersion": "11.6.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "xU6Z19aVk"
+          },
+          "query": "import \"strings\"\n\nfrom(bucket: \"SS-Anthem\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"vehicle_reappearance\")\n  |> pivot(\n      rowKey: [\"_time\", \"vid\"],\n      columnKey: [\"_field\"],\n      valueColumn: \"_value\"\n  )\n  |> filter(fn: (r) => exists r.reappearance and r.reappearance > 0)\n  |> map(fn: (r) => ({\n      _time: r._time,\n      full_vehicle_id: if exists r.object_id then r.object_id else \"N/A\",\n      vehicle_id: if exists r.object_id and strings.strlen(v: r.object_id) >= 8 then strings.substring(v: r.object_id, start: 0, end: 8) else (if exists r.object_id then r.object_id else \"N/A\"),\n      location: if exists r.location then r.location else \"N/A\",\n      region: if exists r.region then r.region else \"N/A\",\n      event_url: if exists r.event_url then r.event_url else \"\",\n      frame_url: if exists r.frame_url and r.frame_url != \"\" then r.frame_url else \"\"\n  }))\n  |> group()\n  |> keep(columns: [\"_time\", \"vehicle_id\", \"full_vehicle_id\", \"location\", \"region\", \"event_url\", \"frame_url\"])\n  |> sort(columns: [\"_time\"], desc: true)",
+          "refId": "VehicleReappearanceEvents"
+        }
+      ],
+      "title": "Vehicle Reappearance Events Table",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "includeByName": {},
+            "indexByName": {
+              "_time": 0,
+              "vehicle_id": 1,
+              "location": 2,
+              "full_vehicle_id": 3,
+              "region": 4,
+              "event_url": 5
+            },
+            "renameByName": {}
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "description": "Details of the Vehicle Reappearance Event",
+      "gridPos": {
+        "h": 18,
+        "w": 16,
+        "x": 8,
+        "y": 2
+      },
+      "id": 12,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style=\"\n  opacity: ${rr_vis};\n  display: grid;\n  grid-template-columns: 1fr 1.4fr;\n  gap: 16px;\n  width: 100%;\n  height: 100%;\n  padding: 4px;\n  box-sizing: border-box;\n  align-items: start;\n\">\n  <!-- LEFT COLUMN: Event Details Table (Top) + Captured Vehicle Image (Bottom) -->\n  <div style=\"display: flex; flex-direction: column; gap: 14px; width: 100%;\">\n    <div style=\"\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n    \">\n      <h3 style=\"margin-top:0; margin-bottom: 12px; color:#90caf9; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px; font-size: 15px; font-weight: 600;\">\n        Event Details\n      </h3>\n      <table style=\"width:100%; border-collapse: collapse;\">\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; width:40%; font-size:13px;\">Event Type</td>\n          <td style=\"padding:8px 10px; font-weight:bold; color:#8b5cf6; font-size:13px;\">Vehicle Reappearing</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Date & Time</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${rr_time}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Vehicle ID</td>\n          <td style=\"padding:8px 10px; font-family:monospace; word-break:break-all; font-size:13px;\">${rr_full_id}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Region</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${rr_region}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Location</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${rr_location}</td>\n        </tr>\n      </table>\n    </div>\n\n    <div style=\"\n      text-align: center;\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n      display: flex;\n      flex-direction: column;\n      align-items: center;\n    \">\n      <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#a5d6a7; font-size: 15px; font-weight: 600;\">\n        Captured Vehicle Image\n      </h3>\n      <img\n        src=\"${rr_img}\"\n        style=\"\n          width: 250px;\n          max-width: 100%;\n          max-height: 380px;\n          object-fit: contain;\n          border-radius: 8px;\n          border: 1px solid rgba(255,255,255,0.1);\n        \"\n        alt=\"Captured Vehicle Image\"\n      />\n    </div>\n  </div>\n\n  <!-- RIGHT COLUMN: Captured Region Image (Full Frame) -->\n  <div style=\"\n    text-align: center;\n    background: rgba(255,255,255,0.03);\n    border-radius: 10px;\n    padding: 14px;\n    border: 1px solid rgba(255,255,255,0.08);\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n  \">\n    <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#90caf9; font-size: 15px; font-weight: 600;\">\n      Captured Region Image\n    </h3>\n    <img\n      src=\"${rr_frame}\"\n      style=\"\n        width: 100%;\n        max-height: 520px;\n        object-fit: contain;\n        border-radius: 8px;\n        border: 1px solid rgba(255,255,255,0.1);\n      \"\n      alt=\"Captured Region Image\"\n    />\n  </div>\n</div>",
+        "mode": "html"
+      },
+      "pluginVersion": "11.6.0",
+      "title": "Vehicle Reappearance Event Stats",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "gridPos": {
+        "h": 2,
+        "w": 17,
+        "x": 0,
+        "y": 20
+      },
+      "id": 111,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style=\"\n  padding:5px;\n  border-left:4px solid #1f78c1;\n  background-color:#111827;\n  color:#e5e7eb;\n  font-size:14px;\n\">\n  \u2139\ufe0f <b>Note:</b> Click on the <b>Vehicle ID</b> in the table above to view event details and image.\n</div>",
+        "mode": "html"
+      },
+      "pluginVersion": "11.6.0",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
       "id": 100,
       "options": {
         "code": {
@@ -219,7 +476,7 @@
         "h": 18,
         "w": 8,
         "x": 0,
-        "y": 0
+        "y": 24
       },
       "id": 1,
       "options": {
@@ -277,7 +534,7 @@
         "h": 18,
         "w": 16,
         "x": 8,
-        "y": 0
+        "y": 24
       },
       "id": 2,
       "options": {
@@ -286,7 +543,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "<div style=\"\n  display: grid;\n  grid-template-columns: 1fr 1.4fr;\n  gap: 16px;\n  width: 100%;\n  height: 100%;\n  padding: 4px;\n  box-sizing: border-box;\n  align-items: start;\n\">\n  <!-- LEFT COLUMN: Event Details Table (Top) + Captured Vehicle Image (Bottom) -->\n  <div style=\"display: flex; flex-direction: column; gap: 14px; width: 100%;\">\n    <!-- Event Details Card -->\n    <div style=\"\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n    \">\n      <h3 style=\"margin-top:0; margin-bottom: 12px; color:#90caf9; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px; font-size: 15px; font-weight: 600;\">\n        Event Details\n      </h3>\n      <table style=\"width:100%; border-collapse: collapse;\">\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; width:40%; font-size:13px;\">Event Type</td>\n          <td style=\"padding:8px 10px; font-weight:bold; color:#ef4444; font-size:13px;\">Wrong Way Event</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Date & Time</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${ww_time}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Vehicle ID</td>\n          <td style=\"padding:8px 10px; font-family:monospace; word-break:break-all; font-size:13px;\">${ww_full_id}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Location</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${ww_location}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Speed</td>\n          <td style=\"padding:8px 10px; font-weight:500; font-size:13px;\">${ww_speed}</td>\n        </tr>\n      </table>\n    </div>\n\n    <!-- Captured Vehicle Image Card (Placed under Event Details table card, exact same size/style) -->\n    <div style=\"\n      text-align: center;\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n      display: flex;\n      flex-direction: column;\n      align-items: center;\n    \">\n      <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#a5d6a7; font-size: 15px; font-weight: 600;\">\n        Captured Vehicle Image\n      </h3>\n      <img\n        src=\"${ww_img}\"\n        style=\"\n          width: 250px;\n          max-width: 100%;\n          max-height: 380px;\n          object-fit: contain;\n          border-radius: 8px;\n          border: 1px solid rgba(255,255,255,0.1);\n        \"\n        alt=\"Captured Vehicle Image\"\n      />\n    </div>\n  </div>\n\n  <!-- RIGHT COLUMN: Captured Region Image (Full Frame with Bounding Box) -->\n  <div style=\"\n    text-align: center;\n    background: rgba(255,255,255,0.03);\n    border-radius: 10px;\n    padding: 14px;\n    border: 1px solid rgba(255,255,255,0.08);\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n  \">\n    <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#90caf9; font-size: 15px; font-weight: 600;\">\n      Captured Region Image\n    </h3>\n    <img\n      src=\"${ww_frame}\"\n      style=\"\n        width: 100%;\n        max-height: 520px;\n        object-fit: contain;\n        border-radius: 8px;\n        border: 1px solid rgba(255,255,255,0.1);\n      \"\n      alt=\"Captured Region Image\"\n    />\n  </div>\n</div>",
+        "content": "<div style=\"\n  opacity: ${ww_vis};\n  display: grid;\n  grid-template-columns: 1fr 1.4fr;\n  gap: 16px;\n  width: 100%;\n  height: 100%;\n  padding: 4px;\n  box-sizing: border-box;\n  align-items: start;\n\">\n  <!-- LEFT COLUMN: Event Details Table (Top) + Captured Vehicle Image (Bottom) -->\n  <div style=\"display: flex; flex-direction: column; gap: 14px; width: 100%;\">\n    <!-- Event Details Card -->\n    <div style=\"\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n    \">\n      <h3 style=\"margin-top:0; margin-bottom: 12px; color:#90caf9; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px; font-size: 15px; font-weight: 600;\">\n        Event Details\n      </h3>\n      <table style=\"width:100%; border-collapse: collapse;\">\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; width:40%; font-size:13px;\">Event Type</td>\n          <td style=\"padding:8px 10px; font-weight:bold; color:#ef4444; font-size:13px;\">Wrong Way Event</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Date & Time</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${ww_time}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Vehicle ID</td>\n          <td style=\"padding:8px 10px; font-family:monospace; word-break:break-all; font-size:13px;\">${ww_full_id}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Location</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${ww_location}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Speed</td>\n          <td style=\"padding:8px 10px; font-weight:500; font-size:13px;\">${ww_speed}</td>\n        </tr>\n      </table>\n    </div>\n\n    <!-- Captured Vehicle Image Card (Placed under Event Details table card, exact same size/style) -->\n    <div style=\"\n      text-align: center;\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n      display: flex;\n      flex-direction: column;\n      align-items: center;\n    \">\n      <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#a5d6a7; font-size: 15px; font-weight: 600;\">\n        Captured Vehicle Image\n      </h3>\n      <img\n        src=\"${ww_img}\"\n        style=\"\n          width: 250px;\n          max-width: 100%;\n          max-height: 380px;\n          object-fit: contain;\n          border-radius: 8px;\n          border: 1px solid rgba(255,255,255,0.1);\n        \"\n        alt=\"Captured Vehicle Image\"\n      />\n    </div>\n  </div>\n\n  <!-- RIGHT COLUMN: Captured Region Image (Full Frame with Bounding Box) -->\n  <div style=\"\n    text-align: center;\n    background: rgba(255,255,255,0.03);\n    border-radius: 10px;\n    padding: 14px;\n    border: 1px solid rgba(255,255,255,0.08);\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n  \">\n    <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#90caf9; font-size: 15px; font-weight: 600;\">\n      Captured Region Image\n    </h3>\n    <img\n      src=\"${ww_frame}\"\n      style=\"\n        width: 100%;\n        max-height: 520px;\n        object-fit: contain;\n        border-radius: 8px;\n        border: 1px solid rgba(255,255,255,0.1);\n      \"\n      alt=\"Captured Region Image\"\n    />\n  </div>\n</div>",
         "mode": "html"
       },
       "pluginVersion": "11.6.0",
@@ -298,7 +555,7 @@
         "h": 2,
         "w": 17,
         "x": 0,
-        "y": 18
+        "y": 42
       },
       "id": 101,
       "options": {
@@ -319,7 +576,7 @@
         "h": 2,
         "w": 24,
         "x": 0,
-        "y": 18
+        "y": 44
       },
       "id": 102,
       "options": {
@@ -463,7 +720,7 @@
         "h": 18,
         "w": 8,
         "x": 0,
-        "y": 20
+        "y": 46
       },
       "id": 3,
       "options": {
@@ -519,7 +776,7 @@
         "h": 18,
         "w": 16,
         "x": 8,
-        "y": 20
+        "y": 46
       },
       "id": 4,
       "options": {
@@ -528,7 +785,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "<div style=\"\n  display: grid;\n  grid-template-columns: 1fr 1.4fr;\n  gap: 16px;\n  width: 100%;\n  height: 100%;\n  padding: 4px;\n  box-sizing: border-box;\n  align-items: start;\n\">\n  <!-- LEFT COLUMN: Event Details Table (Top) + Captured Vehicle Image (Bottom) -->\n  <div style=\"display: flex; flex-direction: column; gap: 14px; width: 100%;\">\n    <!-- Event Details Card -->\n    <div style=\"\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n    \">\n      <h3 style=\"margin-top:0; margin-bottom: 12px; color:#90caf9; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px; font-size: 15px; font-weight: 600;\">\n        Event Details\n      </h3>\n      <table style=\"width:100%; border-collapse: collapse;\">\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; width:40%; font-size:13px;\">Event Type</td>\n          <td style=\"padding:8px 10px; font-weight:bold; color:#ef4444; font-size:13px;\">Collision Event</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Date & Time</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${col_time}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Vehicle ID</td>\n          <td style=\"padding:8px 10px; font-family:monospace; word-break:break-all; font-size:13px;\">${col_full_id}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Location</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${col_location}</td>\n        </tr>\n      </table>\n    </div>\n\n    <!-- Captured Vehicle Image Card (Placed under Event Details table card, exact same size/style) -->\n    <div style=\"\n      text-align: center;\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n      display: flex;\n      flex-direction: column;\n      align-items: center;\n    \">\n      <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#a5d6a7; font-size: 15px; font-weight: 600;\">\n        Captured Vehicle Image\n      </h3>\n      <img\n        src=\"${col_img}\"\n        style=\"\n          width: 250px;\n          max-width: 100%;\n          max-height: 380px;\n          object-fit: contain;\n          border-radius: 8px;\n          border: 1px solid rgba(255,255,255,0.1);\n        \"\n        alt=\"Captured Vehicle Image\"\n      />\n    </div>\n  </div>\n\n  <!-- RIGHT COLUMN: Captured Region Image (Full Frame with Bounding Box) -->\n  <div style=\"\n    text-align: center;\n    background: rgba(255,255,255,0.03);\n    border-radius: 10px;\n    padding: 14px;\n    border: 1px solid rgba(255,255,255,0.08);\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n  \">\n    <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#90caf9; font-size: 15px; font-weight: 600;\">\n      Captured Region Image\n    </h3>\n    <img\n      src=\"${col_frame}\"\n      style=\"\n        width: 100%;\n        max-height: 520px;\n        object-fit: contain;\n        border-radius: 8px;\n        border: 1px solid rgba(255,255,255,0.1);\n      \"\n      alt=\"Captured Region Image\"\n    />\n  </div>\n</div>",
+        "content": "<div style=\"\n  opacity: ${col_vis};\n  display: grid;\n  grid-template-columns: 1fr 1.4fr;\n  gap: 16px;\n  width: 100%;\n  height: 100%;\n  padding: 4px;\n  box-sizing: border-box;\n  align-items: start;\n\">\n  <!-- LEFT COLUMN: Event Details Table (Top) + Captured Vehicle Image (Bottom) -->\n  <div style=\"display: flex; flex-direction: column; gap: 14px; width: 100%;\">\n    <!-- Event Details Card -->\n    <div style=\"\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n    \">\n      <h3 style=\"margin-top:0; margin-bottom: 12px; color:#90caf9; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px; font-size: 15px; font-weight: 600;\">\n        Event Details\n      </h3>\n      <table style=\"width:100%; border-collapse: collapse;\">\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; width:40%; font-size:13px;\">Event Type</td>\n          <td style=\"padding:8px 10px; font-weight:bold; color:#ef4444; font-size:13px;\">Collision Event</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Date & Time</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${col_time}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Vehicle ID</td>\n          <td style=\"padding:8px 10px; font-family:monospace; word-break:break-all; font-size:13px;\">${col_full_id}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Location</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${col_location}</td>\n        </tr>\n      </table>\n    </div>\n\n    <!-- Captured Vehicle Image Card (Placed under Event Details table card, exact same size/style) -->\n    <div style=\"\n      text-align: center;\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n      display: flex;\n      flex-direction: column;\n      align-items: center;\n    \">\n      <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#a5d6a7; font-size: 15px; font-weight: 600;\">\n        Captured Vehicle Image\n      </h3>\n      <img\n        src=\"${col_img}\"\n        style=\"\n          width: 250px;\n          max-width: 100%;\n          max-height: 380px;\n          object-fit: contain;\n          border-radius: 8px;\n          border: 1px solid rgba(255,255,255,0.1);\n        \"\n        alt=\"Captured Vehicle Image\"\n      />\n    </div>\n  </div>\n\n  <!-- RIGHT COLUMN: Captured Region Image (Full Frame with Bounding Box) -->\n  <div style=\"\n    text-align: center;\n    background: rgba(255,255,255,0.03);\n    border-radius: 10px;\n    padding: 14px;\n    border: 1px solid rgba(255,255,255,0.08);\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n  \">\n    <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#90caf9; font-size: 15px; font-weight: 600;\">\n      Captured Region Image\n    </h3>\n    <img\n      src=\"${col_frame}\"\n      style=\"\n        width: 100%;\n        max-height: 520px;\n        object-fit: contain;\n        border-radius: 8px;\n        border: 1px solid rgba(255,255,255,0.1);\n      \"\n      alt=\"Captured Region Image\"\n    />\n  </div>\n</div>",
         "mode": "html"
       },
       "pluginVersion": "11.6.0",
@@ -540,7 +797,7 @@
         "h": 2,
         "w": 17,
         "x": 0,
-        "y": 38
+        "y": 64
       },
       "id": 103,
       "options": {
@@ -561,7 +818,7 @@
         "h": 2,
         "w": 24,
         "x": 0,
-        "y": 38
+        "y": 66
       },
       "id": 104,
       "options": {
@@ -717,7 +974,7 @@
         "h": 18,
         "w": 8,
         "x": 0,
-        "y": 40
+        "y": 68
       },
       "id": 5,
       "options": {
@@ -774,7 +1031,7 @@
         "h": 18,
         "w": 16,
         "x": 8,
-        "y": 40
+        "y": 68
       },
       "id": 6,
       "options": {
@@ -783,7 +1040,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "<div style=\"\n  display: grid;\n  grid-template-columns: 1fr 1.4fr;\n  gap: 16px;\n  width: 100%;\n  height: 100%;\n  padding: 4px;\n  box-sizing: border-box;\n  align-items: start;\n\">\n  <!-- LEFT COLUMN: Event Details Table (Top) + Captured Vehicle Image (Bottom) -->\n  <div style=\"display: flex; flex-direction: column; gap: 14px; width: 100%;\">\n    <!-- Event Details Card -->\n    <div style=\"\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n    \">\n      <h3 style=\"margin-top:0; margin-bottom: 12px; color:#90caf9; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px; font-size: 15px; font-weight: 600;\">\n        Event Details\n      </h3>\n      <table style=\"width:100%; border-collapse: collapse;\">\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; width:40%; font-size:13px;\">Event Type</td>\n          <td style=\"padding:8px 10px; font-weight:bold; color:#f59e0b; font-size:13px;\">Stalled Vehicle Event</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Date & Time</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${stall_time}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Vehicle ID</td>\n          <td style=\"padding:8px 10px; font-family:monospace; word-break:break-all; font-size:13px;\">${stall_full_id}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Location</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${stall_location}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Duration</td>\n          <td style=\"padding:8px 10px; font-weight:500; font-size:13px;\">${stall_duration}</td>\n        </tr>\n      </table>\n    </div>\n\n    <!-- Captured Vehicle Image Card (Placed under Event Details table card, exact same size/style) -->\n    <div style=\"\n      text-align: center;\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n      display: flex;\n      flex-direction: column;\n      align-items: center;\n    \">\n      <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#a5d6a7; font-size: 15px; font-weight: 600;\">\n        Captured Vehicle Image\n      </h3>\n      <img\n        src=\"${stall_img}\"\n        style=\"\n          width: 250px;\n          max-width: 100%;\n          max-height: 380px;\n          object-fit: contain;\n          border-radius: 8px;\n          border: 1px solid rgba(255,255,255,0.1);\n        \"\n        alt=\"Captured Vehicle Image\"\n      />\n    </div>\n  </div>\n\n  <!-- RIGHT COLUMN: Captured Region Image (Full Frame with Bounding Box) -->\n  <div style=\"\n    text-align: center;\n    background: rgba(255,255,255,0.03);\n    border-radius: 10px;\n    padding: 14px;\n    border: 1px solid rgba(255,255,255,0.08);\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n  \">\n    <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#90caf9; font-size: 15px; font-weight: 600;\">\n      Captured Region Image\n    </h3>\n    <img\n      src=\"${stall_frame}\"\n      style=\"\n        width: 100%;\n        max-height: 520px;\n        object-fit: contain;\n        border-radius: 8px;\n        border: 1px solid rgba(255,255,255,0.1);\n      \"\n      alt=\"Captured Region Image\"\n    />\n  </div>\n</div>",
+        "content": "<div style=\"\n  opacity: ${stall_vis};\n  display: grid;\n  grid-template-columns: 1fr 1.4fr;\n  gap: 16px;\n  width: 100%;\n  height: 100%;\n  padding: 4px;\n  box-sizing: border-box;\n  align-items: start;\n\">\n  <!-- LEFT COLUMN: Event Details Table (Top) + Captured Vehicle Image (Bottom) -->\n  <div style=\"display: flex; flex-direction: column; gap: 14px; width: 100%;\">\n    <!-- Event Details Card -->\n    <div style=\"\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n    \">\n      <h3 style=\"margin-top:0; margin-bottom: 12px; color:#90caf9; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px; font-size: 15px; font-weight: 600;\">\n        Event Details\n      </h3>\n      <table style=\"width:100%; border-collapse: collapse;\">\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; width:40%; font-size:13px;\">Event Type</td>\n          <td style=\"padding:8px 10px; font-weight:bold; color:#f59e0b; font-size:13px;\">Stalled Vehicle Event</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Date & Time</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${stall_time}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Vehicle ID</td>\n          <td style=\"padding:8px 10px; font-family:monospace; word-break:break-all; font-size:13px;\">${stall_full_id}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Location</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${stall_location}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Duration</td>\n          <td style=\"padding:8px 10px; font-weight:500; font-size:13px;\">${stall_duration}</td>\n        </tr>\n      </table>\n    </div>\n\n    <!-- Captured Vehicle Image Card (Placed under Event Details table card, exact same size/style) -->\n    <div style=\"\n      text-align: center;\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n      display: flex;\n      flex-direction: column;\n      align-items: center;\n    \">\n      <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#a5d6a7; font-size: 15px; font-weight: 600;\">\n        Captured Vehicle Image\n      </h3>\n      <img\n        src=\"${stall_img}\"\n        style=\"\n          width: 250px;\n          max-width: 100%;\n          max-height: 380px;\n          object-fit: contain;\n          border-radius: 8px;\n          border: 1px solid rgba(255,255,255,0.1);\n        \"\n        alt=\"Captured Vehicle Image\"\n      />\n    </div>\n  </div>\n\n  <!-- RIGHT COLUMN: Captured Region Image (Full Frame with Bounding Box) -->\n  <div style=\"\n    text-align: center;\n    background: rgba(255,255,255,0.03);\n    border-radius: 10px;\n    padding: 14px;\n    border: 1px solid rgba(255,255,255,0.08);\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n  \">\n    <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#90caf9; font-size: 15px; font-weight: 600;\">\n      Captured Region Image\n    </h3>\n    <img\n      src=\"${stall_frame}\"\n      style=\"\n        width: 100%;\n        max-height: 520px;\n        object-fit: contain;\n        border-radius: 8px;\n        border: 1px solid rgba(255,255,255,0.1);\n      \"\n      alt=\"Captured Region Image\"\n    />\n  </div>\n</div>",
         "mode": "html"
       },
       "pluginVersion": "11.6.0",
@@ -795,7 +1052,7 @@
         "h": 2,
         "w": 17,
         "x": 0,
-        "y": 58
+        "y": 86
       },
       "id": 105,
       "options": {
@@ -816,7 +1073,7 @@
         "h": 2,
         "w": 24,
         "x": 0,
-        "y": 58
+        "y": 88
       },
       "id": 106,
       "options": {
@@ -972,7 +1229,7 @@
         "h": 18,
         "w": 8,
         "x": 0,
-        "y": 60
+        "y": 90
       },
       "id": 7,
       "options": {
@@ -1029,7 +1286,7 @@
         "h": 18,
         "w": 16,
         "x": 8,
-        "y": 60
+        "y": 90
       },
       "id": 8,
       "options": {
@@ -1038,7 +1295,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "<div style=\"\n  display: grid;\n  grid-template-columns: 1fr 1.4fr;\n  gap: 16px;\n  width: 100%;\n  height: 100%;\n  padding: 4px;\n  box-sizing: border-box;\n  align-items: start;\n\">\n  <!-- LEFT COLUMN: Event Details Table (Top) + Captured Vehicle Image (Bottom) -->\n  <div style=\"display: flex; flex-direction: column; gap: 14px; width: 100%;\">\n    <!-- Event Details Card -->\n    <div style=\"\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n    \">\n      <h3 style=\"margin-top:0; margin-bottom: 12px; color:#90caf9; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px; font-size: 15px; font-weight: 600;\">\n        Event Details\n      </h3>\n      <table style=\"width:100%; border-collapse: collapse;\">\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; width:40%; font-size:13px;\">Event Type</td>\n          <td style=\"padding:8px 10px; font-weight:bold; color:#f59e0b; font-size:13px;\">Near Miss Event</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Date & Time</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${nm_time}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Vehicle ID</td>\n          <td style=\"padding:8px 10px; font-family:monospace; word-break:break-all; font-size:13px;\">${nm_full_id}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Location</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${nm_location}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Speed</td>\n          <td style=\"padding:8px 10px; font-weight:500; font-size:13px;\">${nm_speed}</td>\n        </tr>\n      </table>\n    </div>\n\n    <!-- Captured Vehicle Image Card (Placed under Event Details table card, exact same size/style) -->\n    <div style=\"\n      text-align: center;\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n      display: flex;\n      flex-direction: column;\n      align-items: center;\n    \">\n      <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#a5d6a7; font-size: 15px; font-weight: 600;\">\n        Captured Vehicle Image\n      </h3>\n      <img\n        src=\"${nm_img}\"\n        style=\"\n          width: 250px;\n          max-width: 100%;\n          max-height: 380px;\n          object-fit: contain;\n          border-radius: 8px;\n          border: 1px solid rgba(255,255,255,0.1);\n        \"\n        alt=\"Captured Vehicle Image\"\n      />\n    </div>\n  </div>\n\n  <!-- RIGHT COLUMN: Captured Region Image (Full Frame with Bounding Box) -->\n  <div style=\"\n    text-align: center;\n    background: rgba(255,255,255,0.03);\n    border-radius: 10px;\n    padding: 14px;\n    border: 1px solid rgba(255,255,255,0.08);\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n  \">\n    <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#90caf9; font-size: 15px; font-weight: 600;\">\n      Captured Region Image\n    </h3>\n    <img\n      src=\"${nm_frame}\"\n      style=\"\n        width: 100%;\n        max-height: 520px;\n        object-fit: contain;\n        border-radius: 8px;\n        border: 1px solid rgba(255,255,255,0.1);\n      \"\n      alt=\"Captured Region Image\"\n    />\n  </div>\n</div>",
+        "content": "<div style=\"\n  opacity: ${nm_vis};\n  display: grid;\n  grid-template-columns: 1fr 1.4fr;\n  gap: 16px;\n  width: 100%;\n  height: 100%;\n  padding: 4px;\n  box-sizing: border-box;\n  align-items: start;\n\">\n  <!-- LEFT COLUMN: Event Details Table (Top) + Captured Vehicle Image (Bottom) -->\n  <div style=\"display: flex; flex-direction: column; gap: 14px; width: 100%;\">\n    <!-- Event Details Card -->\n    <div style=\"\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n    \">\n      <h3 style=\"margin-top:0; margin-bottom: 12px; color:#90caf9; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px; font-size: 15px; font-weight: 600;\">\n        Event Details\n      </h3>\n      <table style=\"width:100%; border-collapse: collapse;\">\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; width:40%; font-size:13px;\">Event Type</td>\n          <td style=\"padding:8px 10px; font-weight:bold; color:#f59e0b; font-size:13px;\">Near Miss Event</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Date & Time</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${nm_time}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Vehicle ID</td>\n          <td style=\"padding:8px 10px; font-family:monospace; word-break:break-all; font-size:13px;\">${nm_full_id}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Location</td>\n          <td style=\"padding:8px 10px; font-size:13px;\">${nm_location}</td>\n        </tr>\n        <tr>\n          <td style=\"padding:8px 10px; color:#aaa; font-size:13px;\">Speed</td>\n          <td style=\"padding:8px 10px; font-weight:500; font-size:13px;\">${nm_speed}</td>\n        </tr>\n      </table>\n    </div>\n\n    <!-- Captured Vehicle Image Card (Placed under Event Details table card, exact same size/style) -->\n    <div style=\"\n      text-align: center;\n      background: rgba(255,255,255,0.03);\n      border-radius: 10px;\n      padding: 14px;\n      border: 1px solid rgba(255,255,255,0.08);\n      display: flex;\n      flex-direction: column;\n      align-items: center;\n    \">\n      <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#a5d6a7; font-size: 15px; font-weight: 600;\">\n        Captured Vehicle Image\n      </h3>\n      <img\n        src=\"${nm_img}\"\n        style=\"\n          width: 250px;\n          max-width: 100%;\n          max-height: 380px;\n          object-fit: contain;\n          border-radius: 8px;\n          border: 1px solid rgba(255,255,255,0.1);\n        \"\n        alt=\"Captured Vehicle Image\"\n      />\n    </div>\n  </div>\n\n  <!-- RIGHT COLUMN: Captured Region Image (Full Frame with Bounding Box) -->\n  <div style=\"\n    text-align: center;\n    background: rgba(255,255,255,0.03);\n    border-radius: 10px;\n    padding: 14px;\n    border: 1px solid rgba(255,255,255,0.08);\n    display: flex;\n    flex-direction: column;\n    align-items: center;\n  \">\n    <h3 style=\"margin-top: 0; margin-bottom: 10px; color:#90caf9; font-size: 15px; font-weight: 600;\">\n      Captured Region Image\n    </h3>\n    <img\n      src=\"${nm_frame}\"\n      style=\"\n        width: 100%;\n        max-height: 520px;\n        object-fit: contain;\n        border-radius: 8px;\n        border: 1px solid rgba(255,255,255,0.1);\n      \"\n      alt=\"Captured Region Image\"\n    />\n  </div>\n</div>",
         "mode": "html"
       },
       "pluginVersion": "11.6.0",
@@ -1050,7 +1307,7 @@
         "h": 2,
         "w": 17,
         "x": 0,
-        "y": 78
+        "y": 108
       },
       "id": 107,
       "options": {
@@ -1071,7 +1328,7 @@
         "h": 2,
         "w": 24,
         "x": 0,
-        "y": 78
+        "y": 110
       },
       "id": 108,
       "options": {
@@ -1215,7 +1472,7 @@
         "h": 18,
         "w": 10,
         "x": 0,
-        "y": 80
+        "y": 112
       },
       "id": 9,
       "options": {
@@ -1272,7 +1529,7 @@
         "h": 18,
         "w": 14,
         "x": 10,
-        "y": 80
+        "y": 112
       },
       "id": 10,
       "options": {
@@ -1281,7 +1538,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "<div style=\"display: flex; flex-direction: column; gap: 12px; padding: 4px; height: 100%;\">\n  <div style=\"text-align:center; background: rgba(255,255,255,0.03); border-radius: 10px; padding: 14px; border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; align-items: center; height: 100%; box-sizing: border-box;\">\n    <h3 style=\"margin-top: 0; margin-bottom: 12px; color:#90caf9; font-size: 15px; font-weight: 600;\">\n      Congestion Overview (Full Camera Frame)\n    </h3>\n    <div style=\"flex: 1; width: 100%; min-height: 0; display: flex; justify-content: center; align-items: center; overflow: hidden;\">\n      <img\n        src=\"${cong_frame}\"\n        style=\"max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);\"\n        alt=\"Congestion Camera Frame Image\"\n      />\n    </div>\n  </div>\n</div>",
+        "content": "<div style=\"opacity: ${cong_vis}; display: flex; flex-direction: column; gap: 12px; padding: 4px; height: 100%;\">\n  <div style=\"text-align:center; background: rgba(255,255,255,0.03); border-radius: 10px; padding: 14px; border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; align-items: center; height: 100%; box-sizing: border-box;\">\n    <h3 style=\"margin-top: 0; margin-bottom: 12px; color:#90caf9; font-size: 15px; font-weight: 600;\">\n      Congestion Overview (Full Camera Frame)\n    </h3>\n    <div style=\"flex: 1; width: 100%; min-height: 0; display: flex; justify-content: center; align-items: center; overflow: hidden;\">\n      <img\n        src=\"${cong_frame}\"\n        style=\"max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);\"\n        alt=\"Congestion Camera Frame Image\"\n      />\n    </div>\n  </div>\n</div>",
         "mode": "html"
       },
       "pluginVersion": "11.6.0",
@@ -1293,7 +1550,7 @@
         "h": 2,
         "w": 17,
         "x": 0,
-        "y": 98
+        "y": 130
       },
       "id": 109,
       "options": {
@@ -1315,6 +1572,108 @@
   "tags": [],
   "templating": {
     "list": [
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "name": "rr_location",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "name": "rr_time",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "name": "rr_full_id",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "name": "rr_region",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "name": "rr_img",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "name": "rr_frame",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "type": "textbox"
+      },
       {
         "current": {
           "text": "",
@@ -1790,6 +2149,138 @@
         ],
         "query": "",
         "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "0",
+          "value": "0"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "xU6Z19aVk"
+        },
+        "definition": "Panel opacity: 1 only while the selected Wrong Way event is inside the current time range, otherwise 0",
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "ww_vis",
+        "options": [],
+        "query": "import \"array\"\n\nmatched = from(bucket: \"SS-Anthem\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"wrong_way_alert\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.wrong_way and r.wrong_way > 0)\n  |> filter(fn: (r) => (if exists r.object_id then r.object_id else \"N/A\") == \"${ww_full_id}\" and (if exists r.event_url then r.event_url else \"\") == \"${ww_img}\" and (if exists r.location then r.location else \"N/A\") == \"${ww_location}\")\n  |> group()\n  |> count(column: \"wrong_way\")\n  |> rename(columns: {wrong_way: \"_value\"})\n\nunion(tables: [matched, array.from(rows: [{_value: 0}])])\n  |> group()\n  |> sum()",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": true,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "0",
+          "value": "0"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "xU6Z19aVk"
+        },
+        "definition": "Panel opacity: 1 only while the selected Collision event is inside the current time range, otherwise 0",
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "col_vis",
+        "options": [],
+        "query": "import \"array\"\n\nmatched = from(bucket: \"SS-Anthem\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"collision_events_2\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.count and r.count > 0)\n  |> filter(fn: (r) => (if exists r.object_id then r.object_id else \"N/A\") == \"${col_full_id}\" and (if exists r.event_url then r.event_url else \"\") == \"${col_img}\" and (if exists r.location then r.location else \"N/A\") == \"${col_location}\")\n  |> group()\n  |> count(column: \"count\")\n  |> rename(columns: {count: \"_value\"})\n\nunion(tables: [matched, array.from(rows: [{_value: 0}])])\n  |> group()\n  |> sum()",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": true,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "0",
+          "value": "0"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "xU6Z19aVk"
+        },
+        "definition": "Panel opacity: 1 only while the selected Stalled Vehicle event is inside the current time range, otherwise 0",
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "stall_vis",
+        "options": [],
+        "query": "import \"array\"\n\nmatched = from(bucket: \"SS-Anthem\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"stalled_vehicle_alert\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.trigger and r.trigger > 0)\n  |> filter(fn: (r) => (if exists r.vehicle_id then r.vehicle_id else (if exists r.object_id then r.object_id else \"N/A\")) == \"${stall_full_id}\" and (if exists r.event_url then r.event_url else \"\") == \"${stall_img}\" and (if exists r.location then r.location else \"N/A\") == \"${stall_location}\")\n  |> group()\n  |> count(column: \"trigger\")\n  |> rename(columns: {trigger: \"_value\"})\n\nunion(tables: [matched, array.from(rows: [{_value: 0}])])\n  |> group()\n  |> sum()",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": true,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "0",
+          "value": "0"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "xU6Z19aVk"
+        },
+        "definition": "Panel opacity: 1 only while the selected Near Miss event is inside the current time range, otherwise 0",
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "nm_vis",
+        "options": [],
+        "query": "import \"array\"\n\nmatched = from(bucket: \"SS-Anthem\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"near_miss_events\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.count and r.count > 0)\n  |> filter(fn: (r) => (if exists r.object_id then r.object_id else \"N/A\") == \"${nm_full_id}\" and (if exists r.event_url then r.event_url else \"\") == \"${nm_img}\" and (if exists r.location then r.location else \"N/A\") == \"${nm_location}\")\n  |> group()\n  |> count(column: \"count\")\n  |> rename(columns: {count: \"_value\"})\n\nunion(tables: [matched, array.from(rows: [{_value: 0}])])\n  |> group()\n  |> sum()",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": true,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "0",
+          "value": "0"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "xU6Z19aVk"
+        },
+        "definition": "Panel opacity: 1 only while the selected Congestion event is inside the current time range, otherwise 0",
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "cong_vis",
+        "options": [],
+        "query": "import \"array\"\n\nmatched = from(bucket: \"SS-Anthem\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"congestion_events\" or r[\"_measurement\"] == \"region_obj_dwell_2\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({\n      region: if exists r.region then r.region else \"N/A\",\n      location: if exists r.location then r.location else \"N/A\",\n      avg_dwell_time: if exists r.dwell_time then string(v: r.dwell_time) + \" s\" else (if exists r.avg_dwell_time then string(v: r.avg_dwell_time) + \" s\" else \"N/A\"),\n      avg_speed: if exists r.avg_speed then string(v: r.avg_speed) + \" km/h\" else (if exists r.speed then string(v: r.speed) + \" km/h\" else \"N/A\"),\n      frame_url: if exists r.frame_url and r.frame_url != \"\" then r.frame_url else \"/images/vehicle-events/latest_congestion.jpg\"\n  }))\n  |> filter(fn: (r) => r.region == \"${cong_region}\" and r.location == \"${cong_location}\" and r.avg_dwell_time == \"${cong_dwell}\" and r.avg_speed == \"${cong_speed}\" and r.frame_url == \"${cong_frame}\")\n  |> group()\n  |> count(column: \"region\")\n  |> rename(columns: {region: \"_value\"})\n\nunion(tables: [matched, array.from(rows: [{_value: 0}])])\n  |> group()\n  |> sum()",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": true,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "0",
+          "value": "0"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "xU6Z19aVk"
+        },
+        "definition": "Panel opacity: 1 only while the selected Vehicle Reappearance event is inside the current time range, otherwise 0",
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "rr_vis",
+        "options": [],
+        "query": "import \"array\"\n\nmatched = from(bucket: \"SS-Anthem\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r[\"_measurement\"] == \"vehicle_reappearance\")\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> filter(fn: (r) => exists r.reappearance and r.reappearance > 0)\n  |> filter(fn: (r) => (if exists r.object_id then r.object_id else \"N/A\") == \"${rr_full_id}\" and (if exists r.event_url then r.event_url else \"\") == \"${rr_img}\" and (if exists r.location then r.location else \"N/A\") == \"${rr_location}\")\n  |> group()\n  |> count(column: \"reappearance\")\n  |> rename(columns: {reappearance: \"_value\"})\n\nunion(tables: [matched, array.from(rows: [{_value: 0}])])\n  |> group()\n  |> sum()",
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": true,
+        "sort": 0,
+        "type": "query"
       }
     ]
   },

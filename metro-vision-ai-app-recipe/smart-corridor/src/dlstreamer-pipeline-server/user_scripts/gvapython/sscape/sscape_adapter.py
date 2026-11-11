@@ -110,7 +110,11 @@ def detectionPolicy(pobj, item, fw, fh):
 
 def reidPolicy(pobj, item, fw, fh):
   detectionPolicy(pobj, item, fw, fh)
-  reid_vector = item['tensors'][1]['data']
+  # gvainference runs with inference-interval, so frames it skips carry only the detection tensor.
+  tensors = item.get('tensors', [])
+  if len(tensors) < 2:
+    return
+  reid_vector = tensors[1]['data']
   # following code snippet is from percebro/modelchain.py
   n = len(reid_vector)
   v = struct.pack(f"{n}f",*reid_vector)
@@ -138,6 +142,7 @@ metadatapolicies = {
 class PostInferenceDataPublish:
   def __init__(self, cameraid, metadatagenpolicy='detectionPolicy', publish_image=False):
     self.cameraid = cameraid
+    self.log = logging.getLogger('SSCAPE_ADAPTER')
 
     self.is_publish_image = publish_image
     self.is_publish_calibration_image = False
@@ -226,21 +231,8 @@ class PostInferenceDataPublish:
       'rate': float(gvadata['fps'])
     })
 
-    # Efficiently encode plain clean full camera frame once per frame (downsampled to 640px)
-    full_frame_b64 = None
-    if frame is not None:
-      try:
-        with frame.data() as image:
-          fh, fw = image.shape[:2]
-          target_w = 640
-          target_h = int(fh * (target_w / fw))
-          small_frame = cv2.resize(image, (target_w, target_h), interpolation=cv2.INTER_NEAREST)
-          _, full_buf = cv2.imencode('.jpg', small_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
-          full_frame_b64 = base64.b64encode(full_buf).decode('utf-8')
-      except Exception:
-        pass
-
     objects = defaultdict(list)
+    vehicles = []
     if 'objects' in gvadata and len(gvadata['objects']) > 0:
       framewidth, frameheight = gvadata['resolution']['width'], gvadata['resolution']['height']
       for det in gvadata['objects']:
@@ -248,38 +240,44 @@ class PostInferenceDataPublish:
         self.metadatagenpolicy(vaobj, det, framewidth, frameheight)
         otype = vaobj['category']
         vaobj['id'] = len(objects[otype]) + 1
-        
-        # Attach crop image and highlighted full frame image directly inside the vehicle object (vaobj)
-        if otype == 'vehicle' and frame is not None:
-          bbox = vaobj.get('bounding_box_px')
-          if bbox:
-            bx, by, bw, bh = int(bbox['x']), int(bbox['y']), int(bbox['width']), int(bbox['height'])
-            if bw > 0 and bh > 0 and bx >= 0 and by >= 0:
-              try:
-                with frame.data() as image:
-                  # 1. Cropped vehicle image
-                  crop = image[by:by+bh, bx:bx+bw]
-                  if crop.size > 0:
-                    _, buf = cv2.imencode('.jpg', crop)
-                    vaobj['image_b64'] = base64.b64encode(buf).decode('utf-8')
-
-                  # 2. Draw red bounding box ONLY around target vehicle (Ultra-fast, zero-overhead)
-                  highlighted = image.copy()
-                  cv2.rectangle(highlighted, (bx, by), (bx + bw, by + bh), (0, 0, 255), 3) # Red Box
-                  cv2.putText(highlighted, f"TARGET VEHICLE #{vaobj['id']}", (bx, max(20, by - 8)),
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-
-                  fh, fw = highlighted.shape[:2]
-                  target_w = 640
-                  target_h = int(fh * (target_w / fw))
-                  small_frame = cv2.resize(highlighted, (target_w, target_h), interpolation=cv2.INTER_NEAREST)
-                  _, full_buf = cv2.imencode('.jpg', small_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
-                  vaobj['frame_b64'] = base64.b64encode(full_buf).decode('utf-8')
-              except Exception:
-                pass
-
+        if otype == 'vehicle':
+          vehicles.append(vaobj)
         objects[otype].append(vaobj)
+
+    if vehicles and frame is not None:
+      self.attachVehicleImages(frame, vehicles)
     self.frame_level_data['objects'] = objects
+
+  def attachVehicleImages(self, frame, vehicles):
+    try:
+      with frame.data() as image:
+        fh, fw = image.shape[:2]
+        target_w = 640
+        target_h = int(fh * (target_w / fw))
+        for vaobj in vehicles:
+          bbox = vaobj.get('bounding_box_px')
+          if not bbox:
+            continue
+          bx, by, bw, bh = int(bbox['x']), int(bbox['y']), int(bbox['width']), int(bbox['height'])
+          if bw <= 0 or bh <= 0 or bx < 0 or by < 0:
+            continue
+          try:
+            crop = image[by:by+bh, bx:bx+bw]
+            if crop.size > 0:
+              _, buf = cv2.imencode('.jpg', crop)
+              vaobj['image_b64'] = base64.b64encode(buf).decode('utf-8')
+
+            highlighted = image.copy()
+            cv2.rectangle(highlighted, (bx, by), (bx + bw, by + bh), (0, 0, 255), 3)
+            cv2.putText(highlighted, "TARGET VEHICLE", (bx, max(20, by - 8)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            small_frame = cv2.resize(highlighted, (target_w, target_h), interpolation=cv2.INTER_NEAREST)
+            _, full_buf = cv2.imencode('.jpg', small_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
+            vaobj['frame_b64'] = base64.b64encode(full_buf).decode('utf-8')
+          except Exception as e:
+            self.log.warning(f"Failed to encode images for camera {self.cameraid}: {e}")
+    except Exception as e:
+      self.log.warning(f"Failed to read frame data for camera {self.cameraid}: {e}")
 
   def processFrame(self, frame):
     if self.client.is_connected():
