@@ -47,7 +47,7 @@ services:
       - app_network
 
   metrics-manager:
-    image: intel/metrics-manager:2026.2.0-extended
+    image: intel/metrics-manager:2026.3.0-extended-rc1
     container_name: metrics-manager
     environment:
       - no_proxy=localhost,127.0.0.1,real-time-scene-understanding,metrics-manager,${no_proxy:-}

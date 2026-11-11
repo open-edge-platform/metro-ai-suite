@@ -150,7 +150,7 @@ services:
       - rag_network
 
   dlstreamer-pipeline-server:
-    image: intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24
+    image: intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-rc1
     hostname: dlstreamer-pipeline-server
     container_name: dlstreamer-pipeline-server
     read_only: false
@@ -351,7 +351,7 @@ services:
       - rag_network
 
   metrics-manager:
-    image: intel/metrics-manager:2026.2.0-extended
+    image: intel/metrics-manager:2026.3.0-extended-rc1
     container_name: metrics-manager
     environment:
       - no_proxy=localhost,127.0.0.1,video-caption-service,metrics-manager,${no_proxy}

@@ -19,7 +19,7 @@ This section shows how to:
 ### 1. Clone the Suite
 
 ```bash
-git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
+git clone --filter=blob:none --sparse --branch release-2026.3.0 https://github.com/open-edge-platform/metro-ai-suite.git
 cd metro-ai-suite
 git sparse-checkout set live-video-analysis/real-time-scene-understanding
 cd live-video-analysis/real-time-scene-understanding
@@ -46,7 +46,7 @@ The setup template sets these important values:
 | Variable | Default | Purpose |
 | -------- | ------- | ------- |
 | `HOST_IP` | Detected automatically | Host address reachable by the browser for WebRTC signaling. |
-| `TAG` | `latest` | Docker image tag. |
+| `TAG` | `2026.3.0-rc1` | Docker image tag. |
 | `PORT` | `9100` | Host port for the dashboard and REST API. Add this to `.env` to change the published host port; the container port remains `9100`. |
 | `DASHBOARD_PORT` | `9100` | Internal backend port. Compose currently fixes this to `9100`; changing the `.env.example` value does not change the published host port. |
 | `ALERT_VLM_MODEL` | `Qwen/Qwen3-VL-2B-Instruct` | Model used for the alert pipeline VLM inference. |
