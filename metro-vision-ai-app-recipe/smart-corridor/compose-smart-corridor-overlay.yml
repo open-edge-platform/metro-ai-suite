@@ -15,6 +15,10 @@ services:
     restart: unless-stopped
 
   node-red:
+    environment:
+      TOTAL_REMOTE_CHILD: ${TOTAL_REMOTE_CHILD:-0}
+      REMOTE_IP_1: ${REMOTE_IP_1:-}
+      REMOTE_IP_2: ${REMOTE_IP_2:-}
     volumes:
       - smart_corridor_images:/images_data:rw
     restart: unless-stopped
