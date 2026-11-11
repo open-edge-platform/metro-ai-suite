@@ -73,6 +73,11 @@ By following this guide, you will learn how to:
    ::::
    hide_directive-->
 
+   > [!TIP]
+   > To also save a video clip of every loitering event, install with
+   > `./install.sh loitering-detection-sm` instead. See
+   > [Record Loitering Clips with Stream Manager](./how-to-guides/record-loitering-clips.md).
+
 ## Run the application
 
 Run all commands from the `metro-vision-ai-app-recipe` directory.
@@ -121,6 +126,11 @@ Run all commands from the `metro-vision-ai-app-recipe` directory.
       ```bash
       ./sample_start.sh
       ```
+
+      The sample pipelines read looped RTSP streams, `rtsp://rtsp-server:8554/cam-1` to `cam-4`,
+      which the `rtsp-server` and `rtsp-stream-<N>` containers create from the sample videos.
+      With the Console UI installation (`loitering-detection-ui`) these containers are not
+      started, and the sample pipelines read the video files directly.
 
    2. Check their status:
 
@@ -221,6 +231,7 @@ docker compose down
 
 - [Use the Console UI](./how-to-guides/use-console-ui.md): Compare models, change sources and devices, and draw zones.
 - [Customize the Application](./how-to-guides/customize-application.md): Configure file-based zones, streams, and Grafana data.
+- [Record Loitering Clips with Stream Manager](./how-to-guides/record-loitering-clips.md): Save a video clip of every loitering event.
 - [Update the Pipeline](./how-to-guides/update-pipelines.md): Edit pipeline definitions and REST-overridable properties.
 - [All How-to Guides](./how-to-guides.md): Explore device, telemetry, offline packaging, and benchmarking guides.
 

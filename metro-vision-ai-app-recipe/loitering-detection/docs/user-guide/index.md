@@ -39,6 +39,9 @@ extend its functionalities to meet their specific needs.
   without requiring additional coding.
 - **Integration with MQTT and Grafana:** Facilitates efficient message handling,
   real-time monitoring, and insightful data visualization.
+- **Loitering Clip Recording (optional):** Saves an MP4 clip of the original camera stream
+  for every loitering event, from 5 seconds before loitering starts until it stops, using
+  Stream Manager.
 - **User-Friendly:** Simplifies configuration and operation through prebuilt scripts and
   configuration files.
 
@@ -55,7 +58,10 @@ The architecture is designed to facilitate seamless integration and operation of
 - **MQTT Table Flattener:** A small sidecar that reshapes the raw per-frame `object_tracking/<N>` metadata into one-row-per-object `object_tracking/<N>/loiterstatus` messages for the Grafana status table, filtered by a configurable dwell-time threshold (no zone/dwell computation — that remains entirely in `gvaanalytics`).
 - **WebRTC Stream Viewer:** Displays real-time video streams processed by the pipeline for end-user visualization.
 - **Grafana Dashboard:** A monitoring and visualization tool for analyzing pipeline metrics, logs, and other performance data.
-- **Inputs (Video Files and Cameras):** Provide raw video streams or files as input data for processing in the pipeline.
+- **Inputs (Video Files and Cameras):** Provide raw video streams as input data for processing in the pipeline. The sample video files are looped into RTSP streams, so the pipeline reads them the same way as it reads real RTSP cameras.
+- **RTSP Server (MediaMTX) and FFmpeg looper:** Publish the looped sample videos as RTSP streams (`rtsp://rtsp-server:8554/cam-<N>`), one per camera.
+- **Stream Manager (optional overlay):** Reads the same RTSP streams, keeps a short rolling buffer and, on request, records the original video and extracts clips.
+- **Loitering Event Recorder (optional overlay):** Watches the loitering messages on MQTT and, when someone loiters, records the camera through Stream Manager and saves the clip and an event index on the host. See [Record Loitering Clips with Stream Manager](./how-to-guides/record-loitering-clips.md).
 - **Nginx:** High-performance web server and reverse proxy that provides TLS termination and unified HTTPS access.
 
 The DL Streamer Pipeline Server is a core component, designed to handle video analytics at the

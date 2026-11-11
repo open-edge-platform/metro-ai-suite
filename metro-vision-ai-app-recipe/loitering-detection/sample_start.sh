@@ -23,10 +23,15 @@ function run_sample() {
   echo
   echo -n ">>>>>Initialization..."
   for x in $(seq 1 $pipelines); do
+    if [ "${RTSP_SOURCES:-true}" = "true" ]; then
+      source_uri="rtsp://rtsp-server:8554/cam-$x"
+    else
+      source_uri="file:///home/pipeline-server/videos/VIRAT_S_00010$x.mp4"
+    fi
     payload=$(cat <<EOF
    {
     "source": {
-        "uri": "file:///home/pipeline-server/videos/VIRAT_S_00010$x.mp4",
+        "uri": "$source_uri",
         "type": "uri"
     },
     "destination": {

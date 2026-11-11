@@ -13,7 +13,7 @@ fi
 SAMPLE_APP_ARG="$1"
 if [ -z "$SAMPLE_APP_ARG" ]; then
     echo "Error: First argument (SAMPLE_APP) is required."
-    echo "Usage: $0 <smart-parking|loitering-detection|loitering-detection-ui|smart-intersection|smart-tolling> [ss] [HOST_IP]"
+    echo "Usage: $0 <smart-parking|loitering-detection|loitering-detection-ui|loitering-detection-sm|smart-intersection|smart-tolling> [ss] [HOST_IP]"
     exit 1
 fi
 
@@ -25,6 +25,14 @@ ENABLE_UI_ARG="false"
 if [ "$SAMPLE_APP_ARG" = "loitering-detection-ui" ]; then
     SAMPLE_APP_ARG="loitering-detection"
     ENABLE_UI_ARG="true"
+fi
+
+# "loitering-detection-sm" is loitering-detection plus the Stream Manager overlay
+# (clip recording of loitering events); the per-app install.sh merges the overlay.
+ENABLE_STREAM_MANAGER_ARG="false"
+if [ "$SAMPLE_APP_ARG" = "loitering-detection-sm" ]; then
+    SAMPLE_APP_ARG="loitering-detection"
+    ENABLE_STREAM_MANAGER_ARG="true"
 fi
 
 # Optional second argument "ss" selects the SceneScape variant; HOST_IP then shifts to the third argument
@@ -45,7 +53,7 @@ case "$SAMPLE_APP_ARG" in
         fi
         ;;
     *)
-        echo "Error: Invalid SAMPLE_APP value '$SAMPLE_APP_ARG'. Must be one of: smart-parking, loitering-detection, loitering-detection-ui, smart-intersection, smart-tolling."
+        echo "Error: Invalid SAMPLE_APP value '$SAMPLE_APP_ARG'. Must be one of: smart-parking, loitering-detection, loitering-detection-ui, loitering-detection-sm, smart-intersection, smart-tolling."
         exit 1
         ;;
 esac
@@ -113,9 +121,9 @@ cd "$SAMPLE_APP" || exit 1
 if [ -f "./install.sh" ]; then
     chmod +x ./install.sh
     if [ "$SCENESCAPE_ENABLED" = "true" ]; then
-        ENABLE_UI="$ENABLE_UI_ARG" ./install.sh "$HOST_IP" ss
+        ENABLE_UI="$ENABLE_UI_ARG" ENABLE_STREAM_MANAGER="$ENABLE_STREAM_MANAGER_ARG" ./install.sh "$HOST_IP" ss
     else
-        ENABLE_UI="$ENABLE_UI_ARG" ./install.sh $HOST_IP
+        ENABLE_UI="$ENABLE_UI_ARG" ENABLE_STREAM_MANAGER="$ENABLE_STREAM_MANAGER_ARG" ./install.sh $HOST_IP
     fi
 else
     echo "Error: install.sh not found in $SAMPLE_APP directory."

@@ -97,6 +97,16 @@ if ! grep -q '^  mqtt-table-flattener:' docker-compose.yml; then
   ' docker-compose.yml > docker-compose.yml.tmp && mv docker-compose.yml.tmp docker-compose.yml
 fi
 
+# sample_start.sh reads the sample videos from rtsp://rtsp-server:8554/cam-<N>, served by
+# compose-rtsp-overlay.yml (kept as a second compose file, not merged, so the seds below still match).
+# The Console UI package stays as it was: no RTSP services, sample_start.sh reads the video files.
+if [ "$ENABLE_UI" = "true" ]; then
+  sed -i 's/^RTSP_SOURCES=.*/RTSP_SOURCES=false/' .env
+else
+  echo "COMPOSE_FILE=docker-compose.yml:compose-rtsp-overlay.yml" >> .env
+  echo "RTSP_VIDEOS_DIR=./src/dlstreamer-pipeline-server/videos" >> .env
+fi
+
 # Run install.sh to download all required models and videos
 echo "Running install.sh to download models and videos..."
 ENABLE_UI="$ENABLE_UI" ./install.sh 127.0.0.1

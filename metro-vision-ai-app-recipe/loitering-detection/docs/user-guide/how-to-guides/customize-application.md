@@ -189,8 +189,13 @@ purely a matter of adding another entry to the `zones` array in that stream's JS
 ### Adding a new stream
 
 1. Add a video file under `src/dlstreamer-pipeline-server/videos/` and a matching zone-config
-   JSON file under `src/dlstreamer-pipeline-server/zones/`.
-2. Launch it with one more REST call (see `sample_start.sh` for the pattern), passing
+   JSON file under `src/dlstreamer-pipeline-server/zones/`. The pipeline reads video from an
+   RTSP stream, so either publish the file to the `rtsp-server` service (add another
+   `rtsp-stream-<N>` service modelled on the existing ones in
+   `loitering-detection/compose-rtsp-overlay.yml`) or use the RTSP URL of a real camera. A `file:///home/pipeline-server/videos/<file>`
+   source also still works in the launch payload.
+2. Launch it with one more REST call (see `sample_start.sh` for the pattern), setting
+   `"source": {"uri": "rtsp://...", "type": "uri"}` and passing
    `"analytics-properties": {"config": "/home/pipeline-server/zones/<your-zone-file>.json"}`
    in the `parameters` object, alongside a unique `destination.metadata.topic` /
    `destination.frame.peer-id` for the new stream.

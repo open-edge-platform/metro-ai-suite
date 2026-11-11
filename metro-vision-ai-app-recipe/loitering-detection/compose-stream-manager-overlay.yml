@@ -1,0 +1,51 @@
+# Overlay merged into docker-compose.yml by loitering-detection/install.sh
+# (./install.sh loitering-detection-sm). Needs the rtsp-server service from
+# compose-rtsp-overlay.yml and the mqtt-table-flattener service that install.sh adds.
+services:
+  stream-manager:
+    image: ${STREAM_MANAGER_IMAGE:-intel/stream-manager:latest}
+    container_name: stream-manager
+    # Stream Manager buffers the rolling stream history in /dev/shm (Docker's default is 64 MB)
+    shm_size: ${STREAM_MANAGER_SHM_SIZE:-1g}
+    volumes:
+      - stream-manager-data:/data
+    networks:
+      - app_network
+    depends_on:
+      - rtsp-server
+    restart: on-failure:5
+
+  loitering-event-recorder:
+    image: ${DLSTREAMER_PIPELINE_SERVER_IMAGE}
+    container_name: loitering-event-recorder
+    # Host user, so the bind-mounted clips folder is writable and owned by the user
+    user: "${CLIPS_UID:-1000}:${CLIPS_GID:-1000}"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MQTT_HOST=broker
+      - MQTT_PORT=1883
+      - SOURCE_TOPIC_PREFIX=${SOURCE_TOPIC_PREFIX}
+      - DEST_TOPIC_SUFFIX=${DEST_TOPIC_SUFFIX}
+      - SM_URL=http://stream-manager:8080/v1
+      - CAMERA_IDS=${CAMERA_IDS:-1,2,3,4}
+      - RTSP_URL_TEMPLATE=rtsp://rtsp-server:8554/cam-{id}
+      - SM_BUFFER_LENGTH=${SM_BUFFER_LENGTH:-30}
+      - PRE_EVENT_SEC=${PRE_EVENT_SEC:-5}
+      - STOP_GRACE_SEC=${STOP_GRACE_SEC:-3}
+      - MAX_SESSION_SEC=${MAX_SESSION_SEC:-300}
+      - DELETE_REMOTE_AFTER_DOWNLOAD=${DELETE_REMOTE_AFTER_DOWNLOAD:-true}
+      - CLIPS_DIR=/clips
+    volumes:
+      - "./${SAMPLE_APP}/src/loitering-event-recorder:/app:ro"
+      - "./${SAMPLE_APP}/clips:/clips"
+    entrypoint: ["python3", "/app/recorder.py"]
+    depends_on:
+      - broker
+      - mqtt-table-flattener
+      - stream-manager
+    networks:
+      - app_network
+    restart: on-failure:5
+
+volumes:
+  stream-manager-data:

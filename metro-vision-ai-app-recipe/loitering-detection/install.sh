@@ -217,3 +217,46 @@ if [ -f "$NGINX_CONF" ]; then
   fi
 fi
 
+
+##############################################################################
+# Overlays, merged into the generated compose file last, so the awk edits above still
+# match the raw template:
+# - compose-rtsp-overlay.yml: unless ENABLE_UI=true (the Console UI install stays as it was, with
+#   no RTSP containers); loops the sample videos into rtsp://rtsp-server:8554/cam-<N>, read by
+#   the pipelines (and Stream Manager). RTSP_SOURCES in .env tells sample_start.sh which to use.
+# - compose-stream-manager-overlay.yml: ENABLE_STREAM_MANAGER=true, set by the top-level
+#   install.sh for "loitering-detection-sm". The recorder runs as the host user so it can
+#   write the bind-mounted clips/ dir.
+##############################################################################
+if [ -f ../docker-compose.yml ]; then
+  OVERLAYS=()
+  ENV_UPDATES=()
+  if [ "${ENABLE_UI:-false}" = "true" ]; then
+    ENV_UPDATES+=("RTSP_SOURCES=false")
+  else
+    OVERLAYS+=(-f loitering-detection/compose-rtsp-overlay.yml)
+    ENV_UPDATES+=("RTSP_SOURCES=true")
+  fi
+  if [ "${ENABLE_STREAM_MANAGER:-false}" = "true" ]; then
+    mkdir -p clips
+    ENV_UPDATES+=("CLIPS_UID=$(id -u)" "CLIPS_GID=$(id -g)")
+    OVERLAYS+=(-f loitering-detection/compose-stream-manager-overlay.yml)
+  fi
+  for kv in "${ENV_UPDATES[@]}"; do
+    key="${kv%%=*}"
+    if grep -q "^${key}=" ../.env; then
+      sed -i "s/^${key}=.*/${kv}/" ../.env
+    else
+      echo "${kv}" >> ../.env
+    fi
+  done
+  if [ ${#OVERLAYS[@]} -gt 0 ]; then
+    if ! (cd .. && docker compose -f docker-compose.yml "${OVERLAYS[@]}" config \
+          --no-interpolate --no-normalize --no-path-resolution --no-env-resolution > docker-compose.yml.tmp); then
+      rm -f ../docker-compose.yml.tmp
+      echo "Error: failed to merge the compose overlays into docker-compose.yml"
+      exit 1
+    fi
+    mv ../docker-compose.yml.tmp ../docker-compose.yml
+  fi
+fi

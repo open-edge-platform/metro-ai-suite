@@ -4,5 +4,6 @@
 
 # Deploy-time artifacts, not source.
 loitering-detection/src/nginx/ssl/
+loitering-detection/clips/
 console-addon/console/certs/
 __pycache__/
