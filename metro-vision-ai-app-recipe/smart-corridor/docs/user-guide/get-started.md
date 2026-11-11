@@ -103,7 +103,7 @@ If there are multiple child nodes to be deployed, then number each node deployme
 
    The installer detects which child node deployment it is and
    automatically:
-   - Uses child-specific scene data (`smart-corridor-child-${REMOTE_CHILD_DEPLOY}-ri.tar.bz2`)
+   - Uses child-specific scene data (`Smart-Corridor-Intersection-04.zip`)
    - Uses child-specific pipeline config (`config_child_${REMOTE_CHILD_DEPLOY}.json`)
 
 4. **Start the Application**:
@@ -163,8 +163,8 @@ On the parent machine, configure the [.env](../../../.env) file to declare how m
 
    The installer detects a parent node deployment (`TOTAL_REMOTE_CHILD` defined in `.env`) and
    automatically:
-   - Uses parent-specific scene data (`smart-corridor-parent-ri.tar.bz2`)
-   - Uses parent-specific pipeline config (`config_parent.json`)
+   - Uses parent-specific scene data (`Smart-Corridor.zip`)
+   - Uses parent-specific pipeline config (`config_parent.json` for multi-node / `config_sn_parent.json` for single-node) 
    - Runs `ca-bundle.sh` to fetch CA certificates from each remote child and build a
      combined trust bundle for TLS connectivity
 

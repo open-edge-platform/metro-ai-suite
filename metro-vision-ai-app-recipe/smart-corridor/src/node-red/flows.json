@@ -269,7 +269,7 @@
     "type": "function",
     "z": "f6f2187d.f17ca8",
     "name": "Cache Vehicle Images",
-    "func": "// The analytics service rebuilds objects without image_b64/frame_b64, so keep the\n// latest images per global object id from the scene controller output and let the\n// event handlers look them up by id.\nvar objects = (msg.payload && msg.payload.objects) || [];\nvar TTL_MS = 120000;\nvar now = Date.now();\nvar cache = flow.get('vehicleImageCache') || {};\n\nobjects.forEach(function (o) {\n    if (o.id === undefined || (!o.image_b64 && !o.frame_b64)) { return; }\n    var rec = cache[o.id] || {};\n    if (o.image_b64) { rec.image_b64 = o.image_b64; }\n    if (o.frame_b64) { rec.frame_b64 = o.frame_b64; }\n    rec.seen = now;\n    cache[o.id] = rec;\n});\n\nObject.keys(cache).forEach(function (k) {\n    if (now - cache[k].seen > TTL_MS) { delete cache[k]; }\n});\n\nflow.set('vehicleImageCache', cache);\nreturn null;\n",
+    "func": "// The analytics service rebuilds objects without image_b64/frame_b64, so keep the\n// latest images per global object id from the scene controller output and let the\n// event handlers look them up by id.\n// Remote child brokers also deliver region data for the reappearance node; only scene output carries images.\nif (String(msg.topic).indexOf('scenescape/data/scene/') !== 0) { return null; }\nvar objects = (msg.payload && msg.payload.objects) || [];\nvar TTL_MS = 120000;\nvar now = Date.now();\nvar cache = flow.get('vehicleImageCache') || {};\n\nobjects.forEach(function (o) {\n    if (o.id === undefined || (!o.image_b64 && !o.frame_b64)) { return; }\n    var rec = cache[o.id] || {};\n    if (o.image_b64) { rec.image_b64 = o.image_b64; }\n    if (o.frame_b64) { rec.frame_b64 = o.frame_b64; }\n    rec.seen = now;\n    cache[o.id] = rec;\n});\n\nObject.keys(cache).forEach(function (k) {\n    if (now - cache[k].seen > TTL_MS) { delete cache[k]; }\n});\n\nflow.set('vehicleImageCache', cache);\nreturn null;\n",
     "outputs": 1,
     "timeout": "",
     "noerr": 0,
@@ -281,6 +281,154 @@
     "wires": [
       []
     ]
+  },
+  {
+    "id": "remote_image_start",
+    "type": "inject",
+    "z": "f6f2187d.f17ca8",
+    "name": "Connect Remote Child Brokers",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "5",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 260,
+    "y": 1020,
+    "wires": [
+      [
+        "remote_image_setup"
+      ]
+    ]
+  },
+  {
+    "id": "remote_image_setup",
+    "type": "function",
+    "z": "f6f2187d.f17ca8",
+    "name": "Remote Child Broker Actions",
+    "func": "// Remote child scenes publish their vehicle images, re-identification results and region\n// data on their own broker; the parent controller does not forward them when it merges the\n// child objects, so subscribe to each remote child broker directly and feed the same image\n// cache and the vehicle reappearance detection.\nvar total = parseInt(env.get('TOTAL_REMOTE_CHILD') || '0', 10);\nvar out = [];\nfor (var i = 1; i <= 2; i++) {\n    var ip = (env.get('REMOTE_IP_' + i) || '').trim();\n    if (i > total || !ip) { out.push(null); continue; }\n    out.push([\n        { action: 'connect', broker: { broker: ip, port: 1883 } },\n        {\n            action: 'subscribe',\n            topic: [\n                { topic: 'scenescape/data/scene/+/vehicle', qos: 0 },\n                { topic: 'scenescape/data/region/+/+/vehicle', qos: 0 },\n                { topic: 'scenescape/event/region/+/+/objects', qos: 0 }\n            ]\n        }\n    ]);\n}\nreturn out;\n",
+    "outputs": 2,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 530,
+    "y": 1020,
+    "wires": [
+      [
+        "remote_image_mqtt_in_1"
+      ],
+      [
+        "remote_image_mqtt_in_2"
+      ]
+    ]
+  },
+  {
+    "id": "remote_image_mqtt_in_1",
+    "type": "mqtt in",
+    "z": "f6f2187d.f17ca8",
+    "name": "Remote Child 1 Scene Data",
+    "topic": "",
+    "qos": "0",
+    "datatype": "auto-detect",
+    "broker": "mqtt_broker_remote_1",
+    "nl": false,
+    "rap": false,
+    "inputs": 1,
+    "x": 810,
+    "y": 1020,
+    "wires": [
+      [
+        "vehicle_image_cache",
+        "vehicle_reappearance_detection"
+      ]
+    ]
+  },
+  {
+    "id": "mqtt_broker_remote_1",
+    "type": "mqtt-broker",
+    "name": "Remote Child Broker 1",
+    "broker": "",
+    "port": "1883",
+    "tls": "f5cfea783bb942f1",
+    "clientid": "",
+    "autoConnect": false,
+    "usetls": true,
+    "compatmode": false,
+    "protocolVersion": 4,
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "remote_image_mqtt_in_2",
+    "type": "mqtt in",
+    "z": "f6f2187d.f17ca8",
+    "name": "Remote Child 2 Scene Data",
+    "topic": "",
+    "qos": "0",
+    "datatype": "auto-detect",
+    "broker": "mqtt_broker_remote_2",
+    "nl": false,
+    "rap": false,
+    "inputs": 1,
+    "x": 810,
+    "y": 1060,
+    "wires": [
+      [
+        "vehicle_image_cache",
+        "vehicle_reappearance_detection"
+      ]
+    ]
+  },
+  {
+    "id": "mqtt_broker_remote_2",
+    "type": "mqtt-broker",
+    "name": "Remote Child Broker 2",
+    "broker": "",
+    "port": "1883",
+    "tls": "f5cfea783bb942f1",
+    "clientid": "",
+    "autoConnect": false,
+    "usetls": true,
+    "compatmode": false,
+    "protocolVersion": 4,
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
   },
   {
     "id": "reappearance_region_event_mqtt_in",

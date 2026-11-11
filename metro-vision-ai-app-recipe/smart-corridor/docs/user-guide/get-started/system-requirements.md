@@ -30,8 +30,7 @@ This page provides detailed hardware, software, and platform requirements to hel
 | **Processor**       | Intel® Core™ Ultra Processor Series 3 (PTL 358H)
 | **Memory**          | 32 GB                   |
 | **Disk Space**      | 128 GB SSD              |
-| **GPU/Accelerator** | Integrated GPU         |
-| **NPU**             | Required for LPR OCR and vehicle color classification |
+| **Accelerator**     | Integrated GPU and NPU  |
 
 
 ## Software Requirements
