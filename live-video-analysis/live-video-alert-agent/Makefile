@@ -21,7 +21,7 @@
 #
 # Configuration:
 #   REGISTRY_URL        - Image registry prefix (default: intel)
-#   TAG                 - App image tag (default: latest)
+#   TAG                 - App image tag (default: 2026.3.0-rc1)
 #   DEVICE              - GPU (default), CPU, or NPU for VLM/LLM inference
 #   PORT                - App port (default: 9000)
 #
@@ -49,7 +49,7 @@ VERSION ?= latest
 # Registry and tag defaults
 REGISTRY_URL ?= intel
 PROJECT_NAME ?=
-TAG ?= latest
+TAG ?= 2026.3.0-rc1
 
 # Compute REGISTRY the same way as the compose file: REGISTRY_URL/PROJECT_NAME/
 REGISTRY := $(if $(REGISTRY_URL),$(REGISTRY_URL)/)$(if $(PROJECT_NAME),$(PROJECT_NAME)/)
@@ -63,7 +63,7 @@ COMPONENTS := live-video-alert-agent
 DOCKER_DIR := docker
 
 # Intel platform images (pre-built, fixed release tags)
-METRICS_MANAGER_IMAGE := intel/metrics-manager:2026.2.0-extended
+METRICS_MANAGER_IMAGE := intel/metrics-manager:2026.3.0-extended-rc1
 PLATFORM_IMAGES       := $(METRICS_MANAGER_IMAGE)
 
 # ==============================================================================
@@ -678,7 +678,7 @@ help:
 	@echo "CONFIGURATION VARIABLES"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "  REGISTRY_URL        Image registry prefix (default: intel)"
-	@echo "  TAG                 App image tag (default: latest)"
+	@echo "  TAG                 App image tag (default: 2026.3.0-rc1)"
 	@echo "  DEVICE              GPU (default) or CPU for VLM/LLM inference"
 	@echo "  HF_TOKEN            HuggingFace token (required for model download)"
 	@echo "  RTSP_URL            RTSP stream URL (optional; configure in UI)"

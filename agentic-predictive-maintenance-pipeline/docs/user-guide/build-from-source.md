@@ -18,8 +18,10 @@ images from source code.
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/open-edge-platform/metro-ai-suite.git
-cd metro-ai-suite/agentic-predictive-maintenance-pipeline
+git clone --filter=blob:none --sparse --branch release-2026.3.0 https://github.com/open-edge-platform/metro-ai-suite.git
+cd metro-ai-suite
+git sparse-checkout set agentic-predictive-maintenance-pipeline
+cd agentic-predictive-maintenance-pipeline
 ```
 
 ### 2. Configure the Build
@@ -28,7 +30,7 @@ Set the registry URL and tag for the images you want to build. If you leave `REG
 
 ```bash
 export REGISTRY=            # e.g. "docker.io/myusername/" — leave empty for local builds
-export TAG=latest
+export TAG=2026.3.0-rc1
 ```
 
 ### 3. Build the Images

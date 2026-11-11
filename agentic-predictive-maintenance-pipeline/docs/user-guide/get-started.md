@@ -74,8 +74,10 @@ agentic-predictive-maintenance-pipeline/
 ## Step 1 — Clone the Repository
 
 ```bash
-git clone https://github.com/open-edge-platform/metro-ai-suite.git
-cd metro-ai-suite/agentic-predictive-maintenance-pipeline
+git clone --filter=blob:none --sparse --branch release-2026.3.0 https://github.com/open-edge-platform/metro-ai-suite.git
+cd metro-ai-suite
+git sparse-checkout set agentic-predictive-maintenance-pipeline
+cd agentic-predictive-maintenance-pipeline
 ```
 
 ## Step 2 — Configure the Environment

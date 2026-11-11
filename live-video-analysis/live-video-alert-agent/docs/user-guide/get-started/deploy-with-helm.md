@@ -29,7 +29,7 @@ Refer to the [Release Notes](../release-notes.md) for the latest version.
 #### Option 2: Install from Source
 
 ```bash
-git clone https://github.com/open-edge-platform/metro-ai-suite.git -b main
+git clone https://github.com/open-edge-platform/metro-ai-suite.git -b release-2026.3.0
 cd metro-ai-suite/live-video-analysis/live-video-alert-agent/chart
 ```
 
