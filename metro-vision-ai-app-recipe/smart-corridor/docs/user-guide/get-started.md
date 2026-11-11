@@ -17,6 +17,10 @@ To get started:
 - **Consider Enabling Security features**: use hardware-based security measures to make your
   application safer.
 
+> **Note:** The default dataset includes only two intersections,
+> `Smart-Corridor-Intersection-04` and `Smart-Corridor-Intersection-05`. Intersections 01, 02,
+> and 03 are not part of this dataset, so their absence does not indicate a deployment problem.
+
 ## Prerequisites
 
 - Verify that your system meets the [minimum requirements](./get-started/system-requirements.md).
