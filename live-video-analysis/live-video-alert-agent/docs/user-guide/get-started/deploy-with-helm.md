@@ -38,7 +38,7 @@ cd metro-ai-suite/live-video-analysis/live-video-alert-agent/chart
 Edit `user_values_override.yaml` with values for your environment:
 
 | Key | Description | Example |
-|-----|-------------|---------|
+| --- | ----------- | ------- |
 | `global.externalIP` | **(Required)** IP of a cluster node reachable by your browser | `<clusternodeip>` |
 | `global.keepPvc` | Retain model PVC on uninstall (avoids ~10 min re-download) | `true` |
 | `global.huggingfaceToken` | Required only for gated models on first download | `hf_xxx` |
@@ -58,13 +58,18 @@ Edit `user_values_override.yaml` with values for your environment:
 | `app.mcpServersConfig` | MCP server configuration JSON (see `resources/mcp_servers.json` for format) | See `values.yaml` |
 | `app.nodeSelector` | Schedule app pod on a specific node | `kubernetes.io/hostname: worker1` |
 
-> [!NOTE]
+> [!CAUTION]
+>
 > - `user_values_override.yaml` may contain credentials. Do not commit it to version control.
-> - `.svc.cluster.local` must be included in `global.proxy.noProxy` to allow cluster-internal communication.
-> - GPU and NPU can be enabled independently. For example, use GPU for the VLM and NPU for the LLM by enabling both and setting the appropriate `device` value in each `ovms` / `ovms-llm` section.
+> - `.svc.cluster.local` must be included in `global.proxy.noProxy` to allow cluster-internal
+>   communication.
+> - GPU and NPU can be enabled independently. For example, use GPU for the VLM and NPU for
+>   the LLM by enabling both and setting the appropriate `device` value in each `ovms` / `ovms-llm` section.
 
-> **Model Selection:**
-> Use pre-converted OpenVINO IR models from the [OpenVINO organization on Hugging Face](https://huggingface.co/OpenVINO) for best compatibility. These models are optimized for OVMS and require no additional conversion. Set the model repository name in `ovms.sourceModel` (VLM) or `ovms-llm.sourceModel` (LLM).
+> [!TIP]
+> **Model Selection:** Use pre-converted OpenVINO IR models from the [OpenVINO organization on Hugging Face](https://huggingface.co/OpenVINO)
+> for best compatibility. These models are optimized for OVMS and require no additional
+> conversion. Set the model repository name in `ovms.sourceModel` (VLM) or `ovms-llm.sourceModel` (LLM).
 
 ### 3. Build Helm Dependencies
 
@@ -81,7 +86,8 @@ kubectl create namespace $my_namespace || true
 ```
 
 > [!NOTE]
-> All subsequent steps assume `my_release` and `my_namespace` are set in your shell session. The `|| true` makes the namespace creation safe to re-run.
+> All subsequent steps assume `my_release` and `my_namespace` are set in your shell session.
+> The `|| true` makes the namespace creation safe to re-run.
 
 ### 5. Deploy the Helm Chart
 
@@ -99,7 +105,8 @@ kubectl get svc -n $my_namespace
 Before proceeding, ensure all pods show `Running` status and `1/1` in the READY column.
 
 > [!NOTE]
-> The OVMS pod may take up to 10 minutes on first start while the VLM model is downloaded. Set `global.keepPvc: true` to retain the model across reinstalls.
+> The OVMS pod may take up to 10 minutes on first start while the VLM model is downloaded.
+> Set `global.keepPvc: true` to retain the model across reinstalls.
 
 ### 7. Access the Application
 
