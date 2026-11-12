@@ -41,10 +41,17 @@ Cameras (N, unique camera_ids) ─RTSP─▶ DLSPS ─MQTT─▶ broker (mosquit
 
 `web` (Scenescape manager) serves UI + REST scene API and owns calibration, camera poses, and ROIs.
 
-## Pinned images (from the smart-intersection reference)
+## Images (resolve stable compatible tags at stack-generation time)
 
-- `intel/scenescape-controller:2026.2.0` — **scene** (multi-camera fusion, `tracker-config.json`)
-- `intel/scenescape-manager:2026.2.0` — **web** (Scene Management UI + REST scene API, Django)
+Resolve the newest mutually compatible stable tags for the Scenescape services
+from their image registries when generating the stack. Do not copy release tags
+from this reference or mix incompatible release versions. Verify each selected
+tag exists for the target platform, then pin the concrete tags in the generated
+Compose file and record them in its README. If a compatible stable release
+cannot be confirmed, report that rather than silently using an older tag.
+
+- `intel/scenescape-controller:RESOLVED_CONTROLLER_TAG` — **scene** (multi-camera fusion, `tracker-config.json`)
+- `intel/scenescape-manager:RESOLVED_MANAGER_TAG` — **web** (Scene Management UI + REST scene API, Django)
 - `postgres:17.6` — **pgserver** (scene database)
 - `influxdb:2.7.11` — **influxdb2** (time-series ROI analytics; Flux queries)
 - `grafana/grafana:11.6.0` — Grafana with the **InfluxDB** datasource (not the MQTT datasource)
@@ -52,7 +59,7 @@ Cameras (N, unique camera_ids) ─RTSP─▶ DLSPS ─MQTT─▶ broker (mosquit
 - `eclipse-mosquitto:2.1.2-alpine` — **broker** (secured with TLS certs)
 - `dockurr/chrony:4.6.1` — **ntpserver** (synchronized timestamps for fusion)
 - `nginx:1.31.3-alpine` — TLS reverse proxy (80/443)
-- `${DLSTREAMER_PIPELINE_SERVER_IMAGE}` — DLSPS object detection → MQTT
+- `${DLSTREAMER_PIPELINE_SERVER_IMAGE}` — DLSPS object detection → MQTT (set to the verified concrete tag in the generated `.env`)
 
 No MediaMTX, Coturn, WebRTC, Prometheus, or OpenTelemetry.
 
