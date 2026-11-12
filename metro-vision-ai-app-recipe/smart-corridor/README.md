@@ -1,55 +1,92 @@
+```{eval-rst}
+.. meta::
+   :description: Overview of the Smart Corridor sample application and its architecture.
+   :keywords: Smart Corridor, traffic analytics, edge AI, multi-camera, architecture
+```
+
 # Smart Corridor
 
-The **Smart Corridor** is a sample application that unifies the analytics of a multiple traffic intersections.
+The **Smart Corridor** is a sample application that unifies analytics across multiple
+traffic intersections.
 
-It demonstrates how edge AI technologies can address traffic management challenges using scene-based analytics. It combines analytics from multiple traffic cameras in multiple intersections to provide a unified corridor view, enabling advanced use cases such as object tracking across multiple viewpoints, motion vector analysis (e.g., speed and heading), and understanding object interactions in three-dimensional space. This application highlights how existing camera infrastructure can be leveraged for real-time, multi-camera scene analytics, showcasing a shift from frame-based analysis to integrated, edge AI-driven solutions for smarter traffic management.
+The application demonstrates how edge AI can address traffic management challenges using
+scene-based analytics. It combines data from cameras at multiple intersections to create a
+unified corridor view. This enables use cases such as tracking objects across multiple
+viewpoints, analyzing motion vectors such as speed and heading, and understanding object
+interactions in three-dimensional space. The application uses existing camera infrastructure
+for real-time, multi-camera analytics, moving from frame-based analysis to an integrated view.
 
-The following are some example use cases:
+Example use cases include:
 
-- **Use Case 1**: Pedestrian Safety - Enhance the safety for vulnerable road users (VRUs) at crosswalks.
-  - Example: Scene-based region of interest (ROI) analytics help identify VRUs actively using crosswalks and detect unsafe situations, such as pedestrians walking outside the designated crosswalk areas.
-- **Use Case 2**: Measure average vehicle count and average dwell time in each lane. Dwell time refers to the amount of time a vehicle spends at a stop, such as a bus stop or train station, without moving.
-  - Example: Vehicles spending too much time in a lane indicates anomalies such as stalled vehicles, accidents, and congestion.
+- **Pedestrian safety**: Improve safety for vulnerable road users (VRUs) at crosswalks.
+  - Scene-based region of interest (ROI) analytics can identify VRUs using crosswalks and
+    detect unsafe situations, such as pedestrians outside designated crosswalk areas.
+- **Vehicle count and dwell time**: Measure the average vehicle count and dwell time in each
+  lane. Dwell time is the amount of time a vehicle remains stopped, such as at a bus stop or
+  train station.
+  - Vehicles that remain in a lane for an unusually long time may indicate an anomaly such as
+    a stalled vehicle, an accident, or congestion.
 
-The key benefits are as follows:
+Key benefits include:
 
-- **Multi-camera multi-object tracking**: Enables tracking of objects across multiple camera views.
-- **Scene based analytics**: Regions of interest that span multiple views can be easily defined on the map rather than independently on each camera view. This greatly simplifies business logic, enables more flexibility in defining regions, and allows various types of sensors to be used to track vehicles and people such as lidar and radar in addition to cameras.
-- **Improved Urban Management**: Object tracking and analytics are available near-real-time on the MQTT broker to enable actionable insights for traffic monitoring and safety applications.
-- **Reduced TCO**: Works with existing cameras, simplifies business logic development, and future-proofs the solution by enabling additional sensors and cameras as needed without changing the business logic.
+- **Multi-camera, multi-object tracking**: Track objects across multiple camera views.
+- **Scene-based analytics**: Define regions of interest across multiple views on a map, rather
+  than separately in each camera view. This simplifies business logic, provides flexibility
+  when defining regions, and supports tracking vehicles and people with cameras, lidar, and
+  radar.
+- **Improved urban management**: Access object tracking and analytics in near real time
+  through the Message Queuing Telemetry Transport (MQTT) broker to support traffic monitoring
+  and safety applications.
+- **Reduced total cost of ownership (TCO)**: Use existing cameras, simplify business logic
+  development, and add sensors or cameras without changing the business logic.
 
 ## Get Started
 
-To see the system requirements and other installations, see the following guides:
+See these guides for system requirements and installation instructions:
 
-- [Get Started](./docs/user-guide/get-started.md): Follow step-by-step instructions to set up the application.
-- [System Requirements](./docs/user-guide/get-started/system-requirements.md): Check the hardware and software requirements for deploying the application.
+- [Get Started](./docs/user-guide/get-started.md):
+  Follow step-by-step instructions to set up the application.
+- [System Requirements](./docs/user-guide/get-started/system-requirements.md):
+  Check the hardware and software requirements for deploying the application.
 
 ## How It Works
-This section provides a high-level view of how the application integrates with a typical system architecture.
+
+This section provides a high-level view of how the application integrates with a typical
+system architecture:
 
 ![High-Level System Diagram](./docs/user-guide/_assets/smart-corridor-architecture.drawio.svg)
 
 ### Diagram Description
 
 - **Inputs**:
-  - **Video Files** - Traffic intersection cameras that capture videos simultaneously.
-  - **Scene Database** - Pre-configured corridor/intersection scenes with 3D map view of all intersections, calibrated cameras, and regions of interest.
-  Video recordings are used to simulate a live feed from cameras deployed at a traffic intersections. The application can be configured to work with live cameras.
+  - **Video files**: Synchronized recordings from traffic cameras simulate live feeds from
+    multiple intersections. The application can also use live camera feeds.
+  - **Scene database**: Preconfigured corridor and intersection scenes contain 3D maps of
+    the intersections, calibrated cameras, and regions of interest.
 - **Processing**:
-  - **Video Analytics** - Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) utilizes a pre-trained object detection model to generate object detection metadata and and a local NTP server for synchronized timestamps. This metadata is published to the MQTT broker.
-  - **Sensor Fusion** - Scene Controller Microservice fuses the metadata from video analytics utilizing scene data obtained through the Scene Management API. It uses the fused tracks and the configured analytics (regions of interest) to generate events that are published to the MQTT broker.
-  - **Aggregate Scene Analytics** - Region of interest analytics are read from the MQTT broker and stored in an InfluxDB bucket which enables time series analysis through Flux queries.
+  - **Video analytics**: The Deep Learning Streamer Pipeline Server (DL Streamer Pipeline
+    Server) uses a pretrained object detection model to generate detection metadata, which it
+    publishes to the MQTT broker. A local NTP server provides synchronized timestamps.
+  - **Sensor fusion**: The Scene Controller Microservice combines video analytics metadata
+    with scene data obtained through the Scene Management API. It uses the fused tracks and
+    configured analytics, including regions of interest, to generate events for the MQTT
+    broker.
+  - **Aggregate scene analytics**: Node-RED application logic reads region-of-interest
+    analytics from the MQTT broker and stores them in an InfluxDB bucket for time-series
+    analysis through Flux queries.
 - **Outputs**:
-  - Fused object tracks are available on the MQTT broker and visualized through the Scene Management UI.
-  - Aggregate scene analytics are visualized through a Grafana dashboard.
+  - Fused object tracks are available on the MQTT broker and can be viewed in the Scene
+    Management UI.
+  - Aggregate scene analytics are available in a Grafana dashboard.
 
-For more details, see [Overview](./docs/user-guide/index.md)
+For more details, see the [Overview](./docs/user-guide/index.md).
 
 ## Learn More
 
-- [Support and Troubleshooting](./docs/user-guide/troubleshooting.md): Find solutions to common issues and troubleshooting steps.
+- [Support and Troubleshooting](./docs/user-guide/troubleshooting.md): Find solutions to
+  common issues.
 
 ## License
 
-The application is licensed under the [LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE AGREEMENT](./LICENSE.txt).
+The application is licensed under the
+[LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE AGREEMENT](./LICENSE.txt).

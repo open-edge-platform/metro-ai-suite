@@ -1,3 +1,9 @@
+```{eval-rst}
+.. meta::
+   :description: Use edge AI to track vehicles across intersection cameras and analyze traffic flow.
+   :keywords: Smart Corridor, edge AI, traffic monitoring, multi-camera tracking, MQTT
+```
+
 # Smart Corridor
 
 <!--hide_directive
@@ -14,42 +20,43 @@
 </div>
 hide_directive-->
 
-The Smart Corridor sample application uses edge AI to improve the traffic flow.
-It combines feeds from multiple intersection cameras to track vehicles from different angles, analyze their
-speed and direction, and understand interactions in real space. The system can be implemented
-with existing cameras and deliver real-time, coordinated insights for smarter traffic monitoring.
+The Smart Corridor sample application uses edge AI to improve traffic flow. It combines feeds
+from multiple intersection cameras to track vehicles from different angles, analyze their speed
+and direction, and understand interactions in real space. The system works with
+existing cameras and delivers real-time, coordinated insights for smarter traffic monitoring.
 
 **Example Use Case**
 
-- **Traffic Flow Monitoring**: count vehicles and measure dwell time in each lane, detecting
-  when vehicles stay in their lanes for too long. This identifies stalled cars, accidents,
-  and traffic jams.
+- **Traffic flow monitoring**: Count vehicles and measure dwell time in each lane to detect
+  when vehicles stay in their lanes for too long. This identifies stalled cars, accidents, and
+  traffic jams.
 
 **Key Benefits**
 
-- **Multi-camera multi-object tracking**: enables tracking of objects across multiple camera
-  views.
-- **Scene-based analytics**: regions of interest that span multiple views can be easily
-  defined on the map rather than independently on each camera view. This greatly simplifies
-  business logic, enables more flexibility in defining regions, and enables additional sensors
-  such as lidar and radar to be used to track vehicles and people.
-- **Improved Urban Management**: object tracking and analytics are available near-real-time on
-  MQTT broker to enable actionable insights for traffic monitoring and safety applications.
-- **Reduced TCO**: works with the existing cameras, and makes scaling with additional sensors
-  and cameras easy. This simplifies business logic development, and future-proofs the solution.
+- **Multi-camera, multi-object tracking**: Tracks objects across multiple camera views.
+- **Scene-based analytics**: Define regions of interest that span multiple views on a map
+  instead of independently on each camera view. This simplifies business logic, enables more
+  flexibility in defining regions, and enables additional sensors such as light detection and
+  ranging (LIDAR) and radar to track vehicles and people.
+- **Improved urban management**: Object tracking and analytics are available in near real time
+  through a Message Queuing Telemetry Transport (MQTT) broker, providing actionable insights
+  for traffic monitoring and safety applications.
+- **Reduced total cost of ownership (TCO)**: Works with existing cameras and makes it easy to scale
+  by adding sensors and cameras. This simplifies business logic development and helps
+  future-proof the solution.
 
 ## Learn More
 
-- [Scenescape](https://docs.openedgeplatform.intel.com/dev/scenescape/index.html): Intel Scene-based AI software framework.
-- [DL Streamer Pipeline Server](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/index.html): Intel microservice based on Python for video ingestion and deep learning inferencing functions.
+- [Scenescape](https://docs.openedgeplatform.intel.com/dev/scenescape/index.html): Intel® scene-based AI software framework.
+- [Deep Learning Streamer Pipeline Server](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/index.html):
+  An Intel® microservice based on Python programming language for video ingestion and deep learning
+  inference.
 
 <!--hide_directive
 :::{toctree}
 :hidden:
 
 get-started
-how-to-use-gpu-for-inference
-how-to-use-npu-for-inference
 troubleshooting
 release-notes
 
