@@ -1,7 +1,17 @@
+<!--hide_directive
+```{eval-rst}
+.. meta::
+   :description: Learn how the Smart Tolling perception layer uses DL Streamer Pipeline Server pipelines, axle counting, and multi-view image fusion.
+   :keywords: smart tolling, perception layer, DL Streamer Pipeline Server, axle counting, lift axle detection, IoU, multi-view image fusion, MQTT
+```
+hide_directive-->
+
 # The Perception Layer
 
-The core of the system is the **DL Streamer Pipeline Server**, which orchestrates
-six parallel pipelines (three camera-pair types, two lanes each) defined in `config.json`.
+The core of the system is the
+**Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server)**, which
+orchestrates six parallel pipelines (three camera-pair types, two lanes each) defined in
+`config.json`.
 
 ## Pipeline Strategy
 
@@ -34,7 +44,7 @@ Counting wheels is easy; counting *taxable* wheels is hard. Our adapter implemen
 
    - *Result:* The payload reports `wheels_touching_ground` separately from `wheel_count`.
 
-### B. Multi-View Image Fusion & Optimizations
+### B. Multi-View Image Fusion and Optimizations
 
 The system captures evidence from all angles to create a complete "Vehicle Package".
 Instead of sending raw video streams, adapters encode "Evidence Crops" as
@@ -42,6 +52,7 @@ Instead of sending raw video streams, adapters encode "Evidence Crops" as
 
 ## Learn More
 
-- [Optimizations](./optimization.md)
+- [Optimization](./optimization.md)
 - [Analytics Pipeline](../how-it-works.md)
 - [Support and Troubleshooting](../troubleshooting.md)
+- [DL Streamer Pipeline Server Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/index.html)
