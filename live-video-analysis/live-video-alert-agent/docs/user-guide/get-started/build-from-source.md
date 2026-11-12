@@ -61,7 +61,8 @@ To build the Docker image for `Live Video Alert Agent` application, follow these
   docker compose -f docker/docker-compose.yml up --build
   ```
 
-Notes:
-
-- The default port is `9000`, but can be changed in the compose yaml.
-- Use pre-converted OpenVINO IR models from the [OpenVINO organization on Hugging Face](https://huggingface.co/OpenVINO) for best compatibility. These models are optimized for OVMS and require no additional conversion.
+> [!NOTE]
+>
+> - The default port is `9000`, but can be changed in the compose yaml.
+> - Use pre-converted OpenVINO IR models from the [OpenVINO organization on Hugging Face](https://huggingface.co/OpenVINO)
+> for best compatibility. These models are optimized for OVMS and require no additional conversion.
