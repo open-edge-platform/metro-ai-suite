@@ -4,36 +4,36 @@ This section provides detailed hardware, software, and platform requirements to 
 
 ## Supported Platforms
 
-**Operating Systems**
-- Ubuntu 24.04 LTS
-- Ubuntu 26.04 LTS
+**Operating Systems**:
+
+- Ubuntu 24.04 LTS or Ubuntu 26.04 LTS
 
 ## Minimum Requirements
 
-| **Component**       | **Minimum Requirement** |
-|---------------------|-------------------------|
-| **Processor**       | Intel® Core™ Ultra Processor Series 3 (PTL 358H)
-| **Memory**          | 32 GB                   |
-| **Disk Space**      | 128 GB SSD              |
-| **GPU/Accelerator** | Integrated GPU         |
-| **NPU**             | Required for LPR OCR and vehicle color classification |
+| **Component**       | **Minimum Requirement**                                |
+| ------------------- | ------------------------------------------------------ |
+| **Processor**       | Intel® Core™ Ultra Series 3  (Panther Lake)            |
+| **Memory**          | 32 GB                                                  |
+| **Disk Space**      | 128 GB SSD                                             |
+| **GPU/Accelerator** | Integrated GPU                                         |
+| **NPU**             | Required for LPR OCR and vehicle color classification  |
 
-
-> [!NOTE]
-> Users can also create apps tailored to their use case using models supported by DL Streamer.
-> Check [the list of supported models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/supported_models.html) for the latest information.
+> [!IMPORTANT]
+> **Accelerator requirement**: The default pipeline configuration hardcodes `device=GPU` for
+> detection/tracking and `device=NPU` for color classification and license plate recognition
+> OCR in `config.json`. A system without these accelerators cannot run the pipeline as shipped.
 
 ## Software Requirements
 
 **Required Software**:
+
 - Docker 29.5 or higher
 - Git, unzip
 
-## Accelerator Requirements
-
-The default pipeline configuration hardcodes `device=GPU` for detection/tracking and
-`device=NPU` for color classification and license-plate OCR in `config.json`. A system
-without these accelerators cannot run the pipeline as shipped.
+> [!NOTE]
+> Users can also create applications tailored to their use case using models supported by
+> Deep Learning Streamer (DL Streamer).
+> Check [the list of supported models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/supported_models.html) for the latest information.
 
 ## Validation
 
