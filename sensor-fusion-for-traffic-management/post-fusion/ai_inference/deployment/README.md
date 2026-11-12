@@ -25,6 +25,10 @@ Assume the current folder is `deployment`. For successful compilation of AI infe
      └── yolo-v2-tiny-ava-0001.blob
  ```
 
+> [!NOTE]
+>
+> This build-from-source workflow is stale — it references an internal `hce-core` repository and build scripts that are not present in this public repository. The steps below are kept for historical reference only.
+
 1. Checkout to the latest hce-core code.
 
    ```bash
