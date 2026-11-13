@@ -1,18 +1,27 @@
+```{eval-rst}
+.. meta::
+   :description: Troubleshooting guidance for the Smart Corridor Sample Application.
+   :keywords: Smart Corridor, troubleshooting, Docker, containers, NPU inference
+```
+
 # Troubleshooting
 
-This page provides comprehensive support and troubleshooting information for the Smart Corridor Sample Application. It is divided into the following sections:
+This section provides troubleshooting information for the Smart Corridor Sample
+Application. It is divided into the following sub-sections:
 
-- **Common Issues**: General troubleshooting steps for resolving issues like container failures, port conflicts, and missing dependencies.
-- **Troubleshooting Docker Deployments**: Steps to address problems specific to Docker deployments.
+- **Common Issues**: General steps for resolving container failures, port conflicts, and
+  missing dependencies.
+- **Troubleshooting Docker Deployments**: Steps for resolving problems specific to Docker
+  deployments.
 
-If you encounter any problems with the application not addressed here, check the
-[GitHub Issues](https://github.com/open-edge-platform/metro-ai-suite/issues) board. Feel free
-to file new tickets there (after learning about the guidelines for
-[Contributing](https://github.com/open-edge-platform/metro-ai-suite/blob/main/CONTRIBUTING.md)).
+If you encounter a problem that is not addressed in this section, check the
+[GitHub Repository's Issues](https://github.com/open-edge-platform/metro-ai-suite/issues) board. Before
+filing a new issue, review the
+[contribution guidelines](https://github.com/open-edge-platform/metro-ai-suite/blob/main/CONTRIBUTING.md).
 
 ## Troubleshooting Common Issues
 
-### 1. Containers Not Starting
+### 1. Containers Do Not Start
 
 - **Issue**: The application containers fail to start.
 - **Solution**:
@@ -21,7 +30,7 @@ to file new tickets there (after learning about the guidelines for
   docker compose logs
   ```
 
-  Check the logs for errors and resolve dependency issues.
+  Check the logs for errors and resolve any dependency issues.
 
 ### 2. Port Conflicts
 
@@ -37,21 +46,20 @@ to file new tickets there (after learning about the guidelines for
   sudo apt-get install -y <dependency>
   ```
 
-### 4. Camera Stream Stuck
+### 4. Camera Stream is Stuck
 
-- **Issue**: Camera Streams seem to be stuck when Scenescape UI is accessed with localhost URL.
-- **Solution**: Make sure to access the localhost URL ONLY via RDP/VNC sessions. Opening via browser extensions from a remote machine is NOT recommended.
+- **Issue**: Camera streams seem to be stuck when you access the Scenescape UI using a
+  localhost URL.
+- **Solution**: Access the localhost URL only through RDP or VNC sessions. Accessing it
+  through browser extensions from a remote machine is not recommended.
 
+### 5. Application Fails to Start in Air-Gapped (No Internet) Environments
 
-### 5. NPU Inference Failures with Geti-Trained Models
-
-- **Issue**: If you experience errors or failures when running an NPU workload with a model trained in Intel Geti, this may be caused by **Non-Maximum Suppression (NMS)** being embedded within the model graph. The NPU does not support dynamic shapes, and NMS operations with dynamic output shapes are incompatible with NPU execution.
-- **Solution**: Follow the [Export and Optimize Geti Model](./export-and-optimize-geti-model.md) guide to generate a model with NMS removed from the model graph. NMS will then be handled by DL Streamer.
-
-### 6. Application Fails to Start in Air-Gapped (No Internet) Environments
-
-- **Issue**: When running the application on a machine without internet access, containers fail to start with errors like `failed to resolve reference`, or Grafana dashboards show "No data" even though containers appear healthy.
-- **Solution**: While internet is still available, run the following preparation steps after `./install.sh smart-corridor`:
+- **Issue**: When you run the application on a machine without internet access, containers
+  may fail to start with errors such as `failed to resolve reference`. Grafana dashboards
+  may also show "No data" even though the containers appear healthy.
+- **Solution**: While internet access is available, run the following preparation steps
+  after `./install.sh smart-corridor`:
 
   ```bash
   # Pre-install Node-RED InfluxDB plugin into the named volume
@@ -61,66 +69,69 @@ to file new tickets there (after learning about the guidelines for
   docker compose pull
   ```
 
-  After disconnecting from the Internet,
-  - Export admin password as environment variable:
+  After disconnecting from the internet, complete these steps:
+
+  - Export the administrator password as an environment variable:
 
     ```bash
     export SUPASS=$(cat ./smart-corridor/src/secrets/supass)
     ```
 
-  - Start the application with proxy variables(if any) unset:
+  - Start the application with proxy variables (if there are any) unset:
 
     ```bash
     unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY no_proxy NO_PROXY
     docker compose up -d
     ```
 
-### 7. Resolving Time Sync Issues between Parent and Child Nodes**
+### 6. Time Synchronization Issues Between Parent and Child Nodes
 
+Synchronize system time using NTP:
 
-    You can follow the steps below to synchronize system time using NTP.
-    1. **Install systemd-timesyncd** if not already installed:
+1. **Install `systemd-timesyncd`** if it is not already installed:
 
-       ```bash
-       sudo apt install systemd-timesyncd
-       ```
+    ```bash
+    sudo apt install systemd-timesyncd
+    ```
 
-    2. **Check service status**:
+2. **Check the service status**:
 
-       ```bash
-       systemctl status systemd-timesyncd
-       ```
+    ```bash
+    systemctl status systemd-timesyncd
+    ```
 
-    3. **Configure an NTP server** (if behind a corporate proxy):
+3. **Configure an NTP server** (if behind a corporate proxy):
 
-       ```bash
-       sudo nano /etc/systemd/timesyncd.conf
-       ```
+   ```bash
+   sudo nano /etc/systemd/timesyncd.conf
+   ```
 
-       Add:
+   Add the following configuration:
 
-       ```ini
-       [Time]
-       NTP=corp.intel.com
-       ```
+   ```ini
+   [Time]
+   NTP=corp.intel.com
+   ```
 
-       > **Note:** Replace `corp.intel.com` with a common ntp server that is supported for all the nodes on your network.
+   > [!NOTE]
+   > Replace `corp.intel.com` with an NTP server supported by all nodes on your
+   > network.
 
-    4. **Restart the service**:
+4. **Restart the service**:
 
-       ```bash
-       sudo systemctl restart systemd-timesyncd
-       ```
+    ```bash
+    sudo systemctl restart systemd-timesyncd
+    ```
 
-    5. **Verify the status**:
+5. **Verify the status**:
 
-       ```bash
-       systemctl status systemd-timesyncd
-       ```
+    ```bash
+    systemctl status systemd-timesyncd
+    ```
 
 ## Troubleshooting Docker Deployments
 
-### 1. Containers Failing To Start
+### 1. Containers Fail to Start
 
 - Check the Docker logs for errors:
 
@@ -128,63 +139,76 @@ to file new tickets there (after learning about the guidelines for
   docker compose logs
   ```
 
-### 2. Port Conflicts:
+### 2. Port Conflicts
 
 - Update the `ports` section in the Compose file to resolve conflicts.
 
-### 3. Reset Application
+### 3. Reset the Application
 
-- Follow these steps to reset the application to the initial state
+- Reset the application to its initial state:
 
   ```bash
   docker compose down
   docker volume ls | grep metro-vision-ai-app-recipe | awk '{ print $2 }' | xargs docker volume rm
   ```
 
-### 4. Cleanup secrets
+### 4. Regenerate the Secrets
 
-- Follow these steps to re-generate the secrets:
+To regenerate the secrets:
 
-  ```bash
-  rm ./src/secrets/browser.auth
-  ```
+```bash
+rm ./smart-corridor/src/secrets/browser.auth
+```
 
-- Then repeat Step 2 **Setup Credentials and Download Assets** in [Get Started](./get-started.md)
+```bash
+docker compose down
+rm ./smart-corridor/src/secrets/browser.auth
+./install.sh smart-corridor   # regenerates missing secrets via init.sh
+docker compose up -d
+```
 
-### 5. Cannot access application in remote host
+### 5. Cannot Access the Application on a Remote Host
 
-- Update the firewall to receive request to port 443
+- Configure the firewall to allow incoming requests on port 443:
 
   ```bash
   sudo ufw allow 443/tcp
   ```
 
-- Stop other services that might be running in port 443 (e.g. Kubernetes Load Balancer)
+- Stop other services that might be using port 443, such as a Kubernetes load balancer.
 
-### 6. Services scene or web fails to start
+### 6. Scene or Web Services Fail to Start
 
-- On first starts, `scene` or `web` might fail to start due to a timeout on waiting for `pgserver` initialization to be ready. Restart the services with:
+- On the first start, `scene` or `web` might time out while waiting for `pgserver` to
+  initialize. Restart the services:
 
   ```bash
   docker compose up -d scene web
   ```
 
-### 7. Grafana shows No data when accessed remotely
+### 7. Grafana Dashboard Shows No Data When Accessed Remotely
 
-- This issue occurs when there is a time synchronization mismatch between the system running the application and the system accessing Grafana through a browser. Grafana relies on timestamps to display data, and if the clocks on the two systems are not synchronized, it may result in no data being shown.
-- Use Grafana's time range filter to adjust the displayed time range. Set it to match the timestamp of the data being generated by the application. This ensures that the data falls within the selected time range and becomes visible in the dashboard.
-- This adjustment is particularly useful when the systems are in different time zones or have slight clock differences
+- This issue occurs when the system running the application and the system accessing
+  Grafana through a browser have different times. Grafana relies on timestamps to display
+  data, so unsynchronized clocks may prevent data from appearing.
+- Use Grafana's time range filter to adjust the displayed time range to match the timestamps
+  of the data generated by the application. This ensures that the data falls within the
+  selected time range and appears in the dashboard.
+- This adjustment is useful when the systems are in different time zones or have slight
+  clock differences.
 
-### 8. Application UI shows No objects detected on scene
+### 8. Application UI Shows No Objects Detected in the Scene
 
-- This issue occurs when the scene controller is unable to establish a connection with the message broker. Ensure that the broker service is running and accessible, and verify the network configuration to allow communication between the scene controller and the broker.
-- Inspect the logs of the scene controller with:
+- This issue occurs when the scene controller cannot connect to the message broker. Ensure
+  that the broker service is running and accessible, and verify that the network
+  configuration allows communication between the scene controller and the broker.
+- Inspect the scene controller logs:
 
   ```bash
   docker compose logs scene
   ```
 
-- When the scene controller can't connect to the broker, the following log lines are shown:
+- When the scene controller cannot connect to the broker, the following log lines appear:
 
   ```text
   Starting scene controller
@@ -193,14 +217,14 @@ to file new tickets there (after learning about the guidelines for
   Broker broker.scenescape.intel.com online: Connecting
   ```
 
-- To address this issue, restart the scene controller:
+- Restart the scene controller:
 
   ```bash
   docker compose down scene
   docker compose up -d scene
   ```
 
-- Then verify that the container is ready:
+- Verify that the container is ready:
 
   ```text
   Broker broker.scenescape.intel.com online: Connecting
@@ -209,33 +233,4 @@ to file new tickets there (after learning about the guidelines for
   Container is ready
   ```
 
-- Now the Application UI should show objects detected on scene.
-
-  ```
-
-### 9. Accessing the MQTT Broker Externally
-
-- **Issue**: You want to connect an external MQTT client to the broker for debugging or monitoring topics.
-- **Solution**: Expose port 1883 on the broker service by adding a `ports` section in `docker-compose.yml`:
-
-  ```yaml
-  broker:
-    ports:
-      - "1883:1883"
-  ```
-
-- Then restart the broker:
-
-  ```bash
-  docker compose up -d --force-recreate broker
-  ```
-
-- Connect using an MQTT client with TLS and the CA certificate:
-
-  ```bash
-  mosquitto_sub -h <HOST_IP> -p 1883 \
-    --cafile ./smart-corridor/src/secrets/certs/scenescape-ca.pem \
-    -t '#' -v
-  ```
-
-  > **Note:** The broker uses TLS (TLSv1.3) but allows anonymous connections — no username/password is required. You must use an MQTT client (not a web browser) since MQTT is a TCP protocol, not HTTP.
+- The application UI will now display detected objects in the scene.
