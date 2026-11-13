@@ -6,8 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 # Manage Live Cameras
 
 The **Live cameras** page lists the live RTSP streams registered in VSS
-(`/manager/streams`). Live search is available only for
-cameras listed here.
+(`/manager/streams`). Live search is available only for cameras listed here.
 
 ![Live cameras page](../_assets/live-cameras.jpg "Live cameras")
 

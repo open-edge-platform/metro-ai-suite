@@ -13,6 +13,17 @@ SPDX-License-Identifier: Apache-2.0
 
 # Virtual Security Guard Agent
 
+<!--hide_directive
+<div class="component_card_widget">
+  <a class="icon_github" href="https://github.com/open-edge-platform/metro-ai-suite/tree/main/virtual-security-guard-agent">
+     GitHub
+  </a>
+  <a class="icon_document" href="https://github.com/open-edge-platform/metro-ai-suite/blob/main/virtual-security-guard-agent/README.md">
+     Readme
+  </a>
+</div>
+hide_directive-->
+
 The **Virtual Security Guard (VSG) Agent** console is the operator interface. It
 connects to **Argus**, the VSG agent that runs on a **Hermes** agent server.
 The VSG agent searches recorded and live camera footage through Intel's
@@ -25,9 +36,9 @@ for human review, a floorplan route, live camera matches, and PDF incident repor
 ## Key Features
 
 | Feature | What it does |
-|---|---|
+| --- | --- |
 | Chat-driven search | Describe a person, attach a photo, or both. The VSG agent calls `vss_search_video` and returns ranked sightings. |
-| Human-in-the-loop review | The console initially shows the top matches; on wide screens, they appear in a 3×2 grid. Operators can reveal up to 20 matches. The operator confirms matches. When a review includes at least one confirmed match, shown unconfirmed matches are sent to Argus as false positives.|
+| Human-in-the-loop review | The console initially shows the top matches; on wide screens, they appear in a 3×2 grid. Operators can reveal up to 20 matches. The operator confirms matches. When a review includes at least one confirmed match, shown unconfirmed matches are sent to Argus as false positives. |
 | Crop and re-search | The operator crops the person from a clip frame in the console. The console sends the crop to VSS, and Argus runs another image search. |
 | Floorplan route | The console draws confirmed sightings in time order from camera to camera on an uploaded floorplan. |
 | Live camera search | After the operator consents, VSS watches live cameras, and the console maintains a live timeline of sightings for each camera. |
@@ -45,6 +56,10 @@ for human review, a floorplan route, live camera matches, and PDF incident repor
   sightings for a bounded time.
 - **Privacy-aware search**: the VSG agent describes clothing and movement only. It
   does not identify people or infer age, gender, or ethnicity.
+
+## See Also
+
+- [Video Search and Summarization](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/video-search-and-summarization/index.html)
 
 <!--hide_directive
 :::{toctree}

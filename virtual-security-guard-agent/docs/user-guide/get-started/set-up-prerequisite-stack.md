@@ -33,7 +33,7 @@ git clone --filter=blob:none --sparse --branch main https://github.com/open-edge
 git -C metro-ai-suite sparse-checkout set virtual-security-guard-agent
 ```
 
-The later steps start from this directory.
+The following steps assume you start from this directory.
 
 ## 2. Set Up VSS in Search Mode
 
@@ -53,13 +53,13 @@ source setup.sh --search
 Open `http://<vss-host>:12345/` to check that VSS is up. VSG and the VSS MCP
 server both use this address. For GPU embedding, the Milvus vector database
 backend, proxy settings, and other options, see the VSS
-[Get Started](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/sample-applications/video-search-and-summarization/docs/user-guide/get-started.md)
+[Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/video-search-and-summarization/get-started.html)
 guide.
 
-## 3. Install the Hermes Agent Server and OpenVINO Model Server
+## 3. Install the Hermes Agent Server and OpenVINO™ Model Server
 
 The [agent-harness-install](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/frameworks/agent-harness-install)
-installer starts the OpenVINO model server and the **Inference Router** in Docker,
+installer starts the OpenVINO™ model server and the **Inference Router** in Docker,
 installs the Hermes agent server, and connects the agent server to the router.
 Follow steps 4 through 7 to configure the Hermes agent server for VSG.
 
@@ -72,13 +72,14 @@ export SERVED_MODEL="${MODEL##*/}"
 export HARNESS_OVMS_REST_PORT=8450 && ./install.sh --harness hermes --model "$MODEL"
 ```
 
-> **Note:** The VSG agent needs a model that follows a strict reply format and
+> [!NOTE]
+> The VSG agent needs a model that follows a strict reply format and
 > calls tools correctly. `Qwen3.6-35B-A3B` is a mixture-of-experts model with
 > about 3 billion active parameters, so it is quick but still reliable. Smaller
 > models often break the reply format or misuse tools. Dense models such as
 > `OpenVINO/Qwen3.8-27B-int4-ov` are more accurate but run slowly.
 
-- When the installer prompts for **Runtime [host/openshell]**, press Enter to
+- When the installer prompts for "**Runtime [host/openshell]**", press Enter to
   keep `host`. `openshell` runs the Hermes agent server in an OpenShell sandbox.
 - When the installer prompts for **Host/IP to advertise in printed endpoint
   URLs**, enter the host's IP address (`<HOST_IP>`) so the printed URLs work
@@ -87,9 +88,8 @@ export HARNESS_OVMS_REST_PORT=8450 && ./install.sh --harness hermes --model "$MO
   if they are missing, and checks the Intel® GPU. See
   [Get Started](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/frameworks/agent-harness-install/docs/user-guide/get-started.md)
   for all options.
-- The model is already in OpenVINO IR format, so OpenVINO model server downloads
-  it without
-  converting it. The GPU, or system memory for an integrated GPU, must hold the
+- The model is already in OpenVINO™ IR format, so OpenVINO™ model server downloads
+  it without converting it. The GPU, or system memory for an integrated GPU, must hold the
   model weights, KV cache, and VSS models together.
 - Behind a proxy, export `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` first.
   `NO_PROXY` (and `no_proxy`) must include `localhost`, `127.0.0.1`,
@@ -117,8 +117,8 @@ From the installer directory:
 This adds `mcp_servers.vss` to `~/.hermes/config.yaml`. The VSS MCP server
 must be the only entry under `mcp_servers`. Remove any other entries.
 
-> **Note:** Behind a proxy, the Hermes agent server can reach the VSS MCP
-> server only if the
+> [!NOTE]
+> Behind a proxy, the Hermes agent server can reach the VSS MCP server only if the
 > `<vss-host>` is in `NO_PROXY` and `no_proxy` (see step 3). Otherwise, its
 > requests go to the proxy, and the VSG agent cannot search.
 
@@ -127,7 +127,7 @@ must be the only entry under `mcp_servers`. Remove any other entries.
 The VSG agent, named Argus, is defined by the files in `hermes-skills/`:
 
 | File | Purpose |
-|---|---|
+| --- | --- |
 | `SOUL.md` | The VSG agent's identity (the Argus persona) and boundaries. Installed as `~/.hermes/SOUL.md`, which applies to **every** agent on the Hermes host. |
 | `virtual-security-guard` | The search, validate, trace, and report workflow; the VSS tool playbook, reply format, and guardrails. |
 | `vsg-incident-report` | Turns confirmed sightings into a report draft. |
@@ -167,9 +167,8 @@ and web.
 
 ## 7. Enable the API Server and Start the Gateway
 
-The console connects to the Hermes agent server through the Hermes **API
-server**, which runs inside the Hermes **gateway**. Both are switched off after
-the installer finishes.
+The console connects to the Hermes agent server through the Hermes **API server**,
+which runs inside the Hermes **gateway**. Both are switched off after the installer finishes.
 
 Generate and save the API server key:
 
@@ -232,4 +231,4 @@ From the installer directory:
 ```
 
 This removes the Hermes agent server and its `~/.hermes` directory,
-OpenVINO model server, and the router. Add `--keep-agent-data` to keep `~/.hermes`.
+OpenVINO™ model server, and the router. Add `--keep-agent-data` to keep `~/.hermes`.

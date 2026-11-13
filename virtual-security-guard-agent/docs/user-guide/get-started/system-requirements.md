@@ -16,7 +16,7 @@ SPDX-License-Identifier: Apache-2.0
 The VSG agent console container has light resource requirements.
 
 VSS and the model used by the VSG agent on the Hermes agent server account
-for most compute needs. Consult their respective documentation for sizing
+for most of the compute needs. Consult their respective documentation for sizing
 details.
 
 ## Validated Platforms
@@ -26,15 +26,14 @@ details.
   The VSG container can run on the VSS host or any host that can reach both
   Hermes API server and the VSS gateway.
 - **Reasoning model**: an OpenVINO™ model on OpenVINO™ model server that returns tool calls.
-  The
-  GPU (or system memory for an integrated GPU) must accommodate the weights,
+  The GPU (or system memory for an integrated GPU) must accommodate the weights,
   key-value (KV) cache, and any VSS models on the same host.
 - **OS**: Ubuntu OS version 24.04 LTS.
 
 ## VSG Container
 
 | Resource | Value |
-|---|---|
+| --- | --- |
 | CPU | 1 core (Compose limit) |
 | Memory | 256 MB (Compose limit) |
 | Disk | About 120 MB for the image; allow 1 GB to build it locally. |
@@ -47,7 +46,7 @@ These values are the minimum requirements for the default model,
 performance or accuracy.
 
 | Resource | Minimum |
-|---|---|
+| --- | --- |
 | Processor | Intel® Core™ Ultra Series 3 processor with an integrated GPU. Validated on Panther Lake (PTL 358H). The integrated GPU uses system RAM. |
 | Memory | 64 GB RAM. The weights, key-value cache, and any VSS models on the same host share the system memory. |
 | Disk | 128 GB free for the model weights and Hugging Face cache. |
@@ -57,8 +56,8 @@ performance or accuracy.
   after a restart takes the longest because the system loads the model and
   processes the prompt.
 - Smaller models, such as models with 9 billion parameters, respond faster but
-  are more likely to ignore the reply format or call tools incorrectly. Use
-  them to try the VSG agent, but not for critical investigations.
+  are more likely to ignore the reply format or call tools incorrectly. You can use
+  them to test the VSG agent, but not for critical investigations.
 - Larger dense models require more memory and run slowly on a CPU or an
   integrated GPU. Use them only on a host with enough memory and, ideally, a
   GPU with enough dedicated memory.
@@ -79,14 +78,14 @@ performance or accuracy.
   registered.
   See [Set Up the Prerequisite Stack](./set-up-prerequisite-stack.md) to set up VSS,
   then use the `agent-harness-install` to configure the Hermes agent server,
-  OpenVINO model server, and Inference Router.
+  OpenVINO™ model server, and Inference Router.
 
 ## Network Ports
 
 | Port | Service | Reached by |
-|---|---|---|
+| --- | --- | --- |
 | `12346` | VSG agent console (`VSG_UI_PORT`) | The browser needs only this port. |
 | `8642` | Hermes API server | The VSG container. |
 | `12345` | VSS NGINX gateway, including the VSS MCP server at `/mcp` | The VSG container and the Hermes agent server. |
 | `8010` | Inference Router, on the `<HOST_IP>` given to the installer | Hermes agent server, on the same host. |
-| `8450` (`HARNESS_OVMS_REST_PORT`) | OpenVINO model server, on the `<HOST_IP>` given to the installer | The Inference Router. |
+| `8450` (`HARNESS_OVMS_REST_PORT`) | OpenVINO™ model server, on the `<HOST_IP>` given to the installer | The Inference Router. |

@@ -29,9 +29,9 @@ restore the default plan.
 Copy `deploy/floorplans/simple.json`, or click **Download JSON** on the
 **Floorplan** page to save the plan you are viewing.
 
-## 2. Write the plan
+## 2. Write the floor plan
 
-The minimal plan only needs camera positions:
+The minimal floor plan only needs camera positions. For example:
 
 ```json
 {
@@ -44,7 +44,7 @@ The minimal plan only needs camera positions:
 Coordinates are SVG units, origin top-left, `y` pointing down.
 
 | Field | Required | Meaning |
-|---|---|---|
+| --- | --- | --- |
 | `cameras.<key>` | yes | One entry per camera. The key is the camera's name and its VSS tag, for example `P_Lev_4_Main_Entry_ip_54`. Use only letters, digits, `_` and `-` (at most 128 characters). |
 | `cameras.<key>.x`, `.y` | yes | Camera position. Must not be negative, and must lie on the canvas when `canvas` is set. |
 | `cameras.<key>.zone` | no | Zone name shown on the map and in reports. |
@@ -57,16 +57,17 @@ Coordinates are SVG units, origin top-left, `y` pointing down.
 | `zones` | no | `[{ "name": …, "rect": {x,y,w,h} }]` or `points` polygons; `outdoor: true` draws a dashed outline. Zone names must be unique. |
 | `walls` | no | List of polylines `[[x,y], [x,y], …]`. |
 
-Plans are limited to 5 MB.
+> [!NOTE]
+> Floor plans are limited to 5 MB.
 
-## 3. Upload the plan
+## 3. Upload the floor plan
 
 1. Click **Upload JSON** and choose the file.
-2. Each plan camera's key is its VSS tag. Nothing is matched by similar
+2. Each floor plan camera's key is its VSS tag. Nothing is matched by similar
    names. The map shows each camera as:
 
    | Look | State |
-   |---|---|
+   | --- | --- |
    | Green, pulsing | **Live**: a live camera on this tag is sending frames. |
    | Solid blue | **Mapped**: VSS has footage under this tag. |
    | Hollow ring | **Empty**: nothing in VSS yet. Not an error; use **Add live camera here**. |

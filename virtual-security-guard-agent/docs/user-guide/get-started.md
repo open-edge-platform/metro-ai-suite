@@ -14,9 +14,9 @@ SPDX-License-Identifier: Apache-2.0
 # Get Started
 
 The **Virtual Security Guard Agent (VSG) Agent** console runs in a single container and
-proxies requests to two upstreams: the **Hermes** API server and the **Video Search
-and Summarization (VSS)** gateway. Argus, the VSG agent, runs on the Hermes agent
-server. The console has no backend or database of its own.
+proxies requests to two upstreams: the **Hermes** API server and the
+**Video Search and Summarization (VSS)** gateway. Argus, the VSG agent, runs on the Hermes
+agent server. The console has no backend or database of its own.
 
 ## Prerequisites
 
@@ -33,6 +33,7 @@ server. The console has no backend or database of its own.
 If you have set up the prerequisite stack on this host, you have already cloned the
 source for [step 1](./get-started/set-up-prerequisite-stack.md#1-get-the-sources).
 Go to the cloned source directory and run `cd metro-ai-suite/virtual-security-guard-agent`.
+
 Otherwise, clone it:
 
 ```bash
@@ -42,7 +43,7 @@ git sparse-checkout set virtual-security-guard-agent
 cd virtual-security-guard-agent
 ```
 
-All later commands run from this directory.
+The guide assumes the following commands run from this directory.
 
 ### 2. Create `deploy/.env`
 
@@ -61,10 +62,10 @@ make env HERMES_BASE_URL=http://<hermes-host-ip>:8642 \
 To change other settings, edit `deploy/.env`:
 
 | Variable | Default | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `HERMES_BASE_URL` | `http://127.0.0.1:8642` | Hermes API server, `scheme://host:port`, no path. Use the Hermes host's IP: inside the container, `127.0.0.1` is the container itself. |
 | `HERMES_API_KEY` | *(required)* | Hermes `API_SERVER_KEY` from `~/.hermes/.env`. NGINX adds it to Hermes requests. |
-| `VSS_BASE_URL` | `http://127.0.0.1:12345` | The NGINX gateway address configured by `VSS_BASE_URL (serves `/manager` and `/datastore`). |
+| `VSS_BASE_URL` | `http://127.0.0.1:12345` | The NGINX gateway address configured by `VSS_BASE_URL` (serves `/manager` and `/datastore`). |
 | `VSG_FLOORPLAN` | `simple` | Default floorplan: `deploy/floorplans/<name>.json`, mounted into the container. Ships with `simple` (`camera_1`…`camera_4`) and `level4`. See [Configure the Floorplan](./how-to-guides/configure-floorplan.md). |
 | `VSG_UI_HOST` | `0.0.0.0` | Set `VSG_UI_HOST` to `127.0.0.1`, to keep the console local. |
 | `VSG_UI_PORT` | `12346` | Console port. |
