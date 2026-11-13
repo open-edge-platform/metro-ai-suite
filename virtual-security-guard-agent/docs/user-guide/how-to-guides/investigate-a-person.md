@@ -94,7 +94,7 @@ When a clip shows the subject clearly, use it as a better reference image:
   dims, and a toolbar appears at the bottom of the frame.
 2. Drag a rectangle around the person. Its size in video pixels appears above
   it. Drag inside it to move it, or click **Redo** to draw again. Use **Frame**
-  ‹ › to move to a sharper frame. Press **Esc** or click **Cancel** to leave
+  `‹ ›` buttons to move to a sharper frame. Press **Esc** or click **Cancel** to leave
   crop mode.
 3. Click **Save crop** (or press **Enter**).
 
@@ -138,8 +138,8 @@ live search.
 - VSS keeps no history of a live search, so this browser saves the timeline
   with the investigation. Reopening the investigation from **History** restores
   the timeline and its confirmed stops. Another browser cannot see this data.
-- The search also stops automatically when it reaches the **Live watch time
-  limit** (default: 30 minutes) or when there has been no new sighting for the
+- The search also stops automatically when it reaches the **Live watch time limit**
+  (default: 30 minutes) or when there has been no new sighting for the
   **Stop when quiet for** duration (default: 10 minutes). You can change both
   settings on the **Settings** page.
 
@@ -184,7 +184,7 @@ The browser stores these parameters.
 ![Settings page](../_assets/settings.jpg "Settings")
 
 | Setting | Default | Effect |
-|---|---|---|
+| --- | --- | --- |
 | Minimum score (of the top match) | `0.60` | Fraction of the best match's score a match needs to be shown for review, appear as a live sighting, and join the route. Lower shows more sightings but adds noise. |
 | Matches per search | `20` | Candidates the VSG agent asks VSS for. The grid shows up to 20 of them that reach the minimum score. |
 | Live watch time limit | `30` minutes | Live search stops by itself after this. |

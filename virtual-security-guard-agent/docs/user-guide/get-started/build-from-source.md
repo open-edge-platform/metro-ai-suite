@@ -37,9 +37,10 @@ make up    REGISTRY=registry.example.com/ TAG=2026.3.0
 ```
 
 `make up` uses a local image before pulling one, so run `make build` after
-code changes.
+code changes. `make push` builds before pushing.
 
-`REGISTRY` needs a trailing slash. `make push` builds before pushing.
+> [!IMPORTANT]
+> `REGISTRY` needs a trailing slash.
 
 For the `lint`, `test`, `check`, and `format` targets, see
 [Run Unit Tests](./run-unit-tests.md).

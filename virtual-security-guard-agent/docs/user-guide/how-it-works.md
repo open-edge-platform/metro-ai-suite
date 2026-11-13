@@ -23,7 +23,7 @@ renders Argus’s results and lets operators review them.
 ![Architecture: operator browser, vsg-ui container, Hermes agent, VSS MCP server, VSS gateway, and model server](./_assets/vsg-architecture.svg)
 
 | Component | Role |
-|---|---|
+| --- | --- |
 | vsg-ui | Serves the React application and proxies an allowlist of Hermes and VSS paths. |
 | Hermes agent server | Runs the VSG agent, keeps one session per investigation, and streams run events over Server-Sent Events (SSE). |
 | VSG Hermes skills | Provide the `virtual-security-guard` and `vsg-incident-report` skills installed on the Hermes host. |
@@ -56,4 +56,3 @@ renders Argus’s results and lets operators review them.
 - [Get Started](./get-started.md)
 - [Known Issues](./known-issues.md)
 - [Release Notes](./release-notes.md)
-
