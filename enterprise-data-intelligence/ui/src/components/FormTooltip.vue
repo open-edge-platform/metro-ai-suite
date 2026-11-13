@@ -1,5 +1,5 @@
 <!--
-  Copyright (C) 2026 Intel Corporation
+  Copyright (C) 2025 Intel Corporation
   SPDX-License-Identifier: Apache-2.0
 -->
 
@@ -17,7 +17,7 @@
 <script setup lang="ts" name="FormTooltip">
 import { InfoCircleOutlined } from "@ant-design/icons-vue";
 
-const props = defineProps({
+defineProps({
   title: {
     type: String,
   },
