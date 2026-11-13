@@ -1,3 +1,9 @@
+```{eval-rst}
+.. meta::
+   :description: Overview of the Smart Corridor sample application and its architecture.
+   :keywords: Smart Corridor, traffic analytics, edge AI, multi-camera, architecture
+```
+
 # Smart Corridor
 
 The **Smart Corridor** is a sample application that unifies analytics across multiple
@@ -79,3 +85,8 @@ For more details, see the [Overview](./docs/user-guide/index.md).
 
 - [Support and Troubleshooting](./docs/user-guide/troubleshooting.md): Find solutions to
   common issues.
+
+## License
+
+The application is licensed under the
+[LIMITED EDGE SOFTWARE DISTRIBUTION LICENSE AGREEMENT](./LICENSE.txt).

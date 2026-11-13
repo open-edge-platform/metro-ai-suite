@@ -53,8 +53,17 @@ filing a new issue, review the
 - **Solution**: Access the localhost URL only through RDP or VNC sessions. Accessing it
   through browser extensions from a remote machine is not recommended.
 
+### 5. NPU Inference Failures with Geti-Trained Models
 
-### 5. Application Fails to Start in Air-Gapped (No Internet) Environments
+- **Issue**: Errors or failures when running an NPU workload with a model trained in Intel® Geti™
+  may be caused by **Non-Maximum Suppression (NMS)** being embedded in the model graph.
+  The NPU does not support dynamic shapes, and NMS operations with
+  dynamic output shapes are incompatible with NPU execution.
+- **Solution**: Follow the [Export and Optimize Geti Model](./export-and-optimize-geti-model.md)
+  guide to generate a model with NMS removed from the model graph. DL Streamer will then
+  handle NMS.
+
+### 6. Application Fails to Start in Air-Gapped (No Internet) Environments
 
 - **Issue**: When you run the application on a machine without internet access, containers
   may fail to start with errors such as `failed to resolve reference`. Grafana dashboards
@@ -85,7 +94,7 @@ filing a new issue, review the
     docker compose up -d
     ```
 
-### 6. Time Synchronization Issues Between Parent and Child Nodes
+### 7. Time Synchronization Issues Between Parent and Child Nodes
 
 Synchronize system time using NTP:
 
@@ -157,16 +166,13 @@ Synchronize system time using NTP:
 
 To regenerate the secrets:
 
-```bash
-rm ./smart-corridor/src/secrets/browser.auth
-```
+- From the recipe root, remove the existing authentication file:
 
-```bash
-docker compose down
-rm ./smart-corridor/src/secrets/browser.auth
-./install.sh smart-corridor   # regenerates missing secrets via init.sh
-docker compose up -d
-```
+  ```bash
+  rm ./src/secrets/browser.auth
+  ```
+
+- Repeat Step 2, **Set up Credentials and Download Assets**, in [Get Started](./get-started.md).
 
 ### 5. Cannot Access the Application on a Remote Host
 
@@ -235,3 +241,35 @@ docker compose up -d
   ```
 
 - The application UI will now display detected objects in the scene.
+
+### 9. Access the MQTT Broker Externally
+
+- **Issue**: You want to connect an external MQTT client to the broker to debug or monitor
+  topics.
+- **Solution**: Expose port 1883 on the broker service by adding a `ports` section in
+  `docker-compose.yml`:
+
+  ```yaml
+  broker:
+    ports:
+      - "1883:1883"
+  ```
+
+- Restart the broker:
+
+  ```bash
+  docker compose up -d --force-recreate broker
+  ```
+
+- Connect using an MQTT client with TLS and the CA certificate:
+
+  ```bash
+  mosquitto_sub -h <HOST_IP> -p 1883 \
+    --cafile ./smart-corridor/src/secrets/certs/scenescape-ca.pem \
+    -t '#' -v
+  ```
+
+  > [!NOTE]
+  > The broker uses TLS (TLSv1.3) but allows anonymous connections; no user name
+  > or password is required. Use an MQTT client, not a web browser, because MQTT is a TCP
+  > protocol, not HTTP.
