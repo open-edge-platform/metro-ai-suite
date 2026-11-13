@@ -146,6 +146,13 @@ docker compose restart vms-adapter-backend
 
 See the [Nx Witness troubleshooting](./how-to-guides/integrations/nx-witness/reference.md#pipeline-and-detections).
 
+**Symptoms**: When recording is enabled, detections are not seen but bookmarks are seen.
+
+**Solution**: Stop and start the pipeline to recover. If recording was just enabled for this
+camera for the first time, also check **Camera Settings** → **Recording** and configure the
+schedule as desired. A newly enabled schedule is not always configured correctly, and
+detections are not seen until it is corrected.
+
 ### MQTT Messages Not Received
 
 **Symptoms**: `MqttSubscriber` does not forward detections; no analytics objects appear in Nx.
