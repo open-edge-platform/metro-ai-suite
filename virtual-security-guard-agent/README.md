@@ -1,11 +1,3 @@
-<!--hide_directive
-```{eval-rst}
-.. meta::
-   :description: Operator console for the Virtual Security Guard Agent and links to its guides.
-   :keywords: Virtual Security Guard Agent, VSG, Argus, user guide.
-```
-hide_directive-->
-
 <!--
 SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
