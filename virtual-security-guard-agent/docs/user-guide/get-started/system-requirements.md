@@ -13,7 +13,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # System Requirements
 
-The VSG console container has light resource requirements.
+The VSG agent console container has light resource requirements.
 
 VSS and the model used by the VSG agent on the Hermes agent server account
 for most compute needs. Consult their respective documentation for sizing
@@ -85,7 +85,7 @@ performance or accuracy.
 
 | Port | Service | Reached by |
 |---|---|---|
-| `12346` | VSG console (`VSG_UI_PORT`) | The browser needs only this port. |
+| `12346` | VSG agent console (`VSG_UI_PORT`) | The browser needs only this port. |
 | `8642` | Hermes API server | The VSG container. |
 | `12345` | VSS NGINX gateway, including the VSS MCP server at `/mcp` | The VSG container and the Hermes agent server. |
 | `8010` | Inference Router, on the `<HOST_IP>` given to the installer | Hermes agent server, on the same host. |

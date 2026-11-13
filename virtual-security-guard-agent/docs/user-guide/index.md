@@ -13,11 +13,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # Virtual Security Guard Agent
 
-The **Virtual Security Guard (VSG)** console is the operator interface. It
+The **Virtual Security Guard (VSG) Agent** console is the operator interface. It
 connects to **Argus**, the VSG agent that runs on a **Hermes** agent server.
 The VSG agent searches recorded and live camera footage through Intel's
 **Video Search and Summarization (VSS)** application. The Hermes agent server cannot
-show video or images, so the VSG console displays the agent's results as match grids
+show video or images, so the VSG agent console displays the agent's results as match grids
 for human review, a floorplan route, live camera matches, and PDF incident reports.
 
 ![Architecture: operator browser, vsg-ui container, Hermes agent, VSS MCP server, VSS gateway and model server](./_assets/vsg-architecture.svg)

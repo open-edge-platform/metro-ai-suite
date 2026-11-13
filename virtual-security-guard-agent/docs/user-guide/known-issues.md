@@ -1,7 +1,7 @@
 <!--hide_directive
 ```{eval-rst}
 .. meta::
-   :description: Troubleshooting guidance for the Virtual Security Guard console.
+   :description: Troubleshooting guidance for the Virtual Security Guard Agent console.
    :keywords: Virtual Security Guard, troubleshooting, VSS, Hermes.
 ```
 hide_directive-->

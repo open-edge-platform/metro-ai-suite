@@ -13,7 +13,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # How It Works
 
-The operator uses the VSG console in a browser to interact with **Argus**, the
+The operator uses the VSG agent console in a browser to interact with **Argus**, the
 VSG agent. Argus runs on a Hermes agent server, reasons with a local model, and
 calls VSS tools through the VSS Model Context Protocol (MCP) server. The console
 renders Argus’s results and lets operators review them.

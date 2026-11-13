@@ -18,7 +18,7 @@ and a **Hermes** agent server, where the VSG agent runs with a model served by t
 OpenVINO™ model server. Set up both on one host, with VSS first. If VSS
 runs on another host, replace `<vss-host>` with the host address, in the **Set Up VSS in Search Mode** step.
 
-![The VSG console calls the Hermes API server on port 8642, which reasons with the Inference Router and OpenVINO model server on the same host and calls tools on the VSS Model Context Protocol (MCP) server](../_assets/vsg-prerequisite-stack.svg)
+![The VSG agent console calls the Hermes API server on port 8642, which reasons with the Inference Router and OpenVINO model server on the same host and calls tools on the VSS Model Context Protocol (MCP) server](../_assets/vsg-prerequisite-stack.svg)
 
 ## 1. Get the Sources
 
@@ -167,7 +167,7 @@ and web.
 
 ## 7. Enable the API Server and Start the Gateway
 
-The VSG console connects to the Hermes agent server through the Hermes **API
+The console connects to the Hermes agent server through the Hermes **API
 server**, which runs inside the Hermes **gateway**. Both are switched off after
 the installer finishes.
 
