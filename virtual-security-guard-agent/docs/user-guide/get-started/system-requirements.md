@@ -1,8 +1,10 @@
+<!--hide_directive
 ```{eval-rst}
 .. meta::
     :description: Hardware, software, and network requirements for the Virtual Security Guard Agent.
     :keywords: Virtual Security Guard Agent, system requirements, hardware, software, VSS, Hermes
 ```
+hide_directive-->
 
 <!--
 SPDX-FileCopyrightText: (C) 2026 Intel Corporation
@@ -11,8 +13,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # System Requirements
 
-The Virtual Security Guard Agent (VSG) itself has light resource requirements.
-Video Search and Summarization (VSS) and the model used by the VSG agent on the Hermes agent server account for most compute needs. Consult their respective documentation for sizing details.
+The VSG console container has light resource requirements.
+
+VSS and the model used by the VSG agent on the Hermes agent server account
+for most compute needs. Consult their respective documentation for sizing
+details.
 
 ## Validated Platforms
 

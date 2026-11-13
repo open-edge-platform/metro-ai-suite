@@ -1,8 +1,10 @@
+<!--hide_directive
 ```{eval-rst}
 .. meta::
     :description: Set up VSS, the Hermes agent server, and the Virtual Security Guard Agent prerequisite stack.
     :keywords: Virtual Security Guard Agent, VSS, Hermes agent server, OpenVINO model server, prerequisite stack
 ```
+hide_directive-->
 
 <!--
 SPDX-FileCopyrightText: (C) 2026 Intel Corporation
@@ -152,7 +154,8 @@ The list must show only `virtual-security-guard` and `vsg-incident-report`.
 
 Later, run the command again without `--no-restart` whenever `hermes-skills/`
 changes, and after `hermes update` if the list shows the bundled skills again.
-The command restarts the gateway, so start a new console session afterward.
+The command restarts the gateway, so start a new Hermes session from the console
+afterward.
 
 ## 6. Limit the Tools (Optional)
 
