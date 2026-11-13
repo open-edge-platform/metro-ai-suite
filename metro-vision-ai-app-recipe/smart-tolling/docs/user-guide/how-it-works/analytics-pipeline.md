@@ -1,3 +1,11 @@
+<!--hide_directive
+```{eval-rst}
+.. meta::
+   :description: Learn how the Smart Tolling analytics pipeline uses Node-RED, InfluxDB, and Grafana to turn Scenescape vehicle-exit metadata into traffic insights.
+   :keywords: smart tolling, analytics pipeline, Node-RED, InfluxDB, Grafana, Scenescape, MQTT
+```
+hide_directive-->
+
 # Analytics Pipeline (Downstream)
 
 Raw metadata is valuable, but actionable insights come from the Analytics Pipeline.
@@ -21,11 +29,12 @@ InfluxDB stores the tagged vehicle-exit records as a time series for Grafana to 
 ### Visualization (Grafana)
 
 The system ships with pre-configured dashboards (`Overview.json` and
-`Vehicle_Events_Axle_Analysis.json`) focusing on Traffic Volume, Flow Efficiency and Safety Alerts.
+`Vehicle_Events_Axle_Analysis.json`) focusing on Traffic Volume, Flow Efficiency, and
+Safety Alerts.
 
 ![Grafana Overview Dashboard](../_assets/grafana_overview_dashboard.png)
 
-![Grafana Vehicle Events & Axle Analysis Dashboard](../_assets/grafana_Dashboard1.png)
+![Grafana Vehicle Events and Axle Analysis Dashboard](../_assets/grafana_Dashboard1.png)
 
 > [!NOTE]
 > The vehicle and license plate images in the screenshot above have been masked for privacy.
@@ -34,5 +43,5 @@ The system ships with pre-configured dashboards (`Overview.json` and
 ## Learn More
 
 - [Perception Layer](./perception-layer.md)
-- [Optimizations](./optimization.md)
+- [Optimization](./optimization.md)
 - [Support and Troubleshooting](../troubleshooting.md)

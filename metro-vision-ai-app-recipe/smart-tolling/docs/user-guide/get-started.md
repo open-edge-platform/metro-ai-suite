@@ -1,35 +1,45 @@
+<!--hide_directive
+```{eval-rst}
+.. meta::
+   :description: Set up and run the Smart Tolling application, verify the deployment, and
+                 access the Scenescape, Grafana, Node-RED, and InfluxDB interfaces.
+   :keywords: Smart Tolling, Scenescape, Docker Compose, Grafana, Node-RED, InfluxDB
+```
+hide_directive-->
+
 # Get Started
 
 This guide walks you through setting up and running the Smart Tolling application:
 
 - Install and launch the full application stack using the provided setup scripts.
-- Verify it's running by checking vehicle detections, dashboards, and events.
+- Verify it is running by checking vehicle detections, dashboards, and events.
 - Learn where to change configuration (cameras, videos, scene data) for your own setup.
 
 > [!IMPORTANT]
-> This app ships without sample videos or scene data - see
+> This application ships without sample videos or scene data — see
 > [Bring Your Own Data](./get-started/bring-your-own-data.md) for what to prepare before you start.
 >
-> Need help running this app? Contact `<SUPPORT_EMAIL>` and we'll help you get set up.
+> Need help running this application? Contact `<SUPPORT_EMAIL>` and we will help you get set up.
 
 ## Prerequisites
 
-Before you begin ensure the following:
+Before you begin, ensure the following:
 
 - **System Requirements**: Verify that the system meets the
   [minimum requirements](./get-started/system-requirements.md).
-- **Docker Installation Complete**: Install Docker, For installation instructions, see
+- **Docker Installation Complete**: Install Docker. For installation instructions, see
   [Get Docker](https://docs.docker.com/get-docker/).
 - **Your Own Videos and Scene Data Ready**: See
   [Bring Your Own Data](./get-started/bring-your-own-data.md) for the files you need to prepare.
 
 ## Setup Guide
 
-### 1. Deploy Source Code
+### 1. Deploy the Source Code
 
-Clone the suite to your Edge Server.
 If you want to clone a specific release branch, replace `main` with the desired tag.
 To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
+
+Clone the suite to your Edge Server:
 
 ```bash
 git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
@@ -40,12 +50,11 @@ cd metro-vision-ai-app-recipe/
 
 ### 2. Configure the Environment
 
-> [!NOTE]
-> Verify variables in `.env` match your camera RTSP endpoints.
+Verify the variables in `.env` match your camera RTSP endpoints.
 
-### 3. Create .yml file
+### 3. Create the .yml File
 
-Generate the 'docker-compose.yml' file:
+Generate the `docker-compose.yml` file:
 
 ```bash
 ./install.sh smart-tolling
@@ -77,13 +86,13 @@ docker compose ps
 ## Accessing the Application
 
 Open a browser and go to the following endpoints. The application uses a self-signed HTTPS
-certificate, so your browser will show a security warning - use **Google Chrome** and accept it.
-After starting the stack, wait about a minute for the MQTT broker to come up before the UI shows
-live data.
+certificate, so your browser will show a security warning — use **Google Chrome** and accept it.
+After starting the stack, wait about a minute for the MQTT broker to come up before the UI
+shows live data.
 
 > [!NOTE]
-> Passwords stored in secret files (e.g. `supass`, `influxdb2-admin-token`) are under
-> `./smart-tolling/src/secrets/` (Docker) or `chart/files/secrets` (Helm).
+> Passwords stored in secret files (e.g., `supass`, `influxdb2-admin-token`) are under
+> `./smart-tolling/src/secrets/` (Docker).
 
 ### Scenescape Web UI
 
@@ -106,7 +115,7 @@ test videos used during development.
 
 - **URL**: [https://localhost/nodered/](https://localhost/nodered/)
 - **Username**: `<your_nodered_username>` (Check `./smart-tolling/src/secrets/nodered/nodered-admin-username`)
-- **Password**: `<your_nodered_password>` (Check `./smart-tolling/src/secrets/nodered/nodered-admin-password`).
+- **Password**: `<your_nodered_password>` (Check `./smart-tolling/src/secrets/nodered/nodered-admin-password`)
 
 ### InfluxDB UI
 
