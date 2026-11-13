@@ -1,9 +1,3 @@
-```{eval-rst}
-.. meta::
-   :description: Overview of the Smart Corridor sample application and its architecture.
-   :keywords: Smart Corridor, traffic analytics, edge AI, multi-camera, architecture
-```
-
 # Smart Corridor
 
 The **Smart Corridor** is a sample application that unifies analytics across multiple
