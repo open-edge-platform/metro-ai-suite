@@ -5,7 +5,7 @@ OEP SDK Manager is now maintained as horizontal developer tooling in
 
 Use the new location for installation scripts, documentation sources, tests,
 and contributions.
-The [published user guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/oep-sdk-manager/index.html)
+The [published user guide](https://docs.openedgeplatform.intel.com/2026.3/OEP-articles/oep-sdk-manager/index.html)
 retains its existing address.
 
 Historical releases remain available in their original release branches.

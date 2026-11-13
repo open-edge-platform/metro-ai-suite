@@ -229,5 +229,5 @@ integration on again for each camera.
 
 - [Nx Witness Ubuntu installation guide](https://support.networkoptix.com/hc/en-us/articles/360010535793-Ubuntu-Linux-OS-Installation-Guide)
 - [How secure is Nx Witness](https://support.networkoptix.com/hc/en-us/articles/115011970028-How-secure-is-Nx-Witness)
-- [Loitering Detection documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/loitering-detection/index.html)
-- [Live Video Captioning Get Started Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/live-video-captioning/get-started.html)
+- [Loitering Detection documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/loitering-detection/index.html)
+- [Live Video Captioning Get Started Guide](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/live-video-captioning/get-started.html)

@@ -14,7 +14,7 @@ platform, see [Docker Documentation](https://docs.docker.com/) for an introducti
 1. **Clone the Repository :**
 
    If you want to clone a specific release branch, replace `main` with the desired tag.
-   To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
+   To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/2026.3/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
 
    ```bash
    git clone --filter=blob:none --sparse --branch release-2026.3.0 https://github.com/open-edge-platform/metro-ai-suite.git
@@ -138,7 +138,7 @@ The Smart Route Planning Agent works in a multi-node setup with one central _Sma
 
 ### Multi-Node Deployment Prerequisites
 
-1. Deploy the [Smart Traffic Intersection Agent](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/smart-traffic-intersection-agent/get-started.html#quick-start-with-setup-script) on each edge node.
+1. Deploy the [Smart Traffic Intersection Agent](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/smart-traffic-intersection-agent/get-started.html#quick-start-with-setup-script) on each edge node.
 2. Ensure network connectivity between the central node and edge nodes.
 3. Note the IP address and port of each Smart Traffic Intersection Agent.
 4. Update the `api_hosts` field in the `src/data/config.json` file with all the edge node's IP address and port. See [this](#quick-start-with-setup-script) for example configuration.

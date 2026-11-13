@@ -21,7 +21,7 @@ detection boxes and the loitering zone on the camera's live video.
 ### 1.1 Install the application
 
 Install Loitering Detection as described in its
-[Get Started Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/loitering-detection/get-started.html).
+[Get Started Guide](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/loitering-detection/get-started.html).
 In short:
 
 ```bash

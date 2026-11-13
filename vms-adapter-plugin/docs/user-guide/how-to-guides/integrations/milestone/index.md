@@ -43,11 +43,11 @@ on its topics for each camera.
 ### Loitering Detection
 
 Loitering Detection is an IVA application from the
-[Metro Vision AI App Recipe](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/loitering-detection/index.html).
+[Metro Vision AI App Recipe](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/loitering-detection/index.html).
 It runs a DL Streamer Pipeline Server (DLSPS) pipeline that detects and tracks people,
 and measures how long each person stays in a zone. The pipeline
 publishes its results on an MQTT broker. Along with detections, it also publishes
-one *loitering status* row for each person who stays within the defined zone longer than 
+one *loitering status* row for each person who stays within the defined zone longer than
 a threshold.
 
 ### Where VAP fits

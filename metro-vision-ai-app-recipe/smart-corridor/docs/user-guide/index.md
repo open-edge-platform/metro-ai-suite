@@ -40,8 +40,8 @@ with existing cameras and deliver real-time, coordinated insights for smarter tr
 
 ## Learn More
 
-- [Scenescape](https://docs.openedgeplatform.intel.com/dev/scenescape/index.html): Intel Scene-based AI software framework.
-- [DL Streamer Pipeline Server](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/index.html): Intel microservice based on Python for video ingestion and deep learning inferencing functions.
+- [Scenescape](https://docs.openedgeplatform.intel.com/2026.3/scenescape/index.html): Intel Scene-based AI software framework.
+- [DL Streamer Pipeline Server](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer-pipeline-server/index.html): Intel microservice based on Python for video ingestion and deep learning inferencing functions.
 
 <!--hide_directive
 :::{toctree}

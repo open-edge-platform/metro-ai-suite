@@ -34,7 +34,7 @@ To get started:
 
    Go to the target directory of your choice and clone the suite.
    If you want to clone a specific release branch, replace `main` with the desired tag.
-   To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
+   To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/2026.3/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
 
    ```bash
    git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
@@ -168,7 +168,7 @@ On the parent machine, configure the [.env](../../../.env) file to declare how m
    The installer detects a parent node deployment (`TOTAL_REMOTE_CHILD` defined in `.env`) and
    automatically:
    - Uses parent-specific scene data (`Smart-Corridor.zip`)
-   - Uses parent-specific pipeline config (`config_parent.json` for multi-node / `config_sn_parent.json` for single-node) 
+   - Uses parent-specific pipeline config (`config_parent.json` for multi-node / `config_sn_parent.json` for single-node)
    - Runs `ca-bundle.sh` to fetch CA certificates from each remote child and build a
      combined trust bundle for TLS connectivity
 
@@ -211,7 +211,7 @@ On the parent machine, configure the [.env](../../../.env) file to declare how m
 5. **Link the Remote Child Scene to the Smart-Corridor Scene**:
 
    The parent's Scene Controller only receives tracks from a child node after the child scene is
-   linked to the Smart-Corridor scene in the SceneScape UI. Do this once for every remote child node, after both the child and the parent are running. 
+   linked to the Smart-Corridor scene in the SceneScape UI. Do this once for every remote child node, after both the child and the parent are running.
 
    **Before you start**, make sure that:
    - The child node is running and the parent can reach it on port `1883` (MQTT TLS) and port `8888` (CA server).
@@ -258,7 +258,7 @@ On the parent machine, configure the [.env](../../../.env) file to declare how m
    >   parent, that the CA certificates were fetched during the parent installation (`ca-bundle.sh`), and
    >   that the child MQTT credentials are correct.
    > - For details about local and remote child scenes, see the SceneScape guide
-   >   [Create and Manage a Scene Hierarchy](https://docs.openedgeplatform.intel.com/dev/scenescape/index.html).
+   >   [Create and Manage a Scene Hierarchy](https://docs.openedgeplatform.intel.com/2026.3/scenescape/index.html).
 
 
 ## Access the Application and Components
@@ -346,8 +346,8 @@ instead of `localhost` for external access:
     ```
 
 - [Troubleshooting](./troubleshooting.md): Find detailed steps to resolve common issues during deployments.
-- [DL Streamer Pipeline Server](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/index.html): Intel microservice based on Python for video ingestion and deep learning inferencing functions.
-- [Scenescape](https://docs.openedgeplatform.intel.com/dev/scenescape/index.html): Intel Scene-based AI software framework.
+- [DL Streamer Pipeline Server](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer-pipeline-server/index.html): Intel microservice based on Python for video ingestion and deep learning inferencing functions.
+- [Scenescape](https://docs.openedgeplatform.intel.com/2026.3/scenescape/index.html): Intel Scene-based AI software framework.
 
 <!--hide_directive
 :::{toctree}

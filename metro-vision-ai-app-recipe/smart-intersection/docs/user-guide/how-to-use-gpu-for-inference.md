@@ -24,4 +24,4 @@ Start the application with:
 `docker compose up -d`
 
 > [!NOTE]
-> If you have multiple GPUs (integrated/discrete), please follow the [GPU Device Selection](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html) DL Streamer document for selecting the GPU render device of your choice for VA codecs plugins.
+> If you have multiple GPUs (integrated/discrete), please follow the [GPU Device Selection](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html) DL Streamer document for selecting the GPU render device of your choice for VA codecs plugins.

@@ -221,7 +221,7 @@ docker exec apm-mqtt-broker mosquitto_sub -t 'apm/batch-complete'
 }
 ```
 
-See the [agent-service integration guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/agent-quality-handler/agent-service-integration-guide.html)
+See the [agent-service integration guide](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/agent-quality-handler/agent-service-integration-guide.html)
 for the full contract any application needs to satisfy for plugging its own
 detection layer into the agent-service, or vice versa.
 

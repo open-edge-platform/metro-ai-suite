@@ -34,7 +34,7 @@ Before you begin, ensure the following:
 ## 1. Set Up Router and Compressor Services
 
 The Router and Compressor services are set up separately. See the
-[Inference Router](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/inference-router/index.html)
+[Inference Router](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/inference-router/index.html)
 microservice for the full instructions on generating the configuration and starting both
 services.
 

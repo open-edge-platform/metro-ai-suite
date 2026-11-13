@@ -193,4 +193,4 @@ analytics event to `<app_id>-events`; see [Events and Alarms](./events-and-alarm
 - [Milestone AI Bridge documentation](https://doc.milestonesys.com/AIB/Help/latest/en-us/)
 - [Milestone AI Bridge samples](https://github.com/milestonesys/MIP-AIBridge-samples)
 - [AI Bridge container images](https://gallery.ecr.aws/milestonesys/aibridge)
-- [Loitering Detection documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/loitering-detection/index.html)
+- [Loitering Detection documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/loitering-detection/index.html)

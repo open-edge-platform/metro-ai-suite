@@ -12,7 +12,7 @@ This section shows how to:
 
 - Verify that your system meets the minimum requirements. See [System Requirements](./get-started/system-requirements.md) for details.
 - Install Docker platform: [Installation Guide](https://docs.docker.com/engine/install/). Install the Ubuntu platform version.
-- In case the sample application is used with RTSP streams, setup of the RTSP stream source (live camera or test feed) or simulated RTSP stream source using local video files should be done separately. Reference instructions are provided in the [Simulated RTSP Stream Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/live-video-captioning/get-started/simulated-rtsp-stream-guide.html).
+- In case the sample application is used with RTSP streams, setup of the RTSP stream source (live camera or test feed) or simulated RTSP stream source using local video files should be done separately. Reference instructions are provided in the [Simulated RTSP Stream Guide](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/live-video-captioning/get-started/simulated-rtsp-stream-guide.html).
 
 ## Run the Application
 

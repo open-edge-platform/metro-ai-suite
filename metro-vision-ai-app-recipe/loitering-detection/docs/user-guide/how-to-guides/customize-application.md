@@ -29,7 +29,7 @@ The system follows a modular architecture:
 
 > [!NOTE]
 > For detailed documentation on Deep Learning Streamer Pipeline Server (DL Streamer Pipeline
-> Server), visit the [DL Streamer Pipeline Server Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer-pipeline-server/index.html).
+> Server), visit the [DL Streamer Pipeline Server Documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer-pipeline-server/index.html).
 
 ![Pipeline Architecture](../_assets/pipeline.png)
 
@@ -125,7 +125,7 @@ Pipeline Server uses a messaging interface based on Message Queuing Telemetry Tr
 
 > [!NOTE]
 > For detailed documentation on the `gvaanalytics` element, visit the
-> [DL Streamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/elements/gvaanalytics.html).
+> [DL Streamer documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer/elements/gvaanalytics.html).
 
 Zone presence and dwell-time computation run natively inside the DL Streamer pipeline via the
 `gvaanalytics` element — no external low-code tool or custom service is required. This keeps

@@ -26,7 +26,7 @@ cd live-video-analysis/live-video-captioning
 ```
 
 Follow the LVC
-[Get Started Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/live-video-captioning/get-started.html)
+[Get Started Guide](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/live-video-captioning/get-started.html)
 to download the models and configure its `.env`, then start the stack:
 
 ```bash

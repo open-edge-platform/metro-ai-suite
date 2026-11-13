@@ -7,7 +7,7 @@ Real-Time Scene Understanding works by analyzing live video streams and providin
 > [!NOTE]
 >
 > 1. The time taken is a function of network bandwidth. Model and image download time will determine how long it takes for the application to be up and running.
-> 2. If there is no USB/webcam device attached, you can configure a test RTSP stream following the [Simulated RTSP Stream Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/live-video-captioning/get-started/simulated-rtsp-stream-guide.html).
+> 2. If there is no USB/webcam device attached, you can configure a test RTSP stream following the [Simulated RTSP Stream Guide](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/live-video-captioning/get-started/simulated-rtsp-stream-guide.html).
 
 ## Prerequisites
 

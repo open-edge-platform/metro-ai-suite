@@ -34,10 +34,10 @@ it, exported as a `.zip` archive. At startup, the `scene-uploader` service impor
 `<scene>/<scene>.zip` found under `src/webserver/scenes/`.
 
 - Build and calibrate your scene using Scenescape's
-  [Create a New Scene](https://docs.openedgeplatform.intel.com/dev/scenescape/how-to-guides/build-a-scene/create-new-scene.html)
-  and [Integrate Cameras and Sensors](https://docs.openedgeplatform.intel.com/dev/scenescape/how-to-guides/integrate-cameras-and-sensors.html)
+  [Create a New Scene](https://docs.openedgeplatform.intel.com/2026.3/scenescape/how-to-guides/build-a-scene/create-new-scene.html)
+  and [Integrate Cameras and Sensors](https://docs.openedgeplatform.intel.com/2026.3/scenescape/how-to-guides/integrate-cameras-and-sensors.html)
   guides.
-- [Export the Scene](https://docs.openedgeplatform.intel.com/dev/scenescape/how-to-guides/build-a-scene/create-new-scene.html#exporting-and-importing-the-scene) Export your scene to `src/webserver/scenes/Smart-Tolling/Smart-Tolling.zip`, keeping this exact name so no further changes are needed. To use a different name, see the next step instead.
+- [Export the Scene](https://docs.openedgeplatform.intel.com/2026.3/scenescape/how-to-guides/build-a-scene/create-new-scene.html#exporting-and-importing-the-scene) Export your scene to `src/webserver/scenes/Smart-Tolling/Smart-Tolling.zip`, keeping this exact name so no further changes are needed. To use a different name, see the next step instead.
 
 ## 3. Update ZIP file name and corresponding directory name (Optional)
 
@@ -76,4 +76,4 @@ If your dataset requires different models, we recommend training them to meet yo
 
 - [Get Started](../get-started.md)
 - [Perception Layer](../how-it-works/perception-layer.md)
-- [Scenescape Documentation](https://docs.openedgeplatform.intel.com/dev/scenescape/index.html)
+- [Scenescape Documentation](https://docs.openedgeplatform.intel.com/2026.3/scenescape/index.html)

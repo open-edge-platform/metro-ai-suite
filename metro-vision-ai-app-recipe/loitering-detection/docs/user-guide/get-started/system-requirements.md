@@ -32,7 +32,7 @@ and run the application efficiently.
 
 > [!NOTE]
 > Users can also create apps tailored to their use case using models supported by DL Streamer.
-> Check [the list of supported models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/supported_models.html) for the latest information.
+> Check [the list of supported models](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer/supported_models.html) for the latest information.
 
 ## Software Requirements
 

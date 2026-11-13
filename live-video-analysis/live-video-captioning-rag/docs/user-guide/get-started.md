@@ -1,6 +1,6 @@
 # Get Started
 
-The Live Video Captioning RAG sample application is a retrieval-augmented generation workflow that creates caption-text embeddings and stores them in a vector database together with the corresponding video frames and metadata, using an LLM that is optimized and deployed using OpenVINO™ toolkit, for response generation. The application works with the [Live Video Captioning](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/live-video-captioning/index.html) sample application that processes a Real-Time Streaming Protocol (RTSP) video stream, runs video analytics pipelines, and uses a Vision-Language Model (VLM) to generate live captions for video frames. The Live Video Captioning sample application then sends the frame data, caption text, and associated metadata to the Live Video Captioning RAG sample application so the latter can build an embedding context and store it in the vector database. The Live Video Captioning RAG sample application then provides chatbots that answer questions based on the caption text generated from the video frames.
+The Live Video Captioning RAG sample application is a retrieval-augmented generation workflow that creates caption-text embeddings and stores them in a vector database together with the corresponding video frames and metadata, using an LLM that is optimized and deployed using OpenVINO™ toolkit, for response generation. The application works with the [Live Video Captioning](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/live-video-captioning/index.html) sample application that processes a Real-Time Streaming Protocol (RTSP) video stream, runs video analytics pipelines, and uses a Vision-Language Model (VLM) to generate live captions for video frames. The Live Video Captioning sample application then sends the frame data, caption text, and associated metadata to the Live Video Captioning RAG sample application so the latter can build an embedding context and store it in the vector database. The Live Video Captioning RAG sample application then provides chatbots that answer questions based on the caption text generated from the video frames.
 
 By following this guide, you will learn how to:
 
@@ -14,7 +14,7 @@ By following this guide, you will learn how to:
 - Install Docker platform: [Installation Guide](https://docs.docker.com/get-docker/).
 - Install Docker Compose tool: [Installation Guide](https://docs.docker.com/compose/install/).
 - OpenVINO toolkit-compatible VLM/LLM. Follow the guide in [section](#3-download-models-one-time) below.
-- If the sample application is used with RTSP streams, set up the RTSP stream source (live camera or test feed), or simulated RTSP stream source using local video files, separately. Refer to [the instructions](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/live-video-captioning/get-started/simulated-rtsp-stream-guide.html) for details.
+- If the sample application is used with RTSP streams, set up the RTSP stream source (live camera or test feed), or simulated RTSP stream source using local video files, separately. Refer to [the instructions](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/live-video-captioning/get-started/simulated-rtsp-stream-guide.html) for details.
 
 ## Run the Application
 
@@ -22,7 +22,7 @@ By following this guide, you will learn how to:
 
 Go to the target directory of your choice and clone the suite.
 If you want to clone a specific release branch, replace `main` with the desired tag.
-To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
+To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/2026.3/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
 
 ```bash
 git clone --filter=blob:none --sparse --branch release-2026.3.0 https://github.com/open-edge-platform/metro-ai-suite.git
@@ -138,7 +138,7 @@ Download the LLM model used for Retrieval-Augmented Generation (RAG). The follow
 
 This stores the model under `llm_models/`.
 
-See [Model Preparation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/live-video-captioning/get-started/model-preparation.html) for detailed usage.
+See [Model Preparation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/live-video-captioning/get-started/model-preparation.html) for detailed usage.
 
 ### 4. Start the application
 
@@ -188,7 +188,7 @@ docker compose down
 ### Caption pipeline with RTSP not Running in LVC Dashboard
 
 - If your network uses a proxy, add your RTSP stream host or IP to `no_proxy` so the stream connection does not go through the proxy.
-- For more detail on LVC, please refer to the [LVC Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/live-video-captioning/get-started.html)
+- For more detail on LVC, please refer to the [LVC Documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/live-video-captioning/get-started.html)
 
 ### Embeddings are Not Being Stored
 

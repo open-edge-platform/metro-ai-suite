@@ -42,13 +42,13 @@ An approved integration gets:
 ### Analytics apps
 
 - **Loitering Detection**, from the
-  [Metro Vision AI App Recipe](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/loitering-detection/index.html),
+  [Metro Vision AI App Recipe](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/loitering-detection/index.html),
   runs a DL Streamer Pipeline Server (DLSPS) pipeline that detects and tracks people, and
   measures how long each person stays in a zone. It publishes detections on an MQTT broker,
   and its `mqtt-table-flattener` sidecar publishes a *loitering row* for each person who stays
   in the zone longer than a threshold.
 - **Live Video Captioning (LVC)**, from
-  [Live Video Analysis](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/live-video-captioning/get-started.html),
+  [Live Video Analysis](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/live-video-captioning/get-started.html),
   runs a DL Streamer pipeline with a vision-language model (VLM), and publishes a caption of
   the video every few seconds on its MQTT broker.
 

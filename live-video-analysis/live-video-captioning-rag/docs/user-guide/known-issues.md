@@ -2,7 +2,7 @@
 
 ## Limited Functionality when Deployed Standalone
 
-This sample application is now designed to run with the [Live Video Captioning](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/live-video-captioning/index.html)
+This sample application is now designed to run with the [Live Video Captioning](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/live-video-captioning/index.html)
 sample application.
 
 - If you run the Live Video Captioning RAG sample application by itself, the application can

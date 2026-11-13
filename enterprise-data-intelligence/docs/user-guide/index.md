@@ -74,7 +74,7 @@ an LLM router (with a prompt compressor) fronts local and cloud models.
 
 ## Additional Resources
 
-- [Inference Router microservice](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/inference-router/index.html) — the microservice that implements the Router and compressor.
+- [Inference Router microservice](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/inference-router/index.html) — the microservice that implements the Router and compressor.
 - [Data Intelligence Engine microservice](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/data-intelligence-engine) — the microservice that serves the knowledge base.
 - [Get Started guide](./get-started.md) — step-by-step instructions for setting up the
   platform and running the demo.
