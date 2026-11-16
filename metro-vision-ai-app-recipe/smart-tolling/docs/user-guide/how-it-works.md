@@ -1,3 +1,11 @@
+<!--hide_directive
+```{eval-rst}
+.. meta::
+   :description: High-level overview of how the tolling application integrates with a typical system architecture, including inputs, processing, outputs, and workflow.
+   :keywords: tolling, how it works, system architecture, video analytics, sensor fusion, MQTT, InfluxDB, Grafana, Node-RED, Scenescape, DL Streamer
+```
+hide_directive-->
+
 # How It Works
 
 This section provides a high-level view of how the application integrates with a
@@ -11,28 +19,27 @@ Video recordings are used to simulate a live feed from cameras deployed at a tol
 The application can be configured to work with live cameras.
 
 - **Video Files** - Tolling cameras that capture videos simultaneously from front,
-  rear and side profiles.
-- **Scene Database** - Pre-configured intersection scene with satellite view of
-  tolling area, calibrated cameras and regions of interest.
+  rear, and side profiles.
+- **Scene Database** - Pre-configured scene with a satellite view of the
+  tolling area, calibrated cameras, and regions of interest.
 
 > [!NOTE]
-> This app ships without sample videos or scene data - see
+> This application ships without sample videos or scene data — see
 > [Bring Your Own Data](./get-started/bring-your-own-data.md) for what to provide.
 
 ## Core (Processing)
 
-- [**Video Analytics**](./how-it-works/perception-layer.md) - Deep Learning Streamer Pipeline Server
+- [**Video Analytics**](./how-it-works/perception-layer.md) — Deep Learning Streamer Pipeline Server
   (DL Streamer Pipeline Server) utilizes a pre-trained object detection model
   to [generate object detection metadata](./how-it-works/optimization.md) and a local
   NTP server for synchronized timestamps. This metadata is published to the MQTT broker.
-- **Sensor Fusion** - Scene Controller Microservice fuses the metadata from
+- **Sensor Fusion** — Scene Controller Microservice fuses the metadata from
   video analytics utilizing scene data obtained through the Scene Management API.
   It uses the fused tracks and the configured analytics (regions of interest)
   to generate events that are published to the MQTT broker.
-- [**Aggregate Scene Analytics**](./how-it-works/analytics-pipeline.md#node-red-transformation) - Region of interests
-  analytics are read from the MQTT broker and
-  [stored in an InfluxDB bucket](./how-it-works/analytics-pipeline.md#storage-influxdb) that enables time series
-  analysis through Flux queries.
+- [**Aggregate Scene Analytics**](./how-it-works/analytics-pipeline.md#node-red-transformation)
+  — Region of interest analytics are read from the MQTT broker and [stored in an InfluxDB bucket](./how-it-works/analytics-pipeline.md#storage-influxdb)
+  that enables time series analysis through Flux queries.
 
 ## Live Feed Output
 
@@ -43,20 +50,20 @@ The application can be configured to work with live cameras.
 
 ## Workflow
 
-1. Video loops or RTSP is fed into DL Streamer.
+1. Video loops or RTSP input is fed into DL Streamer.
 2. Trained AI models detect vehicles and license plates.
 3. Metadata is published to MQTT.
 4. Scenescape maps detections to scene regions to get exact location of objects on the scene.
 5. Exit events are generated when vehicles leave the region.
 6. Node-RED processes only finalized exit events by subscribing to Scenescape topics.
-7. Data is written to InfluxDB for system to access for consistent information.
+7. Data is written to InfluxDB for the system to access for consistent information.
 8. Grafana visualizes real time and historical data enabling access to metrics
    and vehicle details.
 
 ## Learn More
 
 - [Perception Layer](./how-it-works/perception-layer.md)
-- [Optimizations](./how-it-works/optimization.md)
+- [Optimization](./how-it-works/optimization.md)
 - [Analytics Pipeline](./how-it-works/analytics-pipeline.md)
 - [System Requirements](./get-started/system-requirements.md)
 - [Get Started](./get-started.md)
@@ -66,9 +73,9 @@ The application can be configured to work with live cameras.
 :::{toctree}
 :hidden:
 
-./how-it-works/perception-layer
-./how-it-works/optimization
-./how-it-works/analytics-pipeline
+./how-it-works/perception-layer.md
+./how-it-works/optimization.md
+Analytics Pipeline <./how-it-works/analytics-pipeline.md>
 
 :::
 hide_directive-->

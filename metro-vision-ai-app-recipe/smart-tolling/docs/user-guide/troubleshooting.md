@@ -12,4 +12,4 @@
 If you run into an unexpected problem or need help with the application, you can
 browse existing issues or
 [create a new one](https://github.com/open-edge-platform/metro-ai-suite/issues)
-in the GitHub issue tracker, or contact `<SUPPORT_EMAIL>` directly.
+in the GitHub issue tracker, or contact <transportation.us@intel.com> directly.
