@@ -1,8 +1,10 @@
+<!--hide_directive
 ```{eval-rst}
 .. meta::
    :description: Use edge AI to track vehicles across intersection cameras and analyze traffic flow.
    :keywords: Smart Corridor, edge AI, traffic monitoring, multi-camera tracking, MQTT
 ```
+hide_directive-->
 
 # Smart Corridor
 
@@ -25,13 +27,13 @@ from multiple intersection cameras to track vehicles from different angles, anal
 and direction, and understand interactions in real space. The system works with
 existing cameras and delivers real-time, coordinated insights for smarter traffic monitoring.
 
-**Example Use Case**
+**Example Use Case**:
 
 - **Traffic flow monitoring**: Count vehicles and measure dwell time in each lane to detect
   when vehicles stay in their lanes for too long. This identifies stalled cars, accidents, and
   traffic jams.
 
-**Key Benefits**
+**Key Benefits**:
 
 - **Multi-camera, multi-object tracking**: Tracks objects across multiple camera views.
 - **Scene-based analytics**: Define regions of interest that span multiple views on a map
@@ -56,9 +58,9 @@ existing cameras and delivers real-time, coordinated insights for smarter traffi
 :::{toctree}
 :hidden:
 
-get-started
-troubleshooting
-release-notes
+./get-started.md
+./troubleshooting.md
+Release Notes <./release-notes.md>
 
 :::
 hide_directive-->

@@ -1,13 +1,15 @@
+<!--hide_directive
 ```{eval-rst}
 .. meta::
    :description: Troubleshooting guidance for the Smart Corridor Sample Application.
    :keywords: Smart Corridor, troubleshooting, Docker, containers, NPU inference
 ```
+hide_directive-->
 
 # Troubleshooting
 
 This section provides troubleshooting information for the Smart Corridor Sample
-Application. It is divided into the following sub-sections:
+Application. It is divided into the following subsections:
 
 - **Common Issues**: General steps for resolving container failures, port conflicts, and
   missing dependencies.
@@ -46,11 +48,12 @@ filing a new issue, review the
   sudo apt-get install -y <dependency>
   ```
 
-### 4. Camera Stream is Stuck
+### 4. Camera Stream Is Stuck
 
 - **Issue**: Camera streams seem to be stuck when you access the Scenescape UI using a
   localhost URL.
-- **Solution**: Access the localhost URL only through RDP or VNC sessions. Accessing it
+- **Solution**: Access the localhost URL only through Remote Desktop Protocol (RDP) or
+  Virtual Network Computing (VNC) sessions. Accessing it
   through browser extensions from a remote machine is not recommended.
 
 ### 5. Application Fails to Start in Air-Gapped (No Internet) Environments
@@ -86,19 +89,19 @@ filing a new issue, review the
 
 ### 6. Time Synchronization Issues Between Parent and Child Nodes
 
-Synchronize system time using NTP:
+Synchronize system time using Network Time Protocol (NTP):
 
 1. **Install `systemd-timesyncd`** if it is not already installed:
 
-    ```bash
-    sudo apt install systemd-timesyncd
-    ```
+   ```bash
+   sudo apt install systemd-timesyncd
+   ```
 
 2. **Check the service status**:
 
-    ```bash
-    systemctl status systemd-timesyncd
-    ```
+   ```bash
+   systemctl status systemd-timesyncd
+   ```
 
 3. **Configure an NTP server** (if behind a corporate proxy):
 
@@ -119,15 +122,15 @@ Synchronize system time using NTP:
 
 4. **Restart the service**:
 
-    ```bash
-    sudo systemctl restart systemd-timesyncd
-    ```
+   ```bash
+   sudo systemctl restart systemd-timesyncd
+   ```
 
 5. **Verify the status**:
 
-    ```bash
-    systemctl status systemd-timesyncd
-    ```
+   ```bash
+   systemctl status systemd-timesyncd
+   ```
 
 ## Troubleshooting Docker Deployments
 

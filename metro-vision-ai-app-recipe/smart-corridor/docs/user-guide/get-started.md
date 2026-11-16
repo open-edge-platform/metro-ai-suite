@@ -1,8 +1,10 @@
+<!--hide_directive
 ```{eval-rst}
 .. meta::
    :description: Deploy and use the Smart Corridor sample application on one or multiple machines.
    :keywords: Smart Corridor, deployment, multi-machine, Scenescape, Docker Compose
 ```
+hide_directive-->
 
 # Get Started
 
@@ -57,7 +59,7 @@ camera pipelines and sends tracking data to the parent's scene controller.
 
 ### Deployment Architecture
 
-```
+```text
 Parent Machine
 ├── Scenescape Controller (aggregates all scenes)
 ├── Scenescape Manager (Web UI)
@@ -73,8 +75,8 @@ Child Machine
 
 ### Important Notes for Multi-Machine Deployments
 
-- **Deploy child nodes first**: The parent's `ca-bundle.sh` fetches CA certificates from child
-  nodes over HTTP on port 8888. **Install and start child nodes before installing the parent.**
+- **Deploy child nodes first**: The parent's `ca-bundle.sh` fetches Certificate Authority (CA)
+  certificates from child nodes over HTTP on port 8888. **Install and start child nodes before installing the parent.**
 - **Network access**: Ensure port 8888 (CA server) and port 1883 are accessible between
   machines. Port 1883 uses Message Queuing Telemetry Transport (MQTT) secured with Transport
   Layer Security (TLS).
@@ -84,18 +86,19 @@ Child Machine
 - **Time synchronization**: Ensure Network Time Protocol (NTP) is synchronized across all
   machines to avoid delayed or missing tracking behavior in the Smart Corridor scene.
 
-> **Note:** For a single-node deployment (no remote child), skip the following section and go
+> [!NOTE]
+> For a single-node deployment (no remote child), skip the following section and go
 > directly to [Deploy a Parent Node](#deploy-a-parent-node).
 
 ### Deploy a Child Node
 
 If you are deploying multiple child nodes, number each deployment
-(`REMOTE_CHILD_DEPLOY`) starting at `1` in its respective [.env](../../../.env) file:
+(`REMOTE_CHILD_DEPLOY`) starting at `1` in its respective [.env](https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/.env) file:
 
 1. Clone and enter the directory (same as [Setup and First Use](#setup-and-first-use) above).
 
 2. The Smart Corridor deployment must identify which child node it represents. Configure
-   `REMOTE_CHILD_DEPLOY` as `1`, `2`, or `3` in the [.env](../../../.env) file to select the
+   `REMOTE_CHILD_DEPLOY` as `1`, `2`, or `3` in the [.env](https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/.env) file to select the
    corresponding child scene data and pipeline configuration:
 
    ```bash
@@ -116,17 +119,18 @@ If you are deploying multiple child nodes, number each deployment
      ./install.sh smart-corridor
      ```
 
-    > **Note:** If you need to specify a host IP address, such as when deploying across
-    > different network interfaces, replace `<HOST_IP>` with your target IP address:
-    > `./install.sh smart-corridor <HOST_IP>`
+   > [!NOTE]
+   > If you need to specify a host IP address, such as when deploying across
+   > different network interfaces, replace `<HOST_IP>` with your target IP address:
+   > `./install.sh smart-corridor <HOST_IP>`
 
    The installer detects the child node deployment and automatically:
 
    - Uses child-specific scene data (`Smart-Corridor-Intersection-04.zip`)
-   - Uses child-specific pipeline config (`config_child_${REMOTE_CHILD_DEPLOY}.json`)
+   - Uses child-specific pipeline configuration (`config_child_${REMOTE_CHILD_DEPLOY}.json`)
 
 4. **Start the Application**:
-   - Export the admin password as an environment variable:
+   - Export the administrator password as an environment variable:
 
      ```bash
      export SUPASS=$(cat ./smart-corridor/src/secrets/supass)
@@ -144,18 +148,19 @@ If you are deploying multiple child nodes, number each deployment
 
 ### Deploy a Parent Node
 
-On the parent machine, configure the [.env](../../../.env) file to declare how many remote
+On the parent machine, configure the [.env](https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/.env) file to declare how many remote
 child nodes exist:
 
 1. Clone and enter the directory (same as [Setup and First Use](#setup-and-first-use) above).
 
-2. Configure the [.env](../../../.env) file with the remote child IPs:
+2. Configure the [.env](https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/.env) file with the remote child IP addresses:
 
    For a single-node deployment with no child nodes:
 
    ```bash
    TOTAL_REMOTE_CHILD=0
    ```
+
    For a multi-node deployment, specify the total number of remote child nodes and their
    corresponding host IP addresses:
 
@@ -181,20 +186,22 @@ child nodes exist:
      ./install.sh smart-corridor
      ```
 
-    > **Note:** If you need to specify a host IP address, such as when deploying across
-    > different network interfaces, replace `<HOST_IP>` with your target IP address:
-    > `./install.sh smart-corridor <HOST_IP>`
+   > [!NOTE]
+   > If you need to specify a host IP address, such as when deploying across
+   > different network interfaces, replace `<HOST_IP>` with your target IP address:
+   > `./install.sh smart-corridor <HOST_IP>`
 
    The installer detects a parent node deployment (`TOTAL_REMOTE_CHILD` defined in `.env`) and
    automatically:
 
    - Uses parent-specific scene data (`Smart-Corridor.zip`)
-   - Uses parent-specific pipeline config (`config_parent.json` for multi node or `config_sn_parent.json` for single node)
+   - Uses parent-specific pipeline configuration (`config_parent.json` for a multi-node
+     deployment or `config_sn_parent.json` for a single-node deployment)
    - Runs `ca-bundle.sh` to fetch CA certificates from each remote child and build a
      combined trust bundle for TLS connectivity
 
 4. **Start the Application**:
-   - Export the admin password as an environment variable:
+   - Export the administrator password as an environment variable:
 
      ```bash
      export SUPASS=$(cat ./smart-corridor/src/secrets/supass)
@@ -229,15 +236,16 @@ child nodes exist:
 
    </details>
 
-> [!NOTE]
-> The following step is for **Multi-Node (Parent and Child) deployments only**. For a Single-Node deployment, skip the step and go to [Access the Application and Components](#access-the-application-and-components).
+   > [!NOTE]
+   > The following step is for **Multi-Node (Parent and Child) deployments only**. For a Single-Node deployment, skip the step and go to [Access the Application and Components](#access-the-application-and-components).
 
 5. **Link the Remote Child Scene to the Smart-Corridor Scene**:
 
    The parent's Scene Controller only receives tracks from a child node after the child scene is
-   linked to the Smart-Corridor scene in the Scenescape UI. Do this once for every remote child node, after both the child and the parent are running. 
+   linked to the Smart-Corridor scene in the Scenescape UI. Do this once for every remote child node, after both the child and the parent are running.
 
    **Before you start**, ensure that:
+
    - The child node is running and the parent can reach it on port `1883` (MQTT TLS) and port `8888` (CA server).
    - The system time is synchronized between the parent and child nodes (see
      [Troubleshooting](./troubleshooting.md)).
@@ -245,10 +253,10 @@ child nodes exist:
    **Collect the following details from the child node:**
 
    | Detail | Where to Get It |
-   |---|---|
+   | --- | --- |
    | Child scene name | The scene name on the child's Scenescape UI, for example `Smart-Corridor-Intersection-04`. It must be unique across the parent and child nodes. |
    | Remote child ID | The UUID of the child scene. Open the child scene in the child's Scenescape UI (`https://<child_ip>/`) and copy the UUID from the browser address bar (`https://<child_ip>/<scene-uuid>/`). |
-   | Hostname or IP | The IP address of the child node (the same value as `REMOTE_IP_<n>` in the parent's [.env](../../../.env) file). |
+   | Hostname or IP | The IP address of the child node (the same value as `REMOTE_IP_<n>` in the parent's [.env](https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/.env) file). |
    | MQTT username and password | The `user` and `password` values in `./smart-corridor/src/secrets/controller.auth` on the child node. |
 
    **Link the child scene on the parent node:**
@@ -271,11 +279,12 @@ child nodes exist:
    6. Click **Add Child Scene**.
    7. Repeat steps 4 to 6 for every remaining remote child node, using that child's own scene name, UUID, IP address, and credentials.
 
-   **Expected result:** the child scene is listed in the **Children** tab of the Smart-Corridor
+   **Expected result:** The child scene is listed in the **Children** tab of the Smart-Corridor
    scene, and its MQTT status indicator turns green. Vehicles tracked at the child intersection
    then appear on the Smart-Corridor map.
 
    > [!NOTE]
+   >
    > - A scene can have only one parent, so link each child scene to the Smart-Corridor scene only once.
    > - If the status indicator stays red, check that port `1883` on the child node is reachable from the
    >   parent, the CA certificates were fetched during the parent installation (`ca-bundle.sh`), and
@@ -291,7 +300,8 @@ Open a browser and go to the following endpoints to access the application. Use 
 instead of `localhost` for external access:
 
 > [!NOTE]
-> - Access the application UI, Grafana UI, Node-RED UI, and DL Streamer Pipeline Server API through the NGINX reverse proxy at https://localhost, using their documented paths. Access the InfluxDB UI directly at http://localhost:8086.
+>
+> - Access the application UI, Grafana UI, Node-RED UI, and DL Streamer Pipeline Server API through the NGINX reverse proxy at `https://localhost`, using their documented paths. Access the InfluxDB UI directly at `http://localhost:8086`.
 > - For passwords stored in files, such as `supass` or `influxdb2-admin-token`, refer to the
 >   corresponding files in `./src/secrets` in your deployment.
 > - The application uses HTTPS with self-signed certificates, so your browser may display a
@@ -303,7 +313,7 @@ instead of `localhost` for external access:
   - **Password**: Stored in `supass`. Check
     `./smart-corridor/src/secrets/supass`.
 
-> **Note**:
+> [!NOTE]
 >
 > - After starting the application, wait approximately 1 minute for the MQTT broker to
 >   initialize. Green arrows next to MQTT in the application interface indicate that the broker
@@ -337,7 +347,7 @@ instead of `localhost` for external access:
 
 ### DL Streamer Pipeline Server
 
-- **Representational State Transfer (REST) API**: [https://localhost/api/pipelines/status](https://localhost/api/pipelines/status)
+- **REST API**: [https://localhost/api/pipelines/status](https://localhost/api/pipelines/status)
   - **Check Pipeline Status**:
 
     ```bash
@@ -346,10 +356,11 @@ instead of `localhost` for external access:
 
 ## Verify the Application
 
-- **Fused object tracks**: In the Scene Management UI, Smart-Corridor or Smart-Corridor-Intersection cards to
-  open the scene. The individual intersection scene pages display fused tracks moving on the map and grayed-out frames from
-  each camera. Select "Live View" to display incoming camera frames. Object detections in the
-  camera feeds correspond to the tracks on the map.
+- **Fused object tracks**: In the Scene Management UI, select the Smart-Corridor or
+  Smart-Corridor-Intersection cards to open the scene. The individual intersection scene
+  pages display fused tracks moving on the map and grayed-out frames from each camera. Select
+  "Live View" to display incoming camera frames. Object detections in the camera feeds
+  correspond to the tracks on the map.
 
   ![Corridor Scene Homepage](./_assets/scenescape.png "corridor scene homepage")
   ![Smart-Corridor Scene Page](./_assets/smart-corridor.png "smart-corridor scene page")
@@ -360,7 +371,9 @@ instead of `localhost` for external access:
 
   ![Corridor Grafana Dashboard](./_assets/grafana.png "corridor grafana dashboard")
 
-  In the same Grafana Dashboard UI, you can go to `Smart Corridor - Vehicle Events` dashboard to find Vehicle Events that get captured across intersections. For example: Vehicle Reappearance and Wrong Way.
+  In the same Grafana Dashboard UI, you can go to the `Smart Corridor - Vehicle Events`
+  dashboard to find Vehicle Events that get captured across intersections. For example,
+  Vehicle Reappearance and Wrong Way.
 
   ![Vehicle Events Grafana Dashboard](./_assets/vehicle-events-dashboard.png "vehicle events grafana dashboard")
 
@@ -372,9 +385,9 @@ instead of `localhost` for external access:
 
 - To stop the application microservices, run:
 
-    ```bash
-    docker compose down
-    ```
+  ```bash
+  docker compose down
+  ```
 
 ## Learn More
 
