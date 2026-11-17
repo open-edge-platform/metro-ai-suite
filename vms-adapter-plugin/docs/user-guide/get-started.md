@@ -139,7 +139,7 @@ After starting, all services should be up, and the backend `healthy`:
 
 ```text
 NAME                          STATUS
-vms-adapter-backend           Up
+vms-adapter-backend           Up (healthy)
 vms-adapter-ui                Up (healthy)
 vms-adapter-postgres          Up (healthy)
 ```
