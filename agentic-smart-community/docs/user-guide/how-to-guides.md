@@ -3,6 +3,7 @@
 This section contains step-by-step instructions intended to help you configure and deploy the
 Agentic Smart Community sample application.
 
+- [Docker Setup Script Reference](./how-to-guides/setup-docker.md) — Startup workflow, command options, and configuration/data handling for the deployment script.
 - [Add Swap Space](./how-to-guides/add-swap.md) — Instructions to add swap space to the MCP server for improved performance and stability.
 - [Register a New Use Case](./how-to-guides/register-new-use-case.md) — Step-by-step instructions to register a new use case with the MCP server and start monitoring it.
 - [Configure the Prefilter Model for a Monitor](./how-to-guides/configure-prefilter-model.md) — Instructions to register your own OpenVINO™ detection model and select it per monitor.
@@ -12,6 +13,7 @@ Agentic Smart Community sample application.
 :::{toctree}
 :hidden:
 
+Docker Setup Script Reference <./how-to-guides/setup-docker.md>
 Add Swap Space <./how-to-guides/add-swap.md>
 Register a New Use Case <./how-to-guides/register-new-use-case.md>
 Configure the Prefilter Model <./how-to-guides/configure-prefilter-model.md>

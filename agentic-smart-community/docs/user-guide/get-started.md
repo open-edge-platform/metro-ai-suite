@@ -87,6 +87,7 @@ bash setup_docker.sh
 
 > [!NOTE]
 >
+> - For the script's startup workflow, command options, and configuration/data handling, see [Docker Setup Script Reference](./how-to-guides/setup-docker.md).
 > - This guide uses the stable release `2026.3.0` by default; to apply the latest code changes, rebuild the images from source as described in [Build the service images from source](#build-the-service-images-from-source).
 > - Use `bash setup_docker.sh --light` to reuse an already warm serving and start only `multilevel-video-understanding`, `videostream-analytics`, and `smart-community-mcp-server`.
 > - Use `bash setup_docker.sh --light-down` to stop the app tier while leaving `model-serving-llm-scaler` running (avoids model reload), or `bash setup_docker.sh --down` to stop all four services.
