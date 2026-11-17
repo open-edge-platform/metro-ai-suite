@@ -103,7 +103,7 @@ Expected output — all services should show **healthy** or **running**:
 ```text
 NAME                          STATUS
 vms-adapter-backend           Up (healthy)
-vms-adapter-ui                Up
+vms-adapter-ui                Up (healthy)
 vms-adapter-postgres          Up (healthy)
 ```
 
