@@ -21,7 +21,7 @@ multi-stage Docker build. Both are orchestrated by Docker Compose.
 Clone the repository and navigate to the VAP directory:
 
 ```bash
-git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
+git clone --filter=blob:none --sparse --branch release-2026.3.0 https://github.com/open-edge-platform/metro-ai-suite.git
 cd metro-ai-suite
 git sparse-checkout set vms-adapter-plugin
 cd vms-adapter-plugin

@@ -57,7 +57,7 @@ troubleshooting: [Nx Witness](./how-to-guides/integrations/nx-witness/index.md) 
 - The `metro-ai-suite` repository, which contains VAP and the analytics applications:
 
   ```bash
-  git clone --filter=blob:none --branch main https://github.com/open-edge-platform/metro-ai-suite.git
+  git clone --filter=blob:none --branch release-2026.3.0 https://github.com/open-edge-platform/metro-ai-suite.git
   cd metro-ai-suite
   ```
 
