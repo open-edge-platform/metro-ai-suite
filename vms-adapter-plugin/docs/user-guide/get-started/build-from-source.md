@@ -82,12 +82,12 @@ You can control the image registry and tag by setting environment variables befo
 the build command:
 
 ```bash
-export REGISTRY_URL=<your-container-registry-url>    # e.g. "docker.io/username/"
-export TAG=<your-tag>                                # e.g. "1.0.0" or "latest"
+export DOCKER_REGISTRY=<your-container-registry-url>    # e.g. "docker.io/username/"
+export APP_VERSION=<your-tag>                           # e.g. "1.0.0" or "latest"
 ```
 
 > [!NOTE]
-> If `REGISTRY_URL` or `TAG` are not set, the defaults in the Docker Compose file
+> If `DOCKER_REGISTRY` or `APP_VERSION` are not set, the defaults in the Docker Compose file
 > are used.
 
 ## Step 5: Verify the Build
@@ -103,7 +103,7 @@ Expected output — all services should show **healthy** or **running**:
 ```text
 NAME                          STATUS
 vms-adapter-backend           Up (healthy)
-vms-adapter-ui                Up
+vms-adapter-ui                Up (healthy)
 vms-adapter-postgres          Up (healthy)
 ```
 
@@ -123,7 +123,7 @@ To run the backend outside Docker for local development:
 pip install -e ".[dev]"
 ./setup.sh --vms nx --apps ld,lvc
 export VMS_PLUGIN_CONFIG_PATH=$PWD/config/config.yaml
-uvicorn plugin.analytics.main:app --reload --port 8082
+uvicorn plugin.core.main:app --reload --port 8085
 ```
 
 Run tests:

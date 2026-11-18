@@ -73,7 +73,7 @@ setup.
 Create `.env` from the example:
 
 ```bash
-cd metro-ai-suite/vms-adapter-plugin
+cd vms-adapter-plugin
 cp .env.example .env
 ```
 
@@ -140,7 +140,7 @@ After starting, all services should be up, and the backend `healthy`:
 ```text
 NAME                          STATUS
 vms-adapter-backend           Up (healthy)
-vms-adapter-ui                Up
+vms-adapter-ui                Up (healthy)
 vms-adapter-postgres          Up (healthy)
 ```
 
