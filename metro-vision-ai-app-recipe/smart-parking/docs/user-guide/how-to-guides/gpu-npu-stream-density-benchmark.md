@@ -17,7 +17,7 @@ Indicator (KPI) interpretation. Refer to that guide before running any part of t
 
 - CPU telemetry in this document is captured using the `htop` utility.
 - GPU telemetry tool used in this document: [qmassa](https://github.com/ulissesf/qmassa/tree/main/qmassa)
-- NPU telemetry tool used in this document: [npu-monitor-tool](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/tools/npu-monitor-tool)
+- NPU telemetry tool used in this document: [npu-monitor-tool](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.3.0/tools/npu-monitor-tool)
 
 ---
 
@@ -29,7 +29,7 @@ highest sustainable stream density.
 ### Recommended GPU Pipeline Settings
 
 Use the `yolov11s_gpu` pipeline as defined in
-[smart-parking/benchmark_app_payload.json](https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/smart-parking/benchmark_app_payload.json).
+[smart-parking/benchmark_app_payload.json](https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/metro-vision-ai-app-recipe/smart-parking/benchmark_app_payload.json).
 The pipeline uses the original configuration; note that metro pipelines are latency-focused by
 default.
 
@@ -97,7 +97,7 @@ This section follows the same structure as Part 1, but for the NPU pipeline.
 ### Recommended NPU Pipeline Settings
 
 Use the `yolov11s_npu` pipeline as defined in
-[smart-parking/benchmark_app_payload.json](https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/smart-parking/benchmark_app_payload.json).
+[smart-parking/benchmark_app_payload.json](https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/metro-vision-ai-app-recipe/smart-parking/benchmark_app_payload.json).
 The pipeline uses the original configuration; note that metro pipelines are latency-focused by
 default.
 
@@ -126,7 +126,7 @@ For detailed metric definitions and KPI interpretation, refer to
 
 - **Observation at achieved stream density**: At 7 streams, the NPU run remained stable above
   target FPS while the accelerator showed sustained activity.
-- **Observed NPU telemetry from** [npu-monitor-tool](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/tools/npu-monitor-tool)
+- **Observed NPU telemetry from** [npu-monitor-tool](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.3.0/tools/npu-monitor-tool)
   **at achieved stream density**: `NPU Utilization: 86%` (see Fig. 3).
 - **Observed GPU telemetry from** [qmassa](https://github.com/ulissesf/qmassa/tree/main/qmassa)
   **during the NPU run**: `VCS: 18.5%`, `VECS: 22.2%` (see Fig. 4).

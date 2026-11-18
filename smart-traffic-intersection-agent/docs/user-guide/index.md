@@ -3,10 +3,10 @@
 <!--hide_directive
 ::::{container} component_header_row
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/metro-ai-suite/tree/main/smart-traffic-intersection-agent">
+  <a class="icon_github" href="https://github.com/open-edge-platform/metro-ai-suite/tree/release-2026.3.0/smart-traffic-intersection-agent">
      GitHub
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/metro-ai-suite/blob/main/smart-traffic-intersection-agent/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/smart-traffic-intersection-agent/README.md">
      Readme
   </a>
 </div>

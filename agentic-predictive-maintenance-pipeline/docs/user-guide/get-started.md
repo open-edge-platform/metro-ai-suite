@@ -157,7 +157,7 @@ make prepare-data USE_CASE=gas-detection DATASET_URL="<gas-detection-dataset-url
 
 `setup.sh` mounts a local, OpenVINO™ model server-formatted copy of the LLM into the
 `apm-llm` service — it does not download or convert the model for you. Use the
-[model-download microservice](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/model-download)
+[model-download microservice](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.3.0/microservices/model-download)
 (already defined as `apm-model-download` in `docker/compose.base.yaml`) to fetch and convert the
 model configured via `LLM_MODEL_NAME`/`LLM_DEVICE`/`LLM_WEIGHT_FORMAT`:
 

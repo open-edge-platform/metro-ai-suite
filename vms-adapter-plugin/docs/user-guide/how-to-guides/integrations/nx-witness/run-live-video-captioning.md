@@ -11,7 +11,7 @@ the camera's timeline in the Desktop Client.
 - The `metro-ai-suite` repository cloned on the analytics host:
 
   ```bash
-  git clone --filter=blob:none --branch main https://github.com/open-edge-platform/metro-ai-suite.git
+  git clone --filter=blob:none --branch release-2026.3.0 https://github.com/open-edge-platform/metro-ai-suite.git
   cd metro-ai-suite
   ```
 

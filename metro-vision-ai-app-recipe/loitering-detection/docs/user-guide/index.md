@@ -3,13 +3,13 @@
 <!--hide_directive
 ::::{container} component_header_row
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/metro-ai-suite/tree/main/metro-vision-ai-app-recipe/loitering-detection">
+  <a class="icon_github" href="https://github.com/open-edge-platform/metro-ai-suite/tree/release-2026.3.0/metro-vision-ai-app-recipe/loitering-detection">
      GitHub
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/loitering-detection/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/metro-vision-ai-app-recipe/loitering-detection/README.md">
      Readme
   </a>
-  <a class="icon_download" href="https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/loitering-detection/docs/user-guide/get-started.md">
+  <a class="icon_download" href="https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/metro-vision-ai-app-recipe/loitering-detection/docs/user-guide/get-started.md">
      Installation guide
   </a>
 </div>

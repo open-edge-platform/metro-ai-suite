@@ -42,7 +42,7 @@ services.
 
 The OpenClaw agent and the Router use a local vLLM service on port `8086` for the
 `Qwen/Qwen3.5-35B-A3B` model. The knowledge base is served by the
-[Data Intelligence Engine](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/data-intelligence-engine)
+[Data Intelligence Engine](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.3.0/microservices/data-intelligence-engine)
 on port `16022`. The engine embeds documents, retrieves the most relevant chunks, and returns
 them to the Skills. It does not generate answers; the OpenClaw agent writes the
 answer from the retrieved chunks.

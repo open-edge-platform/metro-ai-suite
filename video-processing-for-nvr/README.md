@@ -72,4 +72,4 @@ The sample application has been validated on Intel® platforms Arrow Lake, Meteo
 
 ## License
 
-The sample application is licensed under [APACHE 2.0](../../LICENSE).
+The sample application is licensed under [APACHE 2.0](../LICENSE).

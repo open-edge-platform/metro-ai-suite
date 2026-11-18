@@ -220,4 +220,4 @@ Decode and detection finished.
 
 ## Run the Sample Application in Docker
 
-Build Docker image and Run in Docker container, for information see the [Docker README](https://github.com/open-edge-platform/metro-ai-suite/blob/main/video-processing-for-nvr/docker/README.md).
+Build Docker image and Run in Docker container, for information see the [Docker README](https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/video-processing-for-nvr/docker/README.md).

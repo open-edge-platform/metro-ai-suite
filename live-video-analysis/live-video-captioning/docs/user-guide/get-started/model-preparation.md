@@ -129,8 +129,8 @@ The following VLM models are validated in Live Video Captioning.
 >   DL Streamer, so DL Streamer/OpenVINO must also support the converted model
 >   at runtime. If you test newer stacks, you can try weekly images from
 >   [Docker Hub](https://hub.docker.com/r/intel/dlstreamer/tags) by updating
->   [compose.yaml](https://github.com/open-edge-platform/metro-ai-suite/blob/main/live-video-analysis/live-video-captioning/compose.yaml)
->   or Helm chart [values.yaml](https://github.com/open-edge-platform/metro-ai-suite/blob/main/live-video-analysis/live-video-captioning/charts/subcharts/dlstreamer-pipeline-server/values.yaml).
+>   [compose.yaml](https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/live-video-analysis/live-video-captioning/compose.yaml)
+>   or Helm chart [values.yaml](https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/live-video-analysis/live-video-captioning/charts/subcharts/dlstreamer-pipeline-server/values.yaml).
 >   Weekly images may include stability issues.
 >   This guide is written for the current stable DL Streamer release and its
 >   matching stable OpenVINO release.

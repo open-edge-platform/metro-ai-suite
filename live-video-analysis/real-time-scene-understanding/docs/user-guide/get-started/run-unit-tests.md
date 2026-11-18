@@ -1,6 +1,6 @@
 # Testing and Coverage
 
-The project uses pytest for unit testing. Tests are located in the [`app/tests/`](https://github.com/open-edge-platform/metro-ai-suite/tree/main/live-video-analysis/real-time-scene-understanding/app/tests) directory.
+The project uses pytest for unit testing. Tests are located in the [`app/tests/`](https://github.com/open-edge-platform/metro-ai-suite/tree/release-2026.3.0/live-video-analysis/real-time-scene-understanding/app/tests) directory.
 
 ## Install Test Dependencies
 

@@ -9,6 +9,9 @@
 
 **Release Date**: November, 2026
 
+> [!NOTE]
+> Helm Chart support will be deprecated in the next release. Limited validation has been performed on the Helm charts for this release.
+
 **New**:
 
 - Scenescape region events: subscribe to region topics alongside camera topics. Brokers now take `camera_topic` and `region_topic`.
@@ -31,7 +34,7 @@
 
 **Known Issues**:
 
-- Scenescape integration is currently not supported when deploying with Helm charts.
+- Scenescape integration is not supported when deploying with Helm charts.
 
 ## Version 2026.2.0
 

@@ -22,7 +22,7 @@ technical decision to the orchestrator skill.
    outcome you want (for example, "detect people", "count vehicles", or "flag PPE
    violations"), or simply describe your goal in your own words.
 2. **The orchestrator takes over.** The
-   [`metro-ai-app-builder`](https://github.com/open-edge-platform/metro-ai-suite/tree/main/prompt-library/.github/skills/metro-ai-app-builder)
+   [`metro-ai-app-builder`](https://github.com/open-edge-platform/metro-ai-suite/tree/release-2026.3.0/prompt-library/.github/skills/metro-ai-app-builder)
    skill runs a short **business** Q&A, what you want to achieve, your inputs,
    where it runs, and your hardware.
 3. **Skill discovery.** From your answers the orchestrator discovers the relevant
@@ -51,7 +51,7 @@ I want to <state the business outcome in one or two sentences>.
 
 Use the metro-ai-app-builder skill to guide this process. Install and invoke it:
 
-npx skills@1.5.23 add https://github.com/open-edge-platform/metro-ai-suite/tree/main/prompt-library/.github/skills/metro-ai-app-builder
+npx skills@1.5.23 add https://github.com/open-edge-platform/metro-ai-suite/tree/release-2026.3.0/prompt-library/.github/skills/metro-ai-app-builder
 ```
 
 ---
@@ -62,8 +62,8 @@ Ready-to-use, business-objective prompts you can copy and paste directly into
 Copilot or your AI agent tool. Each tile is loaded from a prompt file in the
 `prompts/` directory — click one to view the full prompt, then copy it.
 
-<link rel="stylesheet" href="../../_static/prompt-library-files/prompt-catalog.css">
-<div id="prompt-catalog" class="prompt-catalog" data-prompts-path="../../_static/prompt-library-files/prompts/" data-prompts="smart-city-object-detection,crowd-safety-monitoring,traffic-flow-monitoring,unauthorized-access-detection,worker-safety-compliance">
+<link rel="stylesheet" href="../../_static/metro-prompt-library-files/prompt-catalog.css">
+<div id="prompt-catalog" class="prompt-catalog" data-prompts-path="../../_static/metro-prompt-library-files/prompts/" data-prompts="smart-city-object-detection,crowd-safety-monitoring,traffic-flow-monitoring,unauthorized-access-detection,worker-safety-compliance">
   <p class="prompt-catalog-loading">Loading prompts…</p>
 </div>
-<script src="../../_static/prompt-library-files/prompt-catalog.js"></script>
+<script src="../../_static/metro-prompt-library-files/prompt-catalog.js"></script>

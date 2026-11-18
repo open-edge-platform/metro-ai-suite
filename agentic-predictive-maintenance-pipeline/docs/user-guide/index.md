@@ -10,10 +10,10 @@
 
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/metro-ai-suite/tree/main/agentic-predictive-maintenance-pipeline">
+  <a class="icon_github" href="https://github.com/open-edge-platform/metro-ai-suite/tree/release-2026.3.0/agentic-predictive-maintenance-pipeline">
      GitHub
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/metro-ai-suite/blob/main/agentic-predictive-maintenance-pipeline/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/agentic-predictive-maintenance-pipeline/README.md">
      Readme
   </a>
 </div>

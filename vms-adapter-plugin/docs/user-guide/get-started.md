@@ -57,7 +57,7 @@ troubleshooting: [Nx Witness](./how-to-guides/integrations/nx-witness/index.md) 
 - The `metro-ai-suite` repository, which contains VAP and the analytics applications:
 
   ```bash
-  git clone --filter=blob:none --branch main https://github.com/open-edge-platform/metro-ai-suite.git
+  git clone --filter=blob:none --branch release-2026.3.0 https://github.com/open-edge-platform/metro-ai-suite.git
   cd metro-ai-suite
   ```
 
@@ -73,7 +73,7 @@ setup.
 Create `.env` from the example:
 
 ```bash
-cd metro-ai-suite/vms-adapter-plugin
+cd vms-adapter-plugin
 cp .env.example .env
 ```
 
@@ -140,7 +140,7 @@ After starting, all services should be up, and the backend `healthy`:
 ```text
 NAME                          STATUS
 vms-adapter-backend           Up (healthy)
-vms-adapter-ui                Up
+vms-adapter-ui                Up (healthy)
 vms-adapter-postgres          Up (healthy)
 ```
 

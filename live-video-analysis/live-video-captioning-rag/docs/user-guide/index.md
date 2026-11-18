@@ -2,10 +2,10 @@
 
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/metro-ai-suite/tree/main/live-video-analysis/live-video-captioning-rag">
+  <a class="icon_github" href="https://github.com/open-edge-platform/metro-ai-suite/tree/release-2026.3.0/live-video-analysis/live-video-captioning-rag">
      GitHub project
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/metro-ai-suite/blob/main/live-video-analysis/live-video-captioning-rag/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/live-video-analysis/live-video-captioning-rag/README.md">
      Readme
   </a>
 </div>

@@ -241,7 +241,7 @@ Leave the monitor online long enough to process video and store events in `~/.mc
 
 **D. Switch a monitor's prefilter model**:
 
-Ask which prefilter models are available. 
+Ask which prefilter models are available.
 
 ```text
 "How many prefilter models are available now?"

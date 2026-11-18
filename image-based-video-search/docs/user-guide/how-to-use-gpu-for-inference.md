@@ -7,7 +7,7 @@ if not already done.
 
 ### Volume mount GPU config
 
-Comment out CPU and NPU volume mount and uncomment the GPU volume mount present in [compose.yml](https://github.com/open-edge-platform/metro-ai-suite/blob/main/image-based-video-search/compose.yml)
+Comment out CPU and NPU volume mount and uncomment the GPU volume mount present in [compose.yml](https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/image-based-video-search/compose.yml)
 file under `volumes` section as shown below:
 
 ```sh

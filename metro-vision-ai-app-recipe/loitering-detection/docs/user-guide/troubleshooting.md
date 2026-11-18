@@ -4,7 +4,7 @@ This page provides troubleshooting steps, FAQs, and resources to help you resolv
 issues. If you encounter any problems with the application not addressed here, check the
 [GitHub Issues](https://github.com/open-edge-platform/metro-ai-suite/issues) board. Feel free
 to file new tickets there (after learning about the guidelines for
-[Contributing](https://github.com/open-edge-platform/metro-ai-suite/blob/main/CONTRIBUTING.md)).
+[Contributing](https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/CONTRIBUTING.md)).
 
 ## Troubleshooting Steps
 

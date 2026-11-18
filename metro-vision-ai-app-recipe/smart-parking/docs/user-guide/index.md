@@ -2,13 +2,13 @@
 
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/metro-ai-suite/tree/main/metro-vision-ai-app-recipe/smart-parking">
+  <a class="icon_github" href="https://github.com/open-edge-platform/metro-ai-suite/tree/release-2026.3.0/metro-vision-ai-app-recipe/smart-parking">
      GitHub
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/smart-parking/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/metro-vision-ai-app-recipe/smart-parking/README.md">
      Readme
   </a>
-  <a class="icon_download" href="https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/smart-parking/docs/user-guide/get-started.md">
+  <a class="icon_download" href="https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/metro-vision-ai-app-recipe/smart-parking/docs/user-guide/get-started.md">
      Installation guide
   </a>
 </div>

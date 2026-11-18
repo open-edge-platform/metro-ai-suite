@@ -3,7 +3,7 @@
 ## Overview
 
 This repo is the **training + ONNX-conversion** side for the deploy pipelines in
-[Intermediate Fusion/Deploy](https://github.com/open-edge-platform/metro-ai-suite/tree/main/sensor-fusion-for-traffic-management/intermediate-fusion/deploy).
+[Intermediate Fusion/Deploy](https://github.com/open-edge-platform/metro-ai-suite/tree/release-2026.3.0/sensor-fusion-for-traffic-management/intermediate-fusion/deploy).
 Two parallel deploy pipelines are supported; pick the one matching your deploy target:
 
 | Pipeline | Deploy binary | Lidar encoder | ONNX artifacts | Custom ops (and where they live) | Deploy directories |
@@ -255,7 +255,7 @@ $PYTHON tools/convert_kitti_to_v2x_format.py \
     --dst-root data/kitti-v2x
 ```
 
-The script (see [tools/convert_kitti_to_v2x_format.py](https://github.com/open-edge-platform/metro-ai-suite/blob/main/sensor-fusion-for-traffic-management/intermediate-fusion/training/tools/convert_kitti_to_v2x_format.py)):
+The script (see [tools/convert_kitti_to_v2x_format.py](https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/sensor-fusion-for-traffic-management/intermediate-fusion/training/tools/convert_kitti_to_v2x_format.py)):
 
 1. Symlinks `training/{image_2,velodyne,label_2,calib}` and top-level
    `image/`, `velodyne/` from `<KITTI_RAW>` into `data/kitti-v2x/`.
@@ -361,7 +361,7 @@ Four independent ONNX files, each an independently quantizable / replaceable dep
 
 **Stays outside ONNX** (SYCL kernels in deploy):
 
-- Voxelization — [deploy/src/pointpillars/voxelizer.cpp](https://github.com/open-edge-platform/metro-ai-suite/blob/main/sensor-fusion-for-traffic-management/intermediate-fusion/deploy/src/pointpillars/voxelizer.cpp)
+- Voxelization — [deploy/src/pointpillars/voxelizer.cpp](https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/sensor-fusion-for-traffic-management/intermediate-fusion/deploy/src/pointpillars/voxelizer.cpp)
 - `bevpoolv2` (camera BEV pooling) — deploy SYCL kernel
 - `PointPillarsScatter` (PFE output → dense BEV canvas) — deploy SYCL kernel
 - CenterHead post-processing (heatmap top-k, box decode, rotate-NMS) — deploy SYCL kernel
@@ -385,7 +385,7 @@ PP_CKPT=<path to the trained pth>
 $TORCHPACK tools/train.py --no-dist $PP_CONFIG --mode dense --run-dir ./work_dirs/<dataset>/pp/
 ```
 
-The BEVFusion base model in [mmdet3d/models/fusion_models/bevfusion.py](https://github.com/open-edge-platform/metro-ai-suite/blob/main/sensor-fusion-for-traffic-management/intermediate-fusion/training/mmdet3d/models/fusion_models/bevfusion.py) auto-selects hard-voxelize (PointPillars) vs DynamicScatter (Second) based on `max_num_points > 0` — no training-code changes are needed to switch encoders.
+The BEVFusion base model in [mmdet3d/models/fusion_models/bevfusion.py](https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/sensor-fusion-for-traffic-management/intermediate-fusion/training/mmdet3d/models/fusion_models/bevfusion.py) auto-selects hard-voxelize (PointPillars) vs DynamicScatter (Second) based on `max_num_points > 0` — no training-code changes are needed to switch encoders.
 
 #### 4.2.2 Inference & Visualization
 
@@ -522,7 +522,7 @@ head.onnx             / quantized_head.xml
 Copy the artifacts from `export/onnx/pointpillars/` to
 `deploy/data/<preset_dir>/pointpillars/` before running — the deploy repo does
 not read from the training tree. `<preset_dir>` is `v2xfusion` for DAIR-V2X-I
-and `kitti` for KITTI (see [deploy/src/pipeline/dataset_preset.cpp](https://github.com/open-edge-platform/metro-ai-suite/blob/main/sensor-fusion-for-traffic-management/intermediate-fusion/deploy/src/pipeline/dataset_preset.cpp) for the full preset geometry table). The `--preset` flag passed to the binary is `v2x` or `kitti`.
+and `kitti` for KITTI (see [deploy/src/pipeline/dataset_preset.cpp](https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/sensor-fusion-for-traffic-management/intermediate-fusion/deploy/src/pipeline/dataset_preset.cpp) for the full preset geometry table). The `--preset` flag passed to the binary is `v2x` or `kitti`.
 
 ```bash
 cd <REPO>/deploy/build
@@ -675,8 +675,8 @@ These ops (plus `BevPoolV2` for camera and `SparseToDense` at the encoder bounda
 
 Deploy directories:
 
-- [deploy/src/bevfusion_unified/](https://github.com/open-edge-platform/metro-ai-suite/tree/main/sensor-fusion-for-traffic-management/intermediate-fusion/deploy/src/bevfusion_unified/) — pipeline driver + SYCL voxelizer (`voxelizer_sycl.cpp` lives here, `coors` = `(batch, z, y, x)`)
-- [deploy/test/bevfusion_unified.cpp](https://github.com/open-edge-platform/metro-ai-suite/blob/main/sensor-fusion-for-traffic-management/intermediate-fusion/deploy/test/bevfusion_unified.cpp) — `./bevfusion_unified` entry point
+- [deploy/src/bevfusion_unified/](https://github.com/open-edge-platform/metro-ai-suite/tree/release-2026.3.0/sensor-fusion-for-traffic-management/intermediate-fusion/deploy/src/bevfusion_unified/) — pipeline driver + SYCL voxelizer (`voxelizer_sycl.cpp` lives here, `coors` = `(batch, z, y, x)`)
+- [deploy/test/bevfusion_unified.cpp](https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/sensor-fusion-for-traffic-management/intermediate-fusion/deploy/test/bevfusion_unified.cpp) — `./bevfusion_unified` entry point
 
 ### 5.2 Generic Workflow
 
@@ -798,7 +798,7 @@ Unified model I/O:
 
 Runs the unified ONNX with CenterHead post-processing and visualization. Requires Intel Arc GPU for `SparseConvolution` ops.
 
-**From dataset** ([tools/bevfusion_standalone_ov_inference.py](https://github.com/open-edge-platform/metro-ai-suite/blob/main/sensor-fusion-for-traffic-management/intermediate-fusion/training/tools/bevfusion_standalone_ov_inference.py)) — no mmdet3d runtime dependency:
+**From dataset** ([tools/bevfusion_standalone_ov_inference.py](https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/sensor-fusion-for-traffic-management/intermediate-fusion/training/tools/bevfusion_standalone_ov_inference.py)) — no mmdet3d runtime dependency:
 
 ```bash
 $OV_PYTHON tools/bevfusion_standalone_ov_inference.py \
