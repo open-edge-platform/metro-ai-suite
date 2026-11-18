@@ -8,8 +8,8 @@ import ipaddress
 import os
 import re
 import socket
-from urllib.parse import urlsplit
 import xml.etree.ElementTree as ET
+from urllib.parse import urlsplit
 
 import requests
 
@@ -22,6 +22,25 @@ def _slug(text):
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or "model"
 
 
+class _RejectDoctypeTarget(ET.TreeBuilder):
+    """TreeBuilder target hardened against XXE/entity-expansion attacks.
+
+    This console runs inside the shared DL Streamer Pipeline Server image
+    (bind-mounted, not its own build), OpenVINO IR .xml files never
+    legitimately contain a DOCTYPE, so instead this rejects any document
+    that declares one - which is also where XXE and billion-laughs payloads
+    live - before expat gets a chance to define or resolve any entity.
+    """
+
+    def doctype(self, name, pubid, system):
+        raise ET.ParseError("DOCTYPE declarations are not allowed in IR XML files")
+
+
+def _parse_ir_xml(xml_path):
+    parser = ET.XMLParser(target=_RejectDoctypeTarget())
+    return ET.parse(xml_path, parser=parser).getroot()
+
+
 def _ir_input_shape(xml_path):
     """Read the first Parameter layer's output shape from an IR XML file.
 
@@ -30,7 +49,7 @@ def _ir_input_shape(xml_path):
     model family is named or special-cased.
     """
     try:
-        root = ET.parse(xml_path).getroot()
+        root = _parse_ir_xml(xml_path)
         for layer in root.iter("layer"):
             if layer.get("type") != "Parameter":
                 continue

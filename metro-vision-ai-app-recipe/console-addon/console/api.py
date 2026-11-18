@@ -172,9 +172,4 @@ def api_health():
         "prometheus_reachable": prometheus_reachable,
     })
 
-
-# --------------------------------------------------------------------------
-# 8. WHEP proxy (BACKEND-SPEC.md §4)
-# --------------------------------------------------------------------------
-
 _WHEP_METHODS = ["OPTIONS", "GET", "POST", "PATCH", "DELETE"]
