@@ -24,10 +24,15 @@ Go to the target directory of your choice and clone the suite.
 If you want to clone a specific release branch, replace `main` with the desired tag.
 To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
 
+> [!NOTE]
+> `live-video-captioning-rag` builds and runs alongside its sibling sample, `live-video-captioning`
+> (shared `config.json`, `mosquitto.conf`, and app source used as a Docker build context), so both
+> directories must be included in the sparse checkout.
+
 ```bash
 git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/metro-ai-suite.git
 cd metro-ai-suite
-git sparse-checkout set live-video-analysis/live-video-captioning-rag
+git sparse-checkout set live-video-analysis/live-video-captioning-rag live-video-analysis/live-video-captioning
 cd live-video-analysis/live-video-captioning-rag
 ```
 
