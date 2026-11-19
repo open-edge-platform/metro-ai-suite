@@ -14,9 +14,8 @@ compatibility: >-
   Docker Hub, ghcr.io, and github.com (for model + sample video downloads).
   Ports 80 and 443 (Nginx) plus 3478/udp (Coturn TURN) must be free on the
   host; WebRTC also publishes MediaMTX port 8189 (tcp+udp) for ICE, with
-  signalling proxied via Nginx. Tested
-  with the open-edge-platform Metro Vision AI App Recipe reference
-  (v2026.2.0 image tags).
+  signalling proxied via Nginx. Resolve stable, compatible image tags when
+  generating the stack.
 ---
 
 # Metro AI App Recipe — DLSPS + WebRTC + Mosquitto + Node-RED + Grafana + Nginx
@@ -170,21 +169,26 @@ Architecture, images, validation, criteria in
 [`references/SCENESCAPE.md`](references/SCENESCAPE.md); load only on this branch.
 Default (`{{SCENESCAPE}}=no`) path is unchanged.
 
-## Images — pin to the latest available tag (never `:latest`)
+## Image tags — resolve at build time, then pin (never `:latest`)
 
-Resolve each image to the **newest published stable tag on Docker Hub** (query
-the repo's `tags` API with `ordering=last_updated`), pin it, and ignore
-`*-weekly` pre-releases. **Grafana is the one exception:** keep it pinned to
-`11.5.4` (the MQTT datasource plugin only works on that tag).
+At stack generation, resolve every image to its registry's newest published
+**stable, compatible** tag. For Docker Hub, paginate the tags API ordered by
+`last_updated`, but compare release versions/dates rather than taking the first
+result. Exclude `weekly`, `rc`, `alpha`, `beta`, `nightly`, and `dev` prereleases.
+Verify tag availability for the target OS/architecture and compatibility across
+related images.
 
-- `intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24`
-- `eclipse-mosquitto:2.1.2-alpine`
-- `nodered/node-red:5.0.4`
-- `nginx:1.31.3-alpine`
-- `bluenviron/mediamtx:1.20.0` (WebRTC: WHIP in, WHEP out)
-- `coturn/coturn:4.17.0` (ICE/TURN)
-- `grafana/grafana:11.5.4` (**pinned — do not upgrade**) with `GF_INSTALL_PLUGINS="grafana-mqtt-datasource 1.3.3,yesoreyeram-infinity-datasource 3.11.1"` — a bad plugin version kills the container → Nginx 502
-- `intel/dlstreamer:2026.2.0-ubuntu24` (one-shot in `install.sh`: model dl + INT8 quantize + TLS cert)
+Resolve DLSPS, its compatible DL Streamer one-shot image (model download,
+quantization, TLS setup), Mosquitto, Node-RED, Nginx, MediaMTX, Coturn, and Grafana.
+When enabled, resolve Scenescape services to mutually compatible stable releases.
+Verify Grafana against the configured `grafana-mqtt-datasource` and
+`yesoreyeram-infinity-datasource` versions; recency alone is insufficient.
+
+Pin concrete tags in generated Compose, `.env`, and install commands; record
+them in the generated README for reproducibility. Never leave placeholders,
+use `:latest`, or copy old stack versions. If registry lookup or compatibility
+verification fails, stop, identify the unresolved image, and ask before using
+an older known-compatible tag. Never label an unverified tag as latest.
 
 ## Layout (flat)
 

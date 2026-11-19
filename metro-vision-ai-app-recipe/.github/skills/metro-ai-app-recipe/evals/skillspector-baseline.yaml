@@ -10,14 +10,12 @@ version: 2
 rules:
   - id: "RP1"
     path: "*SKILL.md"
-    reason: "Reviewed: Docker images in SKILL.md are intentionally pinned to specific
-      version tags (e.g. eclipse-mosquitto:2.1.2-alpine), never :latest, and are
-      documented as intentional pins. Tag pins are the deliberate policy for this
-      recipe skill; digest pinning is not required."
+    reason: "Reviewed: resolve the newest stable compatible image tags from their
+      registries at stack-generation time, verify compatibility, and pin the
+      concrete selected tags in generated files. Never use :latest."
   - id: "RP1"
     path: "*INSTALL.md"
-    reason: "Reviewed: Docker images in references/INSTALL.md are intentionally pinned
-      to specific version tags (e.g. intel/dlstreamer:2026.2.0-ubuntu24), never
-      :latest, and are documented as intentional pins. Tag pins are the deliberate
-      policy for this recipe skill; digest pinning is not required."
+    reason: "Reviewed: image tags in references/INSTALL.md are resolved to the
+      newest stable compatible release at stack-generation time, then replaced
+      with concrete verified tags in generated files. Never use :latest."
 fingerprints: []
