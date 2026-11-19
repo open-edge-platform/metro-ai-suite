@@ -1,7 +1,7 @@
+#!/usr/bin/env bash
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-#!/usr/bin/env bash
 set -euo pipefail
 
 FFMPEG_VERSION="8.1.2"
