@@ -33,17 +33,12 @@ The sample application depends on the Video Processing Platform SDK for video de
 functionalities. It also depends on OpenVINO™ for video analytics and the live555 library for RTSP
 streaming.
 
-#### 2.1 Install the Video Processing Platform SDK
+#### Install the Video Processing Platform SDK
 
-Install the Video Processing Platform SDK first.
+Install the Video Processing Platform SDK first. Run the following commands under path `metro-ai-suite/video-processing-for-nvr`
 
 ```
-sudo -E wget -O- https://eci.intel.com/sed-repos/gpg-keys/GPG-PUB-KEY-INTEL-SED.gpg | sudo tee /usr/share/keyrings/sed-archive-keyring.gpg > /dev/null
-echo "deb [signed-by=/usr/share/keyrings/sed-archive-keyring.gpg] https://eci.intel.com/sed-repos/$(source /etc/os-release && echo $VERSION_CODENAME) sed main" | sudo tee /etc/apt/sources.list.d/sed.list
-echo "deb-src [signed-by=/usr/share/keyrings/sed-archive-keyring.gpg] https://eci.intel.com/sed-repos/$(source /etc/os-release && echo $VERSION_CODENAME) sed main" | sudo tee -a /etc/apt/sources.list.d/sed.list
-sudo bash -c 'echo -e "Package: *\nPin: origin eci.intel.com\nPin-Priority: 1000" > /etc/apt/preferences.d/sed'
-sudo apt update
-sudo apt install intel-vppsdk
+sudo apt install ./docker/intel-vppsdk_v2026.0.0_amd64.deb
 
 sudo bash /opt/intel/vppsdk/install_vppsdk_dependencies.sh
 source /opt/intel/vppsdk/env.sh
@@ -53,10 +48,10 @@ Assume the Video Processing Platform SDK package directory is `vppsdk` and the d
 Run `vainfo` to verify the media stack is installed successfully:
 
 ```
-# sudo su
-# export LIBVA_DRIVER_NAME="iHD"
-# export LIBVA_DRIVERS_PATH="/opt/intel/media/lib64"
-# /opt/intel/media/bin/vainfo
+sudo su
+export LIBVA_DRIVER_NAME="iHD"
+export LIBVA_DRIVERS_PATH="/opt/intel/media/lib64"
+/opt/intel/media/bin/vainfo
 ```
 
 In the terminal, you should see the output similar to what is shown below:
@@ -79,10 +74,9 @@ vainfo: Supported profile and entrypoints
 
 Then, run a Video Processing Platform SDK API test.
 
-Switch to `root` and `init 3` before running the command below:
+Switch to `root` before running the command below:
 
 ```
-sudo init 3
 sudo su
 
 cd /opt/intel/vppsdk/bin
@@ -101,17 +95,35 @@ to the one below:
 [  PASSED  ] 1 test.
 ```
 
-#### 2.2 Install the OpenVINO™ library
+#### Install the OpenVINO™ library
 
 There is an `example/VA_example/install_dependencies.sh` under VA example folder. With a working
 network connection on your system, run this script: it will download, build, and install
-OpenVINO™ libraries. The libraries will be installed to `/opt/intel/openvino`.
+OpenVINO™ libraries. The libraries will be installed to `/opt/intel/openvino_2026`.
+```bash
+bash example/VA_example/install_dependencies.sh
+```
 
-#### 2.3 Install the live555 library
+#### Install the live555 library
 
 There is a `svet2/live555_install.sh` under the root directory of svet_app source code package.
 With a working network connection on your system, run this script: it will download, build, and
 install live555 libraries. The libraries will be installed to `/usr/local/lib/`.
+```bash
+bash svet2/live555_install.sh
+```
+
+#### Download and convert the model
+Run the following commands under path `metro-ai-suite/video-processing-for-nvr`.
+
+```bash
+cd docker
+python3 -m venv .venv
+source .venv/bin/activate
+
+python3 ./yolov8-object-detection.py
+cp models/yolov8n_openvino_int8_model/yolov8n_with_preprocess.* ../example/VA_example/decode_detection/surface_map/
+```
 
 ### 3 Build the sample application
 
@@ -123,7 +135,7 @@ $ source /opt/intel/vppsdk/env.sh
 $ export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 ```
 
-Then run `build.sh` to build the Video Analytic application binary:
+Then run the following commandsunder path `metro-ai-suite/video-processing-for-nvr` to build the Video Analytic application binary:
 
 ```
 $ cd example/VA_example/decode_detection/surface_map
@@ -132,22 +144,13 @@ $ ./build.sh
 
 If the `build.sh` runs successfully, you can find the `dec_det` binary under the build directory.
 
-## Run the Sample Application
+## 4 Run the Sample Application
 
-### 1 Download and convert the model
-
-You can download and convert the YOLO model with [OpenVINO™ notebook](https://github.com/openvinotoolkit/openvino_notebooks/blob/2026.0/notebooks/yolov8-optimization/yolov8-object-detection.ipynb), you will get `yolov8n_with_preprocess.xml` after successful model download and conversion.
-
-```
-https://github.com/openvinotoolkit/openvino_notebooks/blob/2026.0/notebooks/yolov8-optimization/yolov8-object-detection.ipynb
-```
-
-### 2 Switch to root and set environment variables
+### Switch to root and set environment variables
 
 Before running the sample application, make sure the environment variables are set correctly in the current bash:
 
 ```
-# sudo init 3
 # sudo su
 # source /opt/intel/vppsdk/env.sh
 # export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
@@ -156,12 +159,12 @@ Before running the sample application, make sure the environment variables are s
 > [!NOTE]
 > the Video Processing Platform SDK uses drm display, which requires that there is no X server running and with root privileges.
 
-### 3 Run a basic Video Analytic pipeline
+### Run a basic Video Analytic pipeline
 
 Run video decode + detection with YOLO detection model:
 
 ```
-./dec_det yolov8n_with_preprocess.xml
+./dec_det ./yolov8n_with_preprocess.xml
 ```
 
 Logs will be displayed upon successful execution. Sample output is shown below:
