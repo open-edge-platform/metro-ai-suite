@@ -16,7 +16,7 @@ This page summarizes the recommended environment for running Real-Time Scene Und
 
 | **Component**  | **Minimum** | **Recommended** |
 |----------------|-------------|-----------------|
-| **Memory**     | 16 GB       | 32 GB           |
+| **Memory**     | 32 GB       | 64 GB           |
 | **Disk Space** | 64 GB SSD   | 128 GB SSD      |
 
 ## Software Requirements
