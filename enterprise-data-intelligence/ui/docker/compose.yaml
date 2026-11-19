@@ -10,11 +10,18 @@ services:
       http_proxy: ${http_proxy:-}
       https_proxy: ${https_proxy:-}
       UI_PORT: ${UI_PORT:-7000}
-      SERVER_HOST: ${SERVER_HOST:-127.0.0.1}
+      SERVER_HOST: ${SERVER_HOST:-host.docker.internal}
       METRICS_API_PORT: ${METRICS_API_PORT:-8000}
       LIBRARY_API_PORT: ${LIBRARY_API_PORT:-16022}
       APP_API_PORT: ${APP_API_PORT:-16020}
       WORKSPACE_API_PORT: ${WORKSPACE_API_PORT:-3001}
       VITE_CHATBOT_WS_PORT: ${VITE_CHATBOT_WS_PORT:-18789}
     restart: always
-    network_mode: host
+    ports:
+      - "${UI_PORT:-7000}:${UI_PORT:-7000}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

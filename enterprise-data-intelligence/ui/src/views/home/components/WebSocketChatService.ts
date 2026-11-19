@@ -1,15 +1,13 @@
 // Copyright (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import i18n from "@/i18n";
-
 export type ConnectionStatus = "disconnected" | "connecting" | "connected";
 
 const CONNECT_FAILED_CLOSE_CODE = 4008;
 const CONNECT_DELAY_MS = 750;
 const HISTORY_LIMIT = 200;
-const OPENCLAW_GATEWAY_MIN_PROTOCOL = 4;
-const OPENCLAW_GATEWAY_MAX_PROTOCOL = 4;
+const OPENCLAW_GATEWAY_PROTOCOL = 3;
+const MAIN_AGENT_SESSION_KEY = "agent:main:main";
 const SUBAGENT_SESSION_KEY_PREFIX = "subagent";
 const CONTROL_UI_OPERATOR_ROLE = "operator";
 const CONTROL_UI_OPERATOR_SCOPES = [
@@ -82,7 +80,7 @@ export interface ChatAgentRun {
 
 export interface ChatMessageBlock {
   id: string;
-  kind: "text" | "tool-call" | "tool-result" | "thinking";
+  kind: "text" | "tool-call" | "tool-result" | "thinking" | "error";
   content: string;
   title: string;
   subtitle: string;
@@ -164,7 +162,6 @@ export class WebSocketChatService {
   private currentAssistantMessageId: string | null = null;
   private activeAgentRunKeys = new Map<string, string>();
   private currentToolSegmentIds = new Map<string, string>();
-  private lastCatalogSignature = "";
 
   constructor(private readonly options: WebSocketChatServiceOptions) {}
 
@@ -378,24 +375,13 @@ export class WebSocketChatService {
         "agents.list",
         {},
       )) as GenericRecord;
-      const nextAgents = this.normalizeAgents(agentsPayload);
+      this.agents = this.normalizeAgents(agentsPayload);
 
       const sessionsPayload = (await this.request("sessions.list", {
         includeGlobal: true,
         includeUnknown: true,
       })) as GenericRecord;
-      const nextSessions = this.normalizeSessions(sessionsPayload);
-      const nextCatalogSignature = this.buildCatalogSignature(
-        nextAgents,
-        nextSessions,
-      );
-      if (nextCatalogSignature === this.lastCatalogSignature) {
-        return;
-      }
-
-      this.lastCatalogSignature = nextCatalogSignature;
-      this.agents = nextAgents;
-      this.sessions = nextSessions;
+      this.sessions = this.normalizeSessions(sessionsPayload);
       this.sessionGroups = this.buildSessionGroups(this.agents, this.sessions);
       this.publishSessions();
     } catch (error) {
@@ -467,7 +453,6 @@ export class WebSocketChatService {
       await this.request("chat.send", {
         sessionKey: this.selectedSessionKey,
         message: question,
-        deliver: false,
         idempotencyKey: this.makeId(),
       });
       return "";
@@ -520,8 +505,8 @@ export class WebSocketChatService {
     const token = this.options.authToken.trim();
 
     return {
-      minProtocol: OPENCLAW_GATEWAY_MIN_PROTOCOL,
-      maxProtocol: OPENCLAW_GATEWAY_MAX_PROTOCOL,
+      minProtocol: OPENCLAW_GATEWAY_PROTOCOL,
+      maxProtocol: OPENCLAW_GATEWAY_PROTOCOL,
       client: {
         id: "openclaw-control-ui",
         version: "control-ui",
@@ -548,8 +533,8 @@ export class WebSocketChatService {
 
   private publishSessions() {
     this.options.onSessionsChange?.(
-      this.sessions,
-      this.sessionGroups,
+      [...this.sessions],
+      [...this.sessionGroups],
       this.selectedSessionKey,
     );
   }
@@ -687,21 +672,8 @@ export class WebSocketChatService {
       return;
     }
 
-    if (eventName === "session.tool" || eventName === "sessions.tool") {
-      const normalizedPayload: GenericRecord = {
-        ...payload,
-        stream: "tool",
-        sessionKey: payload.sessionKey || this.selectedSessionKey,
-      };
-      const data = this.toRecord(payload.data);
-      if (data) {
-        normalizedPayload.data = {
-          ...data,
-          stream: data.stream || "tool",
-          sessionKey: data.sessionKey || this.selectedSessionKey,
-        };
-      }
-      this.handleAgentEvent(normalizedPayload);
+    if (eventName === "session.tool") {
+      this.handleSessionToolEvent(payload);
       return;
     }
 
@@ -745,7 +717,13 @@ export class WebSocketChatService {
   private handleChatEvent(payload: GenericRecord) {
     const data = this.toRecord(payload.data) || payload;
     const text = this.extractTextFromUnknown(
-      data.message ?? data.delta ?? payload.message ?? payload.delta ?? data,
+      data.text ??
+        data.message ??
+        data.delta ??
+        payload.text ??
+        payload.message ??
+        payload.delta ??
+        data,
     );
 
     if (text.trim()) {
@@ -767,56 +745,53 @@ export class WebSocketChatService {
   private handleAgentEvent(payload: GenericRecord) {
     const data = this.toRecord(payload.data) || {};
     const agentLevel = this.getAgentLevel(payload, data);
-    const rawStream = this.resolveString(
-      data.stream || payload.stream,
-    ).toLowerCase();
     const stream =
-      rawStream === "command_output"
-        ? "tool"
-        : this.resolveStreamKind(data) || this.resolveStreamKind(payload);
-    const lifecycleStream = this.resolveString(
-      data.stream || payload.stream,
-    ).toLowerCase();
-    const phase =
-      rawStream === "command_output" &&
-      this.resolveString(data.phase || payload.phase).toLowerCase() === "end"
-        ? "result"
-        : this.resolveString(data.phase || payload.phase).toLowerCase();
+      this.resolveStreamKind(data) || this.resolveStreamKind(payload);
+    const phase = this.resolveString(data.phase || payload.phase).toLowerCase();
     const state = this.resolveString(payload.state || data.state).toLowerCase();
+    const errorText = this.extractTextFromUnknown(
+      data.errorMessage ??
+        data.error ??
+        data.message ??
+        payload.errorMessage ??
+        payload.error ??
+        payload.message,
+    ).trim();
     const text = this.extractTextFromUnknown(
-      data.output ??
-        data.text ??
+      data.text ??
         data.message ??
         data.content ??
-        payload.text ??
+        data.delta ??
+        payload.delta ??
         payload.message ??
         payload.content ??
-        data.delta ??
-        payload.delta,
+        payload.text,
     );
 
-    if (lifecycleStream === "lifecycle") {
+    if (payload.stream === "lifecycle") {
       if (agentLevel !== "none" && phase === "start") {
         this.beginAgentRun(agentLevel, payload, data);
-        this.publishMessages();
-        return;
-      }
-
-      if (agentLevel !== "none" && phase === "error") {
-        const errorMessage =
-          this.resolveString(data.error) || this.resolveString(payload.error);
-        if (errorMessage) {
-          this.options.onError?.(errorMessage);
-        }
-        this.discardAgentRun(agentLevel, payload, data);
       }
 
       if (agentLevel !== "none" && phase === "end") {
         this.completeAgentRun(agentLevel, payload, data);
-        this.discardAgentRunIfEmpty(agentLevel, payload, data);
       }
 
-      if (phase === "error" || TERMINAL_CHAT_STATES.has(state)) {
+      if (phase === "error") {
+        if (errorText) {
+          this.appendAssistantErrorBlock(errorText);
+        }
+
+        if (agentLevel !== "none") {
+          this.handleAgentRunError(agentLevel, payload, data);
+        }
+
+        this.finishResponse();
+        this.publishMessages();
+        return;
+      }
+
+      if (TERMINAL_CHAT_STATES.has(state)) {
         this.finishResponse();
       }
 
@@ -859,11 +834,42 @@ export class WebSocketChatService {
 
     if (stream === "tool") {
       agentRun.hasTool = true;
-      this.appendToolSegment(agentRun, data, phase, text, rawStream);
+      this.appendToolSegment(agentRun, data, phase, text);
     }
 
     if (TERMINAL_CHAT_STATES.has(state)) {
       this.completeAgentRun(agentLevel, payload, data);
+      this.finishResponse();
+      return;
+    }
+
+    this.publishMessages();
+  }
+
+  private handleSessionToolEvent(payload: GenericRecord) {
+    const data = this.toRecord(payload.data) || payload;
+    const phase = this.resolveString(data.phase || payload.phase).toLowerCase();
+    const state = this.resolveString(payload.state || data.state).toLowerCase();
+    const text = this.extractTextFromUnknown(
+      data.text ??
+        data.message ??
+        data.content ??
+        data.delta ??
+        payload.delta ??
+        payload.message ??
+        payload.content ??
+        payload.text,
+    );
+    const agentRun = this.ensureCurrentAgentRun("main", payload, data);
+    if (!agentRun) {
+      return;
+    }
+
+    agentRun.hasTool = true;
+    this.appendToolSegment(agentRun, data, phase, text);
+
+    if (TERMINAL_CHAT_STATES.has(state)) {
+      this.completeAgentRun("main", payload, data);
       this.finishResponse();
       return;
     }
@@ -979,26 +985,6 @@ export class WebSocketChatService {
       .sort((a, b) => a.displayName.localeCompare(b.displayName));
   }
 
-  private buildCatalogSignature(
-    agents: ChatAgentSummary[],
-    sessions: ChatSessionSummary[],
-  ) {
-    const agentSignature = [...agents]
-      .sort((a, b) => a.id.localeCompare(b.id))
-      .map((agent) => `${agent.id}|${agent.displayName}|${agent.description}`)
-      .join("||");
-
-    const sessionSignature = [...sessions]
-      .sort((a, b) => a.key.localeCompare(b.key))
-      .map(
-        (session) =>
-          `${session.key}|${session.status}|${session.updatedAt}|${session.displayName}|${session.modelProvider}|${session.model}`,
-      )
-      .join("||");
-
-    return `${agentSignature}##${sessionSignature}`;
-  }
-
   private resolveCreatedSessionKey(payload: GenericRecord | null | undefined) {
     const directSessionKey = this.resolveString(payload?.sessionKey);
     if (directSessionKey) {
@@ -1069,7 +1055,7 @@ export class WebSocketChatService {
       const block = this.buildContentBlock({
         kind: "tool-result",
         content: this.resolveToolResultDisplayText(record),
-        title: this.translate("chat.toolTitle", "Tool output"),
+        title: "Tool output",
         subtitle:
           this.resolveString(record.toolName) ||
           this.resolveString(record.name) ||
@@ -1130,7 +1116,7 @@ export class WebSocketChatService {
         const block = this.buildContentBlock({
           kind: "tool-call",
           content: toolCallContent,
-          title: this.translate("chat.toolLabel", "Tool"),
+          title: "Tool",
           subtitle: this.resolveToolCallSubtitle(contentRecord),
           tag: this.resolveToolCallTag(contentRecord),
           showToolIcon: true,
@@ -1173,8 +1159,8 @@ export class WebSocketChatService {
 
       const fallbackBlock = this.buildContentBlock({
         kind: "text",
-        content: this.extractTextFromUnknown(
-          record.content ?? record.message ?? record,
+        content: this.extractAssistantTextForDisplay(
+          record.content ?? record.message,
         ),
         title: "",
         subtitle: "",
@@ -1182,6 +1168,10 @@ export class WebSocketChatService {
         collapsible: false,
         startsCollapsed: false,
       });
+
+      if (!fallbackBlock.content) {
+        return null;
+      }
 
       return this.buildHistoryMessage({
         role: "assistant",
@@ -1261,7 +1251,7 @@ export class WebSocketChatService {
           return this.buildContentBlock({
             kind: "tool-call",
             content: toolCallContent,
-            title: this.translate("chat.toolLabel", "Tool"),
+            title: "Tool",
             subtitle: this.resolveToolCallSubtitle(record),
             tag: this.resolveToolCallTag(record),
             showToolIcon: true,
@@ -1289,7 +1279,7 @@ export class WebSocketChatService {
           });
         }
 
-        const fallbackContent = this.extractTextFromUnknown(record);
+        const fallbackContent = this.extractAssistantTextForDisplay(record);
         if (!fallbackContent) {
           return null;
         }
@@ -1305,6 +1295,45 @@ export class WebSocketChatService {
         });
       })
       .filter(Boolean) as ChatMessageBlock[];
+  }
+
+  private extractAssistantTextForDisplay(value: unknown): string {
+    if (typeof value === "string") {
+      return value;
+    }
+
+    if (typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => this.extractAssistantTextForDisplay(item))
+        .filter(Boolean)
+        .join("\n")
+        .trim();
+    }
+
+    const record = this.toRecord(value);
+    if (!record) {
+      return "";
+    }
+
+    const candidates = [
+      record.text,
+      record.value,
+      record.message,
+      record.content,
+    ];
+
+    for (const candidate of candidates) {
+      const resolvedText = this.extractAssistantTextForDisplay(candidate);
+      if (resolvedText) {
+        return resolvedText;
+      }
+    }
+
+    return "";
   }
 
   private buildContentBlock(input: {
@@ -1405,8 +1434,33 @@ export class WebSocketChatService {
       return;
     }
 
-    assistantMessage.content += text;
+    assistantMessage.content = text;
     this.publishMessages();
+  }
+
+  private appendAssistantErrorBlock(text: string) {
+    const trimmedText = text.trim();
+    if (!trimmedText) {
+      return;
+    }
+
+    const assistantMessage = this.ensureStreamingAssistantMessage();
+    if (!assistantMessage) {
+      return;
+    }
+
+    assistantMessage.contentBlocks = [
+      {
+        id: this.makeId(),
+        kind: "error",
+        content: trimmedText,
+        title: "Error",
+        subtitle: "",
+        showToolIcon: false,
+        collapsible: false,
+        startsCollapsed: false,
+      },
+    ];
   }
 
   private ensureStreamingAssistantMessage() {
@@ -1564,7 +1618,7 @@ export class WebSocketChatService {
     this.currentToolSegmentIds.delete(agentRun.id);
   }
 
-  private discardAgentRun(
+  private handleAgentRunError(
     agentLevel: Exclude<AssistantAgentLevel, "none">,
     payload: GenericRecord,
     data: GenericRecord,
@@ -1596,64 +1650,26 @@ export class WebSocketChatService {
       return;
     }
 
-    assistantMessage.agents = assistantMessage.agents.filter(
-      (agent) => agent.id !== agentRun.id,
+    agentRun.segments = agentRun.segments.filter(
+      (segment) => !(segment.stream === "tool" && !segment.isComplete),
     );
+
+    if (agentRun.segments.length === 0) {
+      assistantMessage.agents = assistantMessage.agents.filter(
+        (agent) => agent.id !== agentRun.id,
+      );
+    } else {
+      agentRun.isComplete = true;
+      agentRun.segments.forEach((segment) => {
+        segment.isComplete = true;
+      });
+    }
 
     if (runKey) {
       this.activeAgentRunKeys.delete(runKey);
     }
 
     this.currentToolSegmentIds.delete(agentRun.id);
-
-    if (assistantMessage.agents.length > 0) {
-      return;
-    }
-
-    assistantMessage.messageKind = "assistant-text";
-
-    if (!assistantMessage.content.trim()) {
-      this.messages = this.messages.filter(
-        (message) => message.id !== assistantMessage.id,
-      );
-      this.currentAssistantMessageId = null;
-    }
-  }
-
-  private discardAgentRunIfEmpty(
-    agentLevel: Exclude<AssistantAgentLevel, "none">,
-    payload: GenericRecord,
-    data: GenericRecord,
-  ) {
-    if (!this.currentAssistantMessageId) {
-      return;
-    }
-
-    const assistantMessage = this.messages.find(
-      (message) => message.id === this.currentAssistantMessageId,
-    );
-    if (!assistantMessage) {
-      return;
-    }
-
-    const runKey = this.getAgentRunKey(agentLevel, payload, data);
-    const agentRun = runKey
-      ? this.findAgentRunByTrackedKey(assistantMessage, runKey)
-      : [...assistantMessage.agents]
-          .reverse()
-          .find((agent) => agent.agentLevel === agentLevel);
-
-    if (!agentRun) {
-      return;
-    }
-
-    const hasRenderableSegments = agentRun.segments.some((segment) =>
-      segment.content.trim(),
-    );
-
-    if (!hasRenderableSegments) {
-      this.discardAgentRun(agentLevel, payload, data);
-    }
   }
 
   private markActiveAssistantComplete() {
@@ -1747,15 +1763,12 @@ export class WebSocketChatService {
     phase: string,
   ) {
     if (text.trim()) {
-      const lastSegment = agentRun.segments[agentRun.segments.length - 1];
-      const existingSegment =
-        lastSegment?.stream === "assistant" ? lastSegment : undefined;
+      const existingSegment = [...agentRun.segments]
+        .reverse()
+        .find((segment) => segment.stream === "assistant");
 
       if (existingSegment && !existingSegment.isComplete) {
-        existingSegment.content =
-          agentRun.agentLevel === "main"
-            ? text
-            : `${existingSegment.content}${text}`;
+        existingSegment.content = text;
       } else {
         agentRun.segments.push({
           id: this.makeId(),
@@ -1783,19 +1796,8 @@ export class WebSocketChatService {
     data: GenericRecord,
     phase: string,
     text: string,
-    rawStream?: string,
   ) {
-    if (phase === "start") {
-      this.completeTrailingAssistantSegment(agentRun);
-      this.currentToolSegmentIds.delete(agentRun.id);
-      return;
-    }
-
-    const segmentTitle = this.resolveToolSegmentTitle(
-      data,
-      agentRun.agentLevel,
-      rawStream,
-    );
+    const segmentTitle = this.resolveToolSegmentTitle(phase);
     const segmentSubtitle = this.resolveToolSegmentSubtitle(
       data,
       agentRun.agentLevel,
@@ -1804,12 +1806,18 @@ export class WebSocketChatService {
       data,
       agentRun.agentLevel,
     );
-    const nextSegmentContent = text.trim() || segmentContent;
 
-    if (phase && phase !== "result") {
-      if (phase === "end") {
-        this.currentToolSegmentIds.delete(agentRun.id);
-      }
+    if (phase === "start") {
+      const segment: ChatAgentSegment = {
+        id: this.makeId(),
+        stream: "tool",
+        title: segmentTitle,
+        subtitle: segmentSubtitle,
+        content: segmentContent,
+        isComplete: false,
+      };
+      agentRun.segments.push(segment);
+      this.currentToolSegmentIds.set(agentRun.id, segment.id);
       return;
     }
 
@@ -1820,7 +1828,7 @@ export class WebSocketChatService {
         stream: "tool",
         title: segmentTitle,
         subtitle: segmentSubtitle,
-        content: nextSegmentContent,
+        content: segmentContent,
         isComplete: false,
       };
       agentRun.segments.push(fallbackSegment);
@@ -1840,8 +1848,12 @@ export class WebSocketChatService {
     }
 
     if (phase === "result") {
+      const resultRecord = this.toRecord(data.result);
+      const resultContent = resultRecord
+        ? this.resolveToolResultDisplayText(resultRecord)
+        : "";
       activeSegment.content =
-        text.trim() ||
+        resultContent ||
         this.formatToolSegmentMeta(data.meta ?? data.result ?? data);
       activeSegment.isComplete = true;
       this.currentToolSegmentIds.delete(agentRun.id);
@@ -1855,13 +1867,6 @@ export class WebSocketChatService {
     if (phase === "end") {
       activeSegment.isComplete = true;
       this.currentToolSegmentIds.delete(agentRun.id);
-    }
-  }
-
-  private completeTrailingAssistantSegment(agentRun: ChatAgentRun) {
-    const lastSegment = agentRun.segments[agentRun.segments.length - 1];
-    if (lastSegment?.stream === "assistant" && !lastSegment.isComplete) {
-      lastSegment.isComplete = true;
     }
   }
 
@@ -1886,12 +1891,14 @@ export class WebSocketChatService {
     data: GenericRecord | null,
   ): AssistantAgentLevel {
     const sessionKey = this.getAgentSessionKey(payload, data);
-    if (sessionKey === this.selectedSessionKey) {
+    if (sessionKey === MAIN_AGENT_SESSION_KEY) {
       return "main";
     }
+
     if (sessionKey.indexOf(SUBAGENT_SESSION_KEY_PREFIX) !== -1) {
       return "sub";
     }
+
     return "none";
   }
 
@@ -1914,13 +1921,12 @@ export class WebSocketChatService {
     if (runId) {
       return `${agentLevel}:run:${runId}`;
     }
-    if (agentLevel === "main") {
-      return "main";
-    }
+
     const sessionKey = this.getAgentSessionKey(payload, data);
     if (sessionKey) {
       return `${agentLevel}:session:${sessionKey}`;
     }
+
     return "";
   }
 
@@ -1962,26 +1968,12 @@ export class WebSocketChatService {
     return agentLevel === "sub" ? "Sub Agent" : "Main Agent";
   }
 
-  private resolveToolSegmentTitle(
-    data: GenericRecord,
-    agentLevel?: Exclude<AssistantAgentLevel, "none">,
-    rawStream?: string,
-  ) {
-    if (rawStream === "command_output") {
-      return this.translate("chat.toolTitle", "Tool output");
+  private resolveToolSegmentTitle(phase: string) {
+    if (phase === "result") {
+      return "Tool output";
     }
 
-    if (agentLevel === "sub") {
-      return this.translate("chat.toolLabel", "Tool");
-    }
-
-    return (
-      this.resolveString(data.label) ||
-      this.resolveString(data.title) ||
-      this.resolveString(data.name) ||
-      this.resolveString(data.toolName) ||
-      "Web Search"
-    );
+    return "Tool";
   }
 
   private resolveToolSegmentSubtitle(
@@ -1999,6 +1991,12 @@ export class WebSocketChatService {
     data: GenericRecord,
     agentLevel?: Exclude<AssistantAgentLevel, "none">,
   ) {
+    const argsContent =
+      data.args ?? data.arguments ?? data.params ?? data.input;
+    if (argsContent !== undefined) {
+      return this.formatToolPayloadAsJson(argsContent);
+    }
+
     if (agentLevel === "sub") {
       return this.resolveString(data.title) || this.resolveString(data.meta);
     }
@@ -2062,11 +2060,15 @@ export class WebSocketChatService {
       return "";
     }
 
-    const textFromContent = this.extractTextFromContentCollection(
-      record.content,
+    const preferredText = this.extractToolResultPreferredText(
+      record.content ??
+        record.result?.content ??
+        record.result?.context ??
+        record.context ??
+        record.result,
     );
-    if (textFromContent) {
-      return this.parseJsonText(textFromContent);
+    if (preferredText) {
+      return this.parseJsonText(preferredText);
     }
 
     return this.formatToolPayloadAsJson(
@@ -2074,9 +2076,47 @@ export class WebSocketChatService {
     );
   }
 
-  private translate(key: string, fallback: string) {
-    const translated = i18n.global.t(key);
-    return typeof translated === "string" && translated ? translated : fallback;
+  private extractToolResultPreferredText(value: unknown): string {
+    const textFromContent = this.extractTextFromContentCollection(value);
+    if (textFromContent) {
+      return textFromContent;
+    }
+
+    if (typeof value === "string") {
+      return value;
+    }
+
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => this.extractToolResultPreferredText(item))
+        .filter(Boolean)
+        .join("\n\n")
+        .trim();
+    }
+
+    const record = this.toRecord(value);
+    if (!record) {
+      return "";
+    }
+
+    const directTextCandidates = [
+      record["#sym:content"],
+      record.text,
+      record.content,
+      record.context,
+      record.result,
+      record.value,
+      record.message,
+    ];
+
+    for (const candidate of directTextCandidates) {
+      const resolvedText = this.extractToolResultPreferredText(candidate);
+      if (resolvedText) {
+        return resolvedText;
+      }
+    }
+
+    return "";
   }
 
   private extractTextFromContentCollection(value: unknown) {
@@ -2226,7 +2266,6 @@ export class WebSocketChatService {
       const normalized = this.resolveString(candidate).toLowerCase();
       if (
         normalized === "tool" ||
-        normalized === "item" ||
         normalized === "tool_call" ||
         normalized === "tool-call" ||
         normalized === "toolresult"
@@ -2248,20 +2287,6 @@ export class WebSocketChatService {
 
   private extractTextFromUnknown(value: unknown): string {
     if (typeof value === "string") {
-      const trimmedValue = value.trim();
-      if (
-        (trimmedValue.startsWith("{") && trimmedValue.endsWith("}")) ||
-        (trimmedValue.startsWith("[") && trimmedValue.endsWith("]"))
-      ) {
-        try {
-          const parsedValue = JSON.parse(trimmedValue);
-          const parsedText = this.extractTextFromUnknown(parsedValue);
-          if (parsedText) {
-            return parsedText;
-          }
-        } catch {}
-      }
-
       return value;
     }
 
@@ -2279,10 +2304,6 @@ export class WebSocketChatService {
     const record = this.toRecord(value);
     if (!record) {
       return "";
-    }
-
-    if (Array.isArray(record.content)) {
-      return this.extractTextFromUnknown(record.content);
     }
 
     const directCandidates = [

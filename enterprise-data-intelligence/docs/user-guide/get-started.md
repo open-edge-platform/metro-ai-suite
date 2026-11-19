@@ -28,6 +28,8 @@ Before you begin, ensure the following:
   - [3.3 Install Repository Skills into the OpenClaw Agent Directory](#33-install-repository-skills-into-the-openclaw-agent-directory)
   - [3.4 Enable the Skill in OpenClaw Configuration](#34-enable-the-skill-in-openclaw-configuration)
 - [4. Set Up the UI](#4-set-up-the-ui)
+  - [4.1 Expose the OpenClaw Gateway to the Docker Bridge](#41-expose-the-openclaw-gateway-to-the-docker-bridge)
+  - [4.2 Build and Start the UI Container](#42-build-and-start-the-ui-container)
 - [5. Test the Configuration](#5-test-the-configuration)
 - [6. Use the Knowledgebase Skill](#6-use-the-knowledgebase-skill)
 
@@ -535,6 +537,74 @@ openclaw tui
 > [!NOTE]
 > OpenClaw must be configured and running before you use the UI. Standalone UI-only mode is not supported; without OpenClaw, the UI starts and serves HTTP on port 7000 but reports backend connection errors.
 
+The UI container runs on a Docker bridge network instead of `network_mode: host`. Inside the
+container, `localhost` refers to the container itself, so the UI's NGINX reaches host services
+through `host.docker.internal`, which resolves to the host's `docker0` address (`172.17.0.1` by
+default).
+
+### 4.1 Expose the OpenClaw Gateway to the Docker Bridge
+
+The OpenClaw gateway is configured with `"bind": "loopback"` and listens only on
+`127.0.0.1:18789`, so the UI container cannot reach it directly. Do **not** change the gateway to
+`"bind": "lan"`: that exposes the gateway to the whole network. Instead, run a small forwarder on
+the host that listens only on the `docker0` address and relays to the loopback gateway. Only the
+host and local containers can reach this address, and the gateway configuration stays unchanged.
+
+1. Install `socat` and look up the `docker0` address:
+
+   ```bash
+   sudo apt install -y socat
+   ip -4 addr show docker0 | awk '/inet / {sub(/\/.*/, "", $2); print $2}'
+   ```
+
+   The rest of this section assumes the address is `172.17.0.1`. If yours differs (for example,
+   because `bip` is set in `/etc/docker/daemon.json`), replace it in the service file below.
+
+2. Create `/etc/systemd/system/openclaw-docker-bridge.service`:
+
+   ```ini
+   [Unit]
+   Description=Forward docker0:18789 to the OpenClaw gateway on loopback
+   After=docker.service
+   Requires=docker.service
+
+   [Service]
+   ExecStart=/usr/bin/socat TCP-LISTEN:18789,bind=172.17.0.1,reuseaddr,fork TCP:127.0.0.1:18789
+   Restart=always
+   RestartSec=2
+   DynamicUser=yes
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+3. Enable and start the service, then confirm that it listens only on the `docker0` address:
+
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now openclaw-docker-bridge
+   ss -ltn | grep 18789
+   ```
+
+   The output should show both `127.0.0.1:18789` (OpenClaw) and `172.17.0.1:18789` (the forwarder),
+   and should not show `0.0.0.0:18789`.
+
+4. If a host firewall such as `ufw` is enabled, allow containers to reach port `18789`:
+
+   ```bash
+   sudo ufw allow from 172.16.0.0/12 to 172.17.0.1 port 18789 proto tcp
+   ```
+
+5. Add the address that you use to open the UI in the browser to
+   `gateway.controlUi.allowedOrigins` in `openclaw.json`, for example `"http://<your-server-ip>:7000"`,
+   and then restart the gateway with `openclaw gateway restart`.
+
+The other backend services that the UI proxies (`LIBRARY_API_PORT`, `APP_API_PORT`,
+`METRICS_API_PORT`, and `WORKSPACE_API_PORT`) must also be reachable from `host.docker.internal`.
+If any of them listens only on `127.0.0.1`, add a forwarder for its port in the same way.
+
+### 4.2 Build and Start the UI Container
+
 Use Docker Compose to build and start the UI container:
 
 ```bash
@@ -542,8 +612,8 @@ cd <enterprise-data-intelligence_repo>/ui/docker
 
 # Set the required environment variables.
 # VITE_AUTH_TOKEN should match gateway.auth.token in openclaw.json.
+# Keep SERVER_HOST at its default (host.docker.internal) so that the UI reaches the forwarder.
 export VITE_AUTH_TOKEN=<your-auth-token>
-export SERVER_HOST=<your-server-ip>
 
 # Build the UI image.
 docker compose -f build.yaml build
@@ -555,7 +625,13 @@ docker compose -f compose.yaml up -d
 By default, the UI is available at:
 
 ```text
-http://<SERVER_HOST>:7000
+http://<your-server-ip>:7000
+```
+
+To verify that the UI container can reach the OpenClaw gateway through the forwarder, run:
+
+```bash
+docker exec enterprise-data-intelligence-ui wget -qO- -T 5 http://host.docker.internal:18789/ >/dev/null && echo OK
 ```
 
 ## 5. Test the Configuration
