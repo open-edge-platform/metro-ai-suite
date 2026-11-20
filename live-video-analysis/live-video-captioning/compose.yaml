@@ -157,7 +157,7 @@ services:
       - app_network
 
   video-caption-service:
-    image: ${REGISTRY:-}video-caption-service:${TAG:-latest}
+    image: ${REGISTRY:-}video-caption-service:${TAG:-2026.3.0-rc2}
     build:
       context: ./app
       args:
