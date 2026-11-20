@@ -6,6 +6,7 @@
 | **"Lift Axles" counted as Ground** | Tolerance too high | Adjust `tolerance` parameter in `classify_axles_ground_contact` function. |
 | **Grafana Empty** | Node-RED Disconnect | Check `docker logs node-red`. Ensure connection to `broker.scenescape.intel.com` or local broker. |
 | **No Video** | GPU Mapping | Verify `/dev/dri` is mapped in the compose file and user has permissions. |
+| **Node-RED fails to start offline** | Plugin volume removed by `docker compose down -v` | Node-RED downloads `node-red-contrib-influxdb` on the first start after the volume is removed. Reconnect to the internet and run `docker compose up -d` again. |
 
 ## Support Contact
 
