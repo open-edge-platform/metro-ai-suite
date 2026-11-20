@@ -21,10 +21,11 @@ details.
 
 ## Validated Platforms
 
-- **Hardware**: VSS and the OpenVINO™ model server run on Intel® Xeon®
-  or Intel® Core™ Ultra Series 3 platforms, or an Intel® Arc™ B70 discrete GPU.
-  The VSG container can run on the VSS host or any host that can reach both
-  Hermes API server and the VSS gateway.
+- **Deployment**: a single host runs the full stack: VSS, the Hermes agent server,
+  the OpenVINO™ model server, the Inference Router, and the VSG container.
+  No additional hosts are required.
+- **Hardware**: Intel® Core™ Ultra Series 3 processor with an integrated GPU.
+  Validated on Panther Lake (PTL 358H).
 - **Reasoning model**: an OpenVINO™ model on OpenVINO™ model server that returns tool calls.
   The GPU (or system memory for an integrated GPU) must accommodate the weights,
   key-value (KV) cache, and any VSS models on the same host.

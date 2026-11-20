@@ -54,7 +54,7 @@ The setup template sets these important values:
 | `ALERT_VLM_INTERVAL` | `2.0` | Interval (in seconds) between alert pipeline VLM inferences. |
 | `ALERT_VLM_MAX_TOKENS` | `128` | Maximum number of tokens for the alert pipeline VLM inference. |
 | `DEEP_ANALYZER_MODEL` | `Qwen/Qwen3-VL-8B-Instruct` | Model used for the deep analyzer. |
-| `DEEP_ANALYZER_DEVICE` | `GPU` | Device for deep analyzer inference (validated on CPU and GPU). |
+| `DEEP_ANALYZER_DEVICE` | `GPU` | Device for deep analyzer inference; supported on CPU and GPU. |
 | `DEEP_ANALYZER_MAX_FRAMES` | `8` | Maximum number of frames for the deep analyzer to process. |
 | `DEEP_ANALYZER_MAX_TOKENS` | `256` | Maximum number of tokens for the deep analyzer. |
 | `DEEP_ANALYZER_DEDUP_CACHE_SIZE` | `500` | Size of the deduplication cache for the deep analyzer. |
@@ -105,7 +105,7 @@ Run:
   --weight-format int4 \
   --device CPU
 
-# Download "DEEP_ANALYZER_MODEL" for temporal-based understanding on consecutive frames
+# Download the deep analyzer model for temporal understanding across consecutive frames (CPU or GPU).
 ./model_download_scripts/download_models.sh \
   --model Qwen/Qwen3-VL-8B-Instruct \
   --type vlm \

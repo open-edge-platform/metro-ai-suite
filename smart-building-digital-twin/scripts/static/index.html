@@ -437,6 +437,12 @@ const STATE_KEY   = 'sbd-scene-state';
 const FILTER_KEY  = 'sbd-narrator-filter';
 const MAX_STORED  = 150;   // max entries kept; older images stripped first
 
+// Drop cached data when the narrator container has restarted
+if (localStorage.getItem('sbd-server-boot') !== '__SERVER_BOOT_ID__') {
+  localStorage.clear();
+  localStorage.setItem('sbd-server-boot', '__SERVER_BOOT_ID__');
+}
+
 function saveEntries() {
   try {
     localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries.slice(-MAX_STORED)));

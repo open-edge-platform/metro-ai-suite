@@ -25,12 +25,13 @@ import re
 import socket
 import sys
 import threading
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 sys.path.insert(0, str(Path(__file__).parent))
 from system_telemetry import SystemTelemetry
@@ -188,9 +189,14 @@ app = FastAPI(lifespan=lifespan)
 
 
 # ── Static ────────────────────────────────────────────────────────────────────────
+# Changes on every container start so the UI can drop data cached from a previous run
+SERVER_BOOT_ID = uuid.uuid4().hex
+
+
 @app.get("/")
 async def index():
-  return FileResponse(STATIC_DIR / "index.html")
+  html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+  return HTMLResponse(html.replace("__SERVER_BOOT_ID__", SERVER_BOOT_ID))
 
 
 # ── SSE ───────────────────────────────────────────────────────────────────────────

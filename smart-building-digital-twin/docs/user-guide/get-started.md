@@ -47,6 +47,26 @@ rerun `./setup.sh`.
 The analytics service learns the `SideDoorEntry` door-state baseline only after the first
 complete replay loop, preventing partial data from a mid-loop startup from affecting the baseline.
 
+## Select the inference device (GPU, CPU, or NPU)
+
+The detection model runs on the device set by `DETECTION_DEVICE` (`GPU`, `CPU`, or `NPU`).
+To run on CPU or NPU instead of the default GPU:
+
+1. Edit `.env.example` and change the device, for example:
+
+   ```bash
+   DETECTION_DEVICE=NPU
+   ```
+
+2. Run the setup script again:
+
+   ```bash
+   ./setup.sh
+   ```
+
+`./setup.sh` reads `DETECTION_DEVICE` from `.env.example` and writes it to `.env`. An
+unsupported value falls back to GPU (CPU if no Intel GPU is detected on the host).
+
 ## After Setup
 
 After setup completes, you can access these runtime endpoints:

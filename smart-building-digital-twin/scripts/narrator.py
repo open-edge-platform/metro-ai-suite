@@ -67,7 +67,8 @@ INERT_GHOST_FREEZE_M = 0.10  # meters — near-zero position spread with non-zer
 INERT_GHOST_SPEED_M = 0.12   # m/s — moving faster than this while spatially frozen is contradictory
 POSTURE_WINDOW      = 10     # last N bounding-box samples for majority vote
 FALL_MAX_SPEED_MS   = 0.35   # m/s — allow a small amount of motion-estimate jitter during fall confirmation
-FALL_CONFIRM_S      = 2.0    # seconds — fall-like posture must persist before alerting
+FALL_CONFIRM_S      = 4.0    # seconds — fall-like posture must persist before alerting
+FALL_UPRIGHT_LOOKBACK_S = 5.0  # a real fall follows a recent upright posture
 FALL_TRIGGER_PREVIOUS_POSTURES = {"upright", "partially upright", "compact", "wide"}
 FALL_SUSTAIN_POSTURES = {"horizontal", "wide"}
 FALL_RECOVERY_POSTURES = {"upright", "partially upright", "compact"}
@@ -188,6 +189,7 @@ class Narrator:
     self._prev_nearest: dict[str, str] = {}
     # Previous posture per track uid (for CHANGE detection)
     self._prev_posture: dict[str, str] = {}
+    self._last_upright_at: dict[str, float] = {}
     # Track uid → wall-clock time when a fall-like episode first qualified
     self._fall_candidate_since: dict[str, float] = {}
     # Track uid → posture observed before the current fall-like episode began
@@ -852,6 +854,8 @@ class Narrator:
     speed = person_state["speed"]
     prev_p = self._prev_posture.get(uid)
     self._prev_posture[uid] = posture
+    if posture in FALL_TRIGGER_PREVIOUS_POSTURES:
+      self._last_upright_at[uid] = now
 
     is_fall_candidate = (
       posture == "horizontal"
@@ -879,7 +883,8 @@ class Narrator:
       if (
         uid not in self._fall_alerted
         and candidate_age >= FALL_CONFIRM_S
-        and candidate_prev_p in FALL_TRIGGER_PREVIOUS_POSTURES
+        and candidate_prev_p != "horizontal"
+        and self._fall_candidate_since[uid] - self._last_upright_at.get(uid, -1e9) <= FALL_UPRIGHT_LOOKBACK_S
       ):
         detail = (
           f"posture changed {candidate_prev_p} → horizontal and persisted for {candidate_age:.1f}s"
@@ -940,6 +945,7 @@ class Narrator:
       self._stationary_since.clear()
       self._prev_nearest.clear()
       self._prev_posture.clear()
+      self._last_upright_at.clear()
       self._fall_candidate_since.clear()
       self._fall_candidate_prev_posture.clear()
       self._fall_alerted.clear()

@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Replay sensor events synchronized to a looping Scenescape video stream.
 
-Loop timing is derived only from raw camera metadata:
+Loop timing is derived from raw camera metadata. On startup, the stream start
+timestamp is used until the camera reports its first dark loop boundary:
 
 1. Watch one camera topic for a dark gap followed by the first detection.
 2. Record that wall-clock moment as the loop restart reference.
@@ -35,6 +36,7 @@ DARK_THRESHOLD = 3
 
 # Open-loop publisher cadence once a loop start has been detected.
 PUBLISH_INTERVAL_S = 0.02
+STREAM_START_FILE = Path('/sync/streams-start')
 
 
 class SensorReplay:
@@ -127,15 +129,18 @@ class SensorReplay:
     with self._lock:
       if has_objects:
         self.consec_empty = 0
-        if self.scene_dark and self._seen_dark_boundary:
+        if self.scene_dark:
+          loop_start_wall = (time.time() if self._seen_dark_boundary else
+                             (float(STREAM_START_FILE.read_text())
+                              if STREAM_START_FILE.exists() else None))
+          if loop_start_wall is None:
+            return
           self.scene_dark = False
-          self.loop_start_wall = time.time()
+          self.loop_start_wall = loop_start_wall
           self.next_index = 0
           self.loop_count += 1
           logger.info(f"Loop {self.loop_count} started")
           self._publish_light(500)
-        elif self.scene_dark and not self._seen_dark_boundary:
-          logger.debug("Ignoring live camera frame until a dark loop boundary is observed")
       else:
         self.consec_empty += 1
         if self.consec_empty >= DARK_THRESHOLD:

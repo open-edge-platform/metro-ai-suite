@@ -16,6 +16,7 @@ application.
 **New**:
 
 - Added a QR code in app UI that links to the documentation.
+- This app is planned for removal in the 2027.0 release.
 
 **Removed**:
 

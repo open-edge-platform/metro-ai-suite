@@ -10,6 +10,7 @@ RUN chmod +x /tmp/drivers/install_gpu_drivers.sh
 
 RUN echo "Installing GPU drivers version $INSTALL_DRIVER_VERSION" \
     && apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends ca-certificates curl libxml2 \
     && python -m pip install --upgrade --no-cache-dir pip==26.2.1 \
     && /tmp/drivers/install_gpu_drivers.sh \
@@ -106,10 +107,7 @@ RUN if [ "$COPYLEFT_SOURCES" = "true" ]; then \
 # Production stage.
 FROM base AS production
 
-RUN apt-get update && apt-get upgrade -y \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create non-root user used by the app process after entrypoint drops privileges.
+# Create the non-root user used by the app process.
 RUN groupadd --gid 1000 appuser \
     && useradd --uid 1000 --gid appuser --shell /bin/bash --create-home appuser
 
@@ -131,11 +129,11 @@ WORKDIR /app
 COPY --chown=appuser:appuser main.py ./
 COPY --chown=appuser:appuser backend/ ./backend/
 COPY --chown=appuser:appuser ui/ ./ui/
+RUN mkdir -p /app/segments && chown appuser:appuser /app/segments
 
 # Optionally download copyleft sources if requested
 ARG COPYLEFT_SOURCES=false
 RUN if [ "$COPYLEFT_SOURCES" = "true" ]; then \
-        apt-get update && \
         # Get list of installed deb packages with copyleft licenses \
         if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
             sed -Ei 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/debian.sources; \
@@ -145,6 +143,7 @@ RUN if [ "$COPYLEFT_SOURCES" = "true" ]; then \
             echo "Could not find an APT sources file to enable deb-src" >&2; exit 1; \
         fi && \
         apt-get update && \
+        apt-get install -y --no-install-recommends dpkg-dev && \
         mkdir -p /copyleft_sources/deb && cd /copyleft_sources/deb && \
         echo -n $null > copyleft_package_list.txt && \
         for package in $(dpkg -l | awk '/^ii/ {print $2}' | cut -d: -f1); do \
@@ -154,7 +153,9 @@ RUN if [ "$COPYLEFT_SOURCES" = "true" ]; then \
                 echo $package >> copyleft_package_list.txt; \
                 apt-get source -q --download-only $package; \
             fi; \
-        done; \
+        done && \
+        apt-get purge -y --auto-remove dpkg-dev && \
+        apt-get clean && rm -rf /var/lib/apt/lists/*; \
     fi
 
 # The application runs entirely out of /opt/venv (a self-contained venv with
@@ -175,12 +176,13 @@ RUN if [ "$COPYLEFT_SOURCES" != "true" ]; then \
                /usr/local/lib/python3.12/site-packages/distutils-precedence.pth; \
     fi
 
-# Fixes bind-mounted segments-dir ownership at startup, then drops to
-# appuser — see entrypoint.sh for why this can't just be USER appuser.
+# Use the existing entrypoint with the non-root image default.
 COPY entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
 EXPOSE 9100
 
+# Host bind mounts must be provisioned with permissions writable by appuser.
+USER appuser
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9100"]
