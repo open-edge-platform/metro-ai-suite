@@ -19,10 +19,12 @@ declare -a VIDEO_FILES=()
 declare -a STREAM_URLS=()
 DEFAULT_STREAM_BASE="rtsp://127.0.0.1:8554/stream"
 CONFIG_FILE=""
+DEFAULT_VIDEO_URL="https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/store-aisle-detection.mp4"
+DEFAULT_VIDEO_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/live-video-captioning/sample-videos"
 
 # ✅ Usage function
 usage() {
-    echo "Usage: $0 -i <video_file> [-i <video_file> ...] [-o <rtsp_url> ...]"
+    echo "Usage: $0 [-i <video_file> [-i <video_file> ...]] [-o <rtsp_url> ...]"
     echo "   or: $0 -c <config.json>"
     echo ""
     echo "Example:"
@@ -33,6 +35,8 @@ usage() {
     echo "  $0 -c streams.json"
     echo ""
     echo "Notes:"
+    echo "  - If no input is given, a default sample video is downloaded from:"
+    echo "      $DEFAULT_VIDEO_URL"
     echo "  - Use -i multiple times for multiple input videos."
     echo "  - Use -c to load inputs/outputs from a JSON file."
     echo "  - jq is required for -c mode (auto-installed if missing)."
@@ -113,10 +117,25 @@ if [ -n "$CONFIG_FILE" ]; then
     fi
 fi
 
-# ✅ Validate input
+# Use the default sample video when the user provides no input.
 if [ ${#VIDEO_FILES[@]} -eq 0 ]; then
-    echo "[ERROR] No video file provided"
-    usage
+    DEFAULT_VIDEO="$DEFAULT_VIDEO_DIR/$(basename "$DEFAULT_VIDEO_URL")"
+    if [ ! -s "$DEFAULT_VIDEO" ]; then
+        echo "[INFO] No input provided. Downloading default sample video..."
+        mkdir -p "$DEFAULT_VIDEO_DIR"
+        if command -v curl >/dev/null 2>&1; then
+            curl -fL --retry 3 -o "$DEFAULT_VIDEO.part" "$DEFAULT_VIDEO_URL"
+        elif command -v wget >/dev/null 2>&1; then
+            wget -O "$DEFAULT_VIDEO.part" "$DEFAULT_VIDEO_URL"
+        else
+            echo "[ERROR] curl or wget is required to download the default video"
+            exit 1
+        fi
+        mv "$DEFAULT_VIDEO.part" "$DEFAULT_VIDEO"
+    else
+        echo "[INFO] Using cached default sample video"
+    fi
+    VIDEO_FILES+=("$DEFAULT_VIDEO")
 fi
 
 # Validate all input files exist.

@@ -50,21 +50,21 @@ Ensure that `Docker` is installed on your system.
 
 ## Usage
 
-### Get a Sample Video (Optional)
+### Default Sample Video
 
-If you do not have a video file, you can publish a public sample video from
-[intel-iot-devkit/sample-videos](https://github.com/intel-iot-devkit/sample-videos) as an RTSP stream. No video is bundled with the application.
-
-Download a sample video (for example, `person-bicycle-car-detection.mp4`):
+If you do not provide any input, the script automatically downloads a public
+sample video, [`store-aisle-detection.mp4`](https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/store-aisle-detection.mp4),
+from [intel-iot-devkit/sample-videos](https://github.com/intel-iot-devkit/sample-videos).
+The file is cached in `~/.cache/live-video-captioning/sample-videos/` and streamed
+to `rtsp://127.0.0.1:8554/stream1`. No video is bundled with the application.
 
 ```bash
-curl -L -o sample.mp4 \
-https://github.com/intel-iot-devkit/sample-videos/raw/master/person-bicycle-car-detection.mp4
+./setup_proxy_rtsp.sh
 ```
 
 ### Basic Usage
 
-Before running the command, make sure the video file exists.
+To use your own video, make sure the file exists.
 
 ```bash
 ./setup_proxy_rtsp.sh -i <your-input-video-file>
