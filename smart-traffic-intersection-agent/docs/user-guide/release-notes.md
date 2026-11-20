@@ -10,6 +10,7 @@
 **Improved**:
 
 - Updated OpenVINO Model Server (OVMS) CPU and GPU images to version 2026.4.0 for Docker Compose deployments.
+- Updated container image system packages to address High severity vulnerabilities in zlib and APT.
 
 ## Version 2026.2.0
 
