@@ -380,7 +380,8 @@ jobs:
       - name: Run Robot sanity tests
         run: |
           cd metro-vision-ai-app-recipe/test-suite/robot_files
-          robot test.robot || true
+          robot_status=0
+          robot test.robot || robot_status=$?
           mkdir -p /tmp/test_results
           cp -r report.html log.html output.xml /tmp/test_results/
           summary_file=/tmp/validation-summary.md
@@ -394,6 +395,7 @@ jobs:
             total=$((passed + failed + not_run))
             echo "| Robot | $total | $passed | $failed | $not_run |"
           } > "$summary_file"
+          exit "$robot_status"
           echo "" >> "$summary_file"
           echo "Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$summary_file"
           cat "$summary_file" >> "$GITHUB_STEP_SUMMARY"

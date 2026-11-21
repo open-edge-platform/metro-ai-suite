@@ -2,7 +2,6 @@ import os
 import time
 import unittest
 import utils as module
-import subprocess
 
 JSONPATH = os.path.dirname(os.path.abspath(__file__)) + '/../configs/config.json'
 
@@ -19,7 +18,8 @@ class TestCaseManager(BaseTest):
         
         try:
             # Setup phase
-            self.utils.setup(value)
+            if not self.utils.setup(value):
+                raise RuntimeError("Application setup failed; Docker startup was skipped")
             if value.get("setup-app"): return
             
             # Docker compose up phase
@@ -51,5 +51,4 @@ class TestCaseManager(BaseTest):
     @classmethod
     def tearDownClass(cls):
         os.chdir(cls.utils.metro_path)
-        # subprocess.check_output("git checkout -- .", shell=True, executable='/bin/bash')
         time.sleep(5)
