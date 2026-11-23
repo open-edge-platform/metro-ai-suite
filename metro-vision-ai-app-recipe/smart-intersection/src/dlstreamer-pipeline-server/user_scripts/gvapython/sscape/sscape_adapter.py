@@ -110,10 +110,26 @@ def detectionPolicy(pobj, item, fw, fh):
 
 def reidPolicy(pobj, item, fw, fh):
   detectionPolicy(pobj, item, fw, fh)
-  reid_vector = item['tensors'][1]['data']
-  # following code snippet is from percebro/modelchain.py
-  v = struct.pack("256f",*reid_vector)
-  pobj['reid'] = base64.b64encode(v).decode('utf-8')
+  if pobj['category'] != 'vehicle':
+    return
+  for tensor in item.get('tensors', []):
+    if tensor.get('tensor_name') != 'embedding':
+      continue
+    reid_vector = tensor.get('data')
+    if not isinstance(reid_vector, list) or len(reid_vector) != 512:
+      return
+    try:
+      if not all(math.isfinite(value) for value in reid_vector):
+        return
+      packed = struct.pack('<512f', *reid_vector)
+    except (TypeError, ValueError, OverflowError, struct.error):
+      return
+    pobj.setdefault('metadata', {})['reid'] = {
+      'embedding_vector': base64.b64encode(packed).decode('ascii'),
+      'embedding_dimensions': 512,
+      'model_name': 'vehicle_vit_clip_reid',
+    }
+    break
   return
 
 def classificationPolicy(pobj, item, fw, fh):

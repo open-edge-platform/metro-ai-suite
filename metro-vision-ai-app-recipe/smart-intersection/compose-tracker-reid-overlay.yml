@@ -1,0 +1,172 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+services:
+  scene:
+    profiles: [legacy-scene-controller]
+
+  broker:
+    entrypoint:
+      - /usr/sbin/mosquitto
+      - -c
+      - /mosquitto/config/mosquitto.conf
+    secrets: !override
+      - source: root-cert
+        target: /mosquitto/secrets/root-cert
+      - source: broker-cert
+        target: /mosquitto/secrets/broker-cert
+      - source: broker-key
+        target: /mosquitto/secrets/broker-key
+
+  nginx:
+    container_name: smart-intersection-reid-nginx
+    ports: !override
+      - "127.0.0.1:${INTERSECTION_HTTP_PORT:-8088}:80"
+      - "127.0.0.1:${INTERSECTION_HTTPS_PORT:-8445}:443"
+
+  pgserver:
+    ports: !reset []
+
+  influxdb2:
+    ports: !override
+      - "127.0.0.1:${INTERSECTION_INFLUX_PORT:-18086}:8086"
+
+  metrics-manager:
+    container_name: smart-intersection-reid-metrics-manager
+
+  prometheus:
+    container_name: smart-intersection-reid-prometheus
+
+  dlstreamer-pipeline-server:
+    volumes:
+      - type: bind
+        source: ${VEHICLE_REID_DIR:?Set VEHICLE_REID_DIR to the prepared model directory}/config.json
+        target: /home/pipeline-server/config.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${VEHICLE_REID_DIR}/model.xml
+        target: /home/pipeline-server/models/vehicle_reid/model.xml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${VEHICLE_REID_DIR}/model.bin
+        target: /home/pipeline-server/models/vehicle_reid/model.bin
+        read_only: true
+        bind:
+          create_host_path: false
+
+  analytics:
+    image: ${REID_ANALYTICS_IMAGE:?Set REID_ANALYTICS_IMAGE to an Analytics image supporting standalone ReID decisions}
+
+  tracker:
+    image: ${TRACKER_IMAGE:?Set TRACKER_IMAGE to a Tracker image supporting reid_sighting}
+    user: "10001:10001"
+    networks:
+      - scenescape
+    depends_on:
+      web:
+        condition: service_healthy
+      scene-uploader:
+        condition: service_completed_successfully
+      broker:
+        condition: service_started
+    environment:
+      TRACKER_MAX_LAG_S: "5.0"
+      TRACKER_LOG_LEVEL: info
+      TRACKER_MQTT_HOST: broker.scenescape.intel.com
+      TRACKER_MQTT_PORT: "1883"
+      TRACKER_MQTT_INSECURE: "false"
+      TRACKER_MQTT_TLS_CA_CERT: /run/secrets/certs/scenescape-ca.pem
+      TRACKER_MQTT_TLS_VERIFY_SERVER: "true"
+      TRACKER_MANAGER_URL: https://web.scenescape.intel.com
+      TRACKER_MANAGER_AUTH_PATH: /run/secrets/controller.auth
+      TRACKER_MANAGER_CA_CERT_PATH: /run/secrets/certs/scenescape-ca.pem
+      TRACKER_SCENES_SOURCE: api
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      http_proxy: ""
+      https_proxy: ""
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - controller.auth
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: on-failure
+
+  reid-service:
+    image: ${REID_SERVICE_IMAGE:?Set REID_SERVICE_IMAGE to a Tracker-ingest-capable ReID image}
+    init: true
+    networks:
+      - scenescape
+    depends_on:
+      broker:
+        condition: service_started
+      vdms:
+        condition: service_started
+    environment:
+      REID_DATABASE: VDMS
+      REID_HOSTNAME: reid.scenescape.intel.com
+      REID_PORT: "55555"
+      REID_USE_TLS: "true"
+      REID_CA_CERT: /run/secrets/reid-ca.pem
+      REID_CLIENT_CERT: /run/secrets/reid-client.crt
+      REID_CLIENT_KEY: /run/secrets/reid-client.key
+      REID_MQTT_BROKER: broker.scenescape.intel.com
+      REID_MQTT_AUTH: /run/secrets/controller.auth
+      REID_MQTT_ROOT_CERT: /run/secrets/certs/scenescape-ca.pem
+      REID_INGEST_ENABLED: "true"
+      REID_INGEST_ACCEPT_UNVETTED: "false"
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - controller.auth
+      - source: reid-ca
+        target: reid-ca.pem
+      - source: reid-client-cert
+        target: reid-client.crt
+      - source: reid-client-key
+        target: reid-client.key
+    restart: on-failure
+
+  vdms:
+    image: intellabs/vdms:v2.12.0
+    init: true
+    networks:
+      scenescape:
+        aliases:
+          - reid.scenescape.intel.com
+    environment:
+      OVERRIDE_ca_file: /run/secrets/reid-ca.pem
+      OVERRIDE_cert_file: /run/secrets/reid-server.crt
+      OVERRIDE_key_file: /run/secrets/reid-server.key
+      OVERRIDE_db_root_path: /vdms/data
+    secrets:
+      - source: reid-ca
+        target: reid-ca.pem
+      - source: reid-server-cert
+        target: reid-server.crt
+      - source: reid-server-key
+        target: reid-server.key
+    volumes:
+      - reid-data:/vdms/data
+    restart: on-failure
+
+secrets:
+  reid-ca:
+    file: ${REID_CA_FILE:?Set REID_CA_FILE to the VDMS CA certificate}
+  reid-client-cert:
+    file: ${REID_CLIENT_CERT_FILE:?Set REID_CLIENT_CERT_FILE to the ReID client certificate}
+  reid-client-key:
+    file: ${REID_CLIENT_KEY_FILE:?Set REID_CLIENT_KEY_FILE to the ReID client key}
+  reid-server-cert:
+    file: ${REID_SERVER_CERT_FILE:?Set REID_SERVER_CERT_FILE to the VDMS server certificate}
+  reid-server-key:
+    file: ${REID_SERVER_KEY_FILE:?Set REID_SERVER_KEY_FILE to the VDMS server key}
+
+volumes:
+  reid-data:
