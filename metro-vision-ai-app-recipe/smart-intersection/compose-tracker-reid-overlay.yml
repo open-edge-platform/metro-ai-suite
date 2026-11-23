@@ -59,7 +59,14 @@ services:
           create_host_path: false
 
   analytics:
-    image: ${REID_ANALYTICS_IMAGE:?Set REID_ANALYTICS_IMAGE to an Analytics image supporting standalone ReID decisions}
+    image: ${ANALYTICS_IMAGE:?Set ANALYTICS_IMAGE to an Analytics image supporting standalone ReID decisions}
+    environment:
+      - VISIBILITY_TOPIC=${VISIBILITY:-regulated}
+    command: >
+      --restauth /run/secrets/controller.auth
+      --brokerauth /run/secrets/controller.auth
+      --broker broker.scenescape.intel.com
+      --visibility_topic ${VISIBILITY:-regulated}
 
   tracker:
     image: ${TRACKER_IMAGE:?Set TRACKER_IMAGE to a Tracker image supporting reid_sighting}

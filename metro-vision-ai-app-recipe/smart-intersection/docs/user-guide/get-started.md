@@ -118,7 +118,7 @@ variable and the recipe's normal `.env` settings are also required.
 export SAMPLE_APP=smart-intersection
 export TRACKER_IMAGE='<tracker-image-with-reid-sighting>'
 export REID_SERVICE_IMAGE='<reid-image-with-tracker-ingest>'
-export REID_ANALYTICS_IMAGE='<analytics-image-with-reid-decisions>'
+export ANALYTICS_IMAGE='<analytics-image-with-reid-decisions>'
 export REID_CA_FILE='<absolute-path-to-vdms-ca>'
 export REID_CLIENT_CERT_FILE='<absolute-path-to-client-cert>'
 export REID_CLIENT_KEY_FILE='<absolute-path-to-client-key>'
