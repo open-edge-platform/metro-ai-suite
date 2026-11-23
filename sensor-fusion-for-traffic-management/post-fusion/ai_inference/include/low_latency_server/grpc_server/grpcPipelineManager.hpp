@@ -289,7 +289,7 @@ private:
      * step3. pl->prepare();
      * step4. pl->start();
     */
-    hvaPipelinePtr run(PipelineInfo::Ptr plInfo, const std::string& pipelionConfig);
+    hvaPipelinePtr run(PipelineInfo::Ptr plInfo, const std::string& pipelionConfig, std::string *errorDescription = nullptr);
 
     /**
      * @brief reply for request: load_pipeline
@@ -299,6 +299,8 @@ private:
      * @param jobHandle jobHandle to identify an existing pipeline
     */
     void replyLoadPipeline(GrpcServer::Handle client, unsigned code, const std::string& description, Handle jobHandle);
+
+    void replyLoadError(GrpcServer::Handle client, unsigned code, const std::string& description, Handle jobHandle);
 
     /**
      * @brief reply for request: unload_pipeline

@@ -300,6 +300,8 @@ Refer to [kitti360_guide.md](https://github.com/open-edge-platform/metro-ai-suit
 
 This section describes the unit tests of three major components: media processing, lidar processing, and fusion pipeline without display.
 
+For Lidar, the `Device` index refers to the available SYCL device list printed by the service. Verify that the configured index matches the requested CPU or GPU type on your platform; the same GPU can appear under both Level Zero and OpenCL backends.
+
 **Unit Test: Fusion pipeline without display**:
 Open another terminal, run the following commands:
 

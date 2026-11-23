@@ -26,6 +26,19 @@ if [[ -d /dev/accel ]]; then
     fi
 fi
 
+GUI_PARAMS=()
+if [[ -n "${DISPLAY:-}" ]]; then
+    GUI_PARAMS+=( -e "DISPLAY=$DISPLAY" -e QT_X11_NO_MITSHM=1 )
+    if [[ -d /tmp/.X11-unix ]]; then
+        GUI_PARAMS+=( -v /tmp/.X11-unix:/tmp/.X11-unix )
+    fi
+
+    AUTH_FILE="${XAUTHORITY:-$HOME/.Xauthority}"
+    if [[ -f "$AUTH_FILE" ]]; then
+        GUI_PARAMS+=( -v "$AUTH_FILE:/home/tfcc/.Xauthority:ro" )
+    fi
+fi
+
 
 docker run -itd --net=host \
     --entrypoint /bin/bash \
@@ -36,9 +49,6 @@ docker run -itd --net=host \
     --device /dev/dri \
     ${EXTRA_PARAMS} \
     ${ACCEL_PARAMS} \
-    -e DISPLAY=$DISPLAY \
-    -e QT_X11_NO_MITSHM=1 \
-    -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -v $HOME/.Xauthority:/home/tfcc/.Xauthority:rw \
+    "${GUI_PARAMS[@]}" \
     -w /home/tfcc/bevfusion \
     $DOCKER_IMAGE

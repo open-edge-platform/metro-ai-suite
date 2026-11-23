@@ -1,7 +1,6 @@
 #!/bin/bash
 if [ -d "/opt/intel/media" ]; then
     source /opt/intel/openvino_2025/setupvars.sh
-    source /opt/intel/oneapi/setvars.sh
     source /opt/intel/media/etc/vpl/vars.sh
 
     MEDIA_DIR=/opt/intel/media
@@ -18,9 +17,9 @@ if [ -d "/opt/intel/media" ]; then
     export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 else
     source /opt/intel/openvino_2025/setupvars.sh
-    source /opt/intel/oneapi/setvars.sh
     source /usr/local/etc/vpl/vars.sh
 
+    MEDIA_DIR=/usr/lib/x86_64-linux-gnu
     export PATH=/usr/local/lib:$PATH
     export PATH=$MEDIA_DIR:$PATH
     export PKG_CONFIG_PATH=$MEDIA_DIR/pkgconfig/:$PKG_CONFIG_PATH
@@ -39,3 +38,6 @@ else
     # export OpenCV_DIR=/usr/local/lib/cmake/opencv4
     export OpenCV_DIR=/usr/lib/x86_64-linux-gnu/cmake/opencv4
 fi
+
+# Keep oneAPI runtimes ahead of system libraries, including when sourced again.
+source /opt/intel/oneapi/setvars.sh --force

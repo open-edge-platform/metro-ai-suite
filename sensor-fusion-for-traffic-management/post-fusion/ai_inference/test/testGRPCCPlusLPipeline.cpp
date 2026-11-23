@@ -15,7 +15,9 @@
 #include <iostream>
 #include <sys/timeb.h>
 #include <chrono>
+#include <exception>
 #include <mutex>
+#include <stdexcept>
 #include <boost/property_tree/json_parser.hpp>
 
 #include "utils/testUtils.hpp"
@@ -32,6 +34,7 @@ using namespace hce::ai::inference;
 
 std::vector<std::size_t> g_total;
 std::vector<std::size_t> g_frameCnt;
+std::vector<std::string> g_worker_errors;
 std::mutex g_mutex;
 double g_latency_sum = 0;
 int64_t g_latency_count = 0;
@@ -169,10 +172,14 @@ void workload(const std::string &host,
 
             // Client send requests on specific context
             std::cout << "sending request ====> load_pipeline" << std::endl;
-            stream->Write(request);
+            if (!stream->Write(request)) {
+                throw std::runtime_error("load_pipeline: failed to write the gRPC request");
+            }
 
             hce_ai::AI_Response reply;
-            stream->Read(&reply);
+            if (!stream->Read(&reply)) {
+                throw std::runtime_error("load_pipeline: stream ended before a response was received");
+            }
             std::cout << "reply: " << reply.message() << ", reply_status: " << reply.status() << std::endl;
             /*
             reply: {
@@ -182,13 +189,27 @@ void workload(const std::string &host,
             }
             success: reply status == 0
             */
-            if (reply.status() == 0) {
-                boost::property_tree::ptree jsonMessage;
+            if (reply.status() != 0) {
+                throw std::runtime_error("load_pipeline: service returned status " + std::to_string(reply.status()) + ": " + reply.message());
+            }
+            if (reply.message().empty()) {
+                throw std::runtime_error("load_pipeline: service returned an empty response");
+            }
+
+            boost::property_tree::ptree jsonMessage;
+            try {
                 std::stringstream ss(reply.message());
                 boost::property_tree::read_json(ss, jsonMessage);
-                job_handle = jsonMessage.get<size_t>("handle");
-                std::cout << "pipeline has been loaded, job handle: " << job_handle << std::endl;
+                auto handle = jsonMessage.get_optional<size_t>("handle");
+                if (!handle || *handle == 0) {
+                    throw std::runtime_error("load_pipeline: response is missing a valid handle");
+                }
+                job_handle = *handle;
             }
+            catch (const boost::property_tree::ptree_error &e) {
+                throw std::runtime_error(std::string("load_pipeline: invalid JSON response: ") + e.what());
+            }
+            std::cout << "pipeline has been loaded, job handle: " << job_handle << std::endl;
         }
 
         // request_sent = std::chrono::high_resolution_clock::now();
@@ -209,15 +230,19 @@ void workload(const std::string &host,
             }
 
             // Client send requests on specific context
-            stream->Write(request);
+            if (!stream->Write(request)) {
+                throw std::runtime_error("run: failed to write the gRPC request");
+            }
         }
 
         // parse ret results
+        std::exception_ptr readerException;
         std::thread reader([&]() {
-            hce_ai::AI_Response reply;
-            std::string reply_msg;
-            int reply_status;
-            while (stream->Read(&reply)) {
+            try {
+                hce_ai::AI_Response reply;
+                std::string reply_msg;
+                int reply_status;
+                while (stream->Read(&reply)) {
                 std::string msg = reply.message();
                 // response received
                 response_received = std::chrono::high_resolution_clock::now();
@@ -320,6 +345,9 @@ void workload(const std::string &host,
                     }
                     // std::cout<< "frame index: "<< frameCnt <<" latency :"<<latency <<std::endl;
                 }
+                else {
+                    throw std::runtime_error("run: service returned status " + std::to_string(reply.status()) + ": " + reply.message());
+                }
 
                 reply_status = reply.status();
                 // std::cout << "frame index: " << frameCnt << ", reply_status: " << reply_status << std::endl;
@@ -341,14 +369,22 @@ void workload(const std::string &host,
                     std::string info = "[thread " + std::to_string(thread_id) + "] " + std::to_string(frameCnt) + " frames have been processed.";
                     std::cout << info << std::endl;
                 }
+                }
+            }
+            catch (...) {
+                readerException = std::current_exception();
+                context.TryCancel();
             }
         });
 
         reader.join();
         stream->WritesDone();
         grpc::Status status = stream->Finish();
+        if (readerException) {
+            std::rethrow_exception(readerException);
+        }
         if (!status.ok()) {
-            std::cout << status.error_code() << ": " << status.error_message() << std::endl;
+            throw std::runtime_error("run: gRPC stream failed with code " + std::to_string(status.error_code()) + ": " + status.error_message());
         }
 
         response_received = std::chrono::high_resolution_clock::now();
@@ -482,8 +518,19 @@ int main(int argc, char **argv)
 
         for (unsigned i = 0; i < threadNum; ++i) {
             std::string reportFileName = "performance_data_" + std::to_string(i) + ".json";
-            std::thread t(workload, std::ref(host), std::ref(port), std::ref(contents), std::ref(dataPath), repeats, mediaType, i, crossStreamNum, warmupFlag,
-                          pipeline_repeats, reportFileName);
+            std::thread t([&, i, reportFileName]() {
+                try {
+                    workload(host, port, contents, dataPath, repeats, mediaType, i, crossStreamNum, warmupFlag, pipeline_repeats, reportFileName);
+                }
+                catch (const std::exception &e) {
+                    std::lock_guard<std::mutex> lg(g_mutex);
+                    g_worker_errors.push_back("[thread " + std::to_string(i) + "] " + e.what());
+                }
+                catch (...) {
+                    std::lock_guard<std::mutex> lg(g_mutex);
+                    g_worker_errors.push_back("[thread " + std::to_string(i) + "] unknown exception");
+                }
+            });
             vThs.push_back(std::move(t));
         }
 
@@ -496,6 +543,13 @@ int main(int argc, char **argv)
 
         for (auto &item : vThs) {
             item.join();
+        }
+
+        if (!g_worker_errors.empty()) {
+            for (const auto &error : g_worker_errors) {
+                std::cerr << "Error: " << error << std::endl;
+            }
+            return EXIT_FAILURE;
         }
 
         // ---------------------------------------------------------------------------

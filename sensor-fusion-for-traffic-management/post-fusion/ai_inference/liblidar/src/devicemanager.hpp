@@ -1,12 +1,12 @@
 #pragma once
 #include <sycl/sycl.hpp>
 #include <iostream>
-#include <dpc_common.hpp>
 #include <vector>
 class DeviceManager {
   public:
     void printDevices();
     bool SelectDevice(int idx);
+    bool SelectDevice(int idx, sycl::info::device_type type);
     sycl::queue &getQue();
     sycl::device &getDev();
 
@@ -20,5 +20,5 @@ class DeviceManager {
   private:
     std::vector<sycl::device> devs;
     sycl::queue que;
-    int selDevIdx;
+    int selDevIdx = -1;
 };

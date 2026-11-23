@@ -8,7 +8,6 @@ exec &> ${LOG_FILE}
 
 if [ -d "/opt/intel/media" ]; then
     source /opt/intel/openvino_2025/setupvars.sh
-    source /opt/intel/oneapi/setvars.sh
     source /opt/intel/media/etc/vpl/vars.sh
     export HVA_NODE_DIR="$PROJ_DIR/build/lib"
     # export LD_LIBRARY_PATH=/opt/hdf5/lib:$LD_LIBRARY_PATH
@@ -25,6 +24,7 @@ if [ -d "/opt/intel/media" ]; then
     export LD_LIBRARY_PATH=$MEDIA_DIR/lib64:$LD_LIBRARY_PATH
     export LIBVA_DRIVER_NAME=iHD
     export MFX_HOME=$MEDIA_DIR
+    source /opt/intel/oneapi/setvars.sh --force
 
     unset http_proxy
     unset https_proxy
@@ -35,7 +35,6 @@ if [ -d "/opt/intel/media" ]; then
     ./bin/HceAILLInfServer -C ../ai_inference/source/low_latency_server/AiInference.config
 else
     source /opt/intel/openvino_2025/setupvars.sh
-    source /opt/intel/oneapi/setvars.sh
     source /etc/vpl/vars.sh
     export HVA_NODE_DIR="$PROJ_DIR/build/lib"
     # export LD_LIBRARY_PATH=/opt/hdf5/lib:$LD_LIBRARY_PATH
@@ -52,6 +51,7 @@ else
     export LD_LIBRARY_PATH=$MEDIA_DIR:$LD_LIBRARY_PATH
     export LIBVA_DRIVER_NAME=iHD
     export MFX_HOME=$MEDIA_DIR
+    source /opt/intel/oneapi/setvars.sh --force
 
     unset http_proxy
     unset https_proxy

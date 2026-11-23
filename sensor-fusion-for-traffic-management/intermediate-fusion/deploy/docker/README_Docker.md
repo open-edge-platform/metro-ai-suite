@@ -239,6 +239,8 @@ Example:
 bash docker/run_docker.sh tfcc:2026.1.0-ubuntu24
 ```
 
+On headless hosts, `DISPLAY` may be unset or empty; the script automatically skips X11 environment variables and mounts.
+
 ## 6. Optional: Docker Compose workflow for local images
 
 The Compose file supports both the published `intel/tfcc:2026.1.0-ubuntu24` image and local rebuilds. Use `docker compose pull` or `docker compose up` when the published image is available. Use `docker compose up --build` when you want to rebuild from local sources.

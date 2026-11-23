@@ -1,4 +1,5 @@
 #include <devicemanager.hpp>
+#include <stdexcept>
 void DeviceManager::printDevices()
 {
     std::cout << "Available device(s): \n";
@@ -22,7 +23,16 @@ sycl::queue &DeviceManager::getQue()
 }
 sycl::device &DeviceManager::getDev()
 {
+    if (selDevIdx < 0 || static_cast<size_t>(selDevIdx) >= devs.size())
+        throw std::runtime_error("No SYCL device has been selected");
     return devs[selDevIdx];
+}
+bool DeviceManager::SelectDevice(int idx, sycl::info::device_type type)
+{
+    if (idx < 0 || static_cast<size_t>(idx) >= devs.size() ||
+        devs[idx].get_info<sycl::info::device::device_type>() != type)
+        return false;
+    return SelectDevice(idx);
 }
 bool DeviceManager::SelectDevice(int idx)
 {

@@ -5,7 +5,6 @@ PROJ_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 
 if [ -d "/opt/intel/media" ]; then
     source /opt/intel/openvino_2025/setupvars.sh
-    source /opt/intel/oneapi/setvars.sh
     # source /opt/intel/oneVPL_v2023.3.0/etc/vpl/vars.sh
     source /opt/intel/media/etc/vpl/vars.sh
     # source /opt/intel/oneVPL-2022.2.2/etc/vpl/vars.sh
@@ -26,6 +25,7 @@ if [ -d "/opt/intel/media" ]; then
 
 
     export HVA_NODE_DIR="$PROJ_DIR/build/lib"
+    source /opt/intel/oneapi/setvars.sh --force
     # export LD_LIBRARY_PATH=/opt/hdf5/lib:$LD_LIBRARY_PATH
 
     unset http_proxy
@@ -38,7 +38,6 @@ if [ -d "/opt/intel/media" ]; then
     ./bin/HceAILLInfServer -C ../ai_inference/source/low_latency_server/AiInference.config
 else
     source /opt/intel/openvino_2025/setupvars.sh
-    source /opt/intel/oneapi/setvars.sh
     source /usr/local/etc/vpl/vars.sh
 
     MEDIA_DIR=/usr/lib/x86_64-linux-gnu
@@ -58,6 +57,7 @@ else
     export MFX_HOME=$MEDIA_DIR
 
     export HVA_NODE_DIR="$PROJ_DIR/build/lib"
+    source /opt/intel/oneapi/setvars.sh --force
 
     export OpenCV_DIR=/usr/lib/x86_64-linux-gnu/cmake/opencv4
 

@@ -68,6 +68,8 @@ To work interactively inside the published image instead:
 bash docker/run_docker.sh intel/tfcc:2026.1.0-ubuntu24
 ```
 
+Headless hosts are supported with `DISPLAY` unset or empty. See the [Docker launch instructions](docker/README_Docker.md#run-the-locally-built-image).
+
 If this container workflow is enough for your use case, you can skip the native build steps in [Prerequisites](../../docs/user-guide/intermediate-fusion/Prerequisites.md) and the [Get Started Guide](../../docs/user-guide/intermediate-fusion/GSG.md).
 
 ## Native Host Entry Points

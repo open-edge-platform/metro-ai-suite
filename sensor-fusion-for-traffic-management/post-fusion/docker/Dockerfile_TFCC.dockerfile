@@ -1,5 +1,6 @@
 ARG BASE=ubuntu
 ARG BASE_VERSION=24.04
+ARG ONEAPI_VERSION=2025.3
 
 # ==============================================================================
 # base builder stage
@@ -122,11 +123,12 @@ RUN ./bootstrap.sh && ./configure --with-qt4=no --with-qt5=no --with-python=no &
     rm -rf /home/tfcc/3rd_build
 
 # oneapi
+ARG ONEAPI_VERSION
 RUN curl -k -o GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB -L && \
 	apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && rm GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
 	echo "deb https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAPI.list && \
 	apt update -y && \
-	apt install -y intel-oneapi-base-toolkit lsb-release
+	apt install -y intel-oneapi-base-toolkit-${ONEAPI_VERSION} lsb-release
 
 # Install oneVPL dependencies
 WORKDIR /home/tfcc/3rd_build/
@@ -350,11 +352,12 @@ RUN apt update && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
 
+ARG ONEAPI_VERSION
 RUN curl -k -o GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB -L && \
 	apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && rm GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
 	echo "deb https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAPI.list && \
 	apt update -y && \
-	apt install -y intel-oneapi-runtime-mkl intel-oneapi-compiler-dpcpp-cpp-runtime lsb-release && \
+	apt install -y intel-oneapi-mkl-${ONEAPI_VERSION} intel-oneapi-compiler-dpcpp-cpp-runtime-${ONEAPI_VERSION} lsb-release && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
 

@@ -254,15 +254,15 @@ PointPillars::Impl::Impl(const float score_threshold, const float nms_threshold,
         execution_devices_.push_back(sycl::info::device_type::cpu);
     }
 
-    dev_mgr_ = new DeviceManager();
+    auto selectedDevice = std::make_unique<DeviceManager>();
     for (const auto &device_type : execution_devices_) {
-        if (!dev_mgr_->SelectDevice(dev_index)) {
-            std::cout << "\n\n";
-            continue;
+        if (!selectedDevice->SelectDevice(dev_index, device_type)) {
+            throw std::runtime_error("SYCL device " + device_ + " is unavailable or has the wrong device type; check the available device list");
         }
-        std::cout << "Running PointPillars on " << dev_mgr_->getDev().get_info<sycl::info::device::name>() << ", backend: " << dev_mgr_->getDev().get_backend()
+        std::cout << "Running PointPillars on " << selectedDevice->getDev().get_info<sycl::info::device::name>() << ", backend: " << selectedDevice->getDev().get_backend()
                   << std::endl;
     }
+    dev_mgr_ = selectedDevice.release();
 
     AnchorGridConfig anchor_grid_config;
     anchor_grid_config.min_x_range = config.min_x_range;

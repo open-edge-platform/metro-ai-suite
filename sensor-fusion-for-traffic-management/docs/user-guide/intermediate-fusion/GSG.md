@@ -33,6 +33,8 @@ cd build
 
 If this container workflow is enough for your use case, you can stop here.
 
+On headless hosts, `DISPLAY` may be unset or empty; no X11 configuration is required.
+
 The bundled model files under `../data/*/pointpillars` and `../data/*/second` are dummy weights in the current release package. They preserve the runtime interfaces so the applications can be launched and profiled, but they do not produce meaningful detections or evaluation results.
 
 ## 2. Prepare The Host For A Native Build

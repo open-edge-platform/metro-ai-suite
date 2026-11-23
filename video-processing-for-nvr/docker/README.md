@@ -15,13 +15,19 @@ Make sure Docker is correctly installed and configured.
 
 ## Download the yolov8n_with_preprocess.xml model
 
-1. Download and convert yolo model with python script `python yolov8-object-detection.py`, model will be saved in `models/yolov8n_openvino_int8_model/`
+1. Download and convert yolo model with python script `python3 yolov8-object-detection.py`, model will be saved in `models/yolov8n_openvino_int8_model/`
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+
+python3 ./yolov8-object-detection.py
+```
 
 ## Run Docker container
 
 1. Run `sudo init 3` switch to non-GUI mode.
 
-   For example, to enable NPU support, please run `export NPU_ON=true` before building.
 2. Run a sample test in docker container : `bash run.sh models/yolov8n_openvino_int8_model/yolov8n_with_preprocess.xml`
 
    To exit the program, you need to open another terminal window and stop the container using docker stop.
@@ -40,8 +46,7 @@ export MODEL_FILE=models/yolov8n_openvino_int8_model/yolov8n_with_preprocess.xml
 docker compose build
 ```
 
-1. Run `sudo init 3` switch to non-GUI mode
-2. Run `bash ./startup.sh models/yolov8n_openvino_int8_model/yolov8n_with_preprocess.xml`
+1. Run `bash ./startup.sh models/yolov8n_openvino_int8_model/yolov8n_with_preprocess.xml`
 
 If you want to stop the program, press Ctrl+C
 

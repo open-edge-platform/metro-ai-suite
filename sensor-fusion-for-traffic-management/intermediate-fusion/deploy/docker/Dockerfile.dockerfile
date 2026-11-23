@@ -143,7 +143,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 ARG ONEAPI_VERSION
 
 RUN apt update && \
-    apt install -y -q --no-install-recommends libtbb12 curl gpg ca-certificates ocl-icd-libopencl1 sudo
+    apt install -y -q --no-install-recommends libtbb12 curl gpg ca-certificates ocl-icd-libopencl1 sudo \
+        python3 python3-numpy && \
+    python3 -c 'import numpy; print("NumPy", numpy.__version__)'
 
 # Intel GPU client drivers and prerequisites installation
 RUN curl -fsSL https://repositories.intel.com/gpu/intel-graphics.key | \

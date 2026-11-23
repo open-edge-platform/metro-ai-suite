@@ -162,11 +162,13 @@ hceAiStatus_t GrpcPipelineManager::loop(){
                     plInfo->streamNum = ptr->streamNum;
                     plInfo->heartbeat = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
                     plInfo->pipelineConfig = ptr->pipelineConfig;
-                    plInfo->pipeline = run(plInfo, ptr->pipelineConfig);
+                    std::string errorDescription;
+                    plInfo->pipeline = run(plInfo, ptr->pipelineConfig, &errorDescription);
                     if(!plInfo->pipeline){
                         _WRN("Pipeline manager unable to constuct the pipeline with handle {}", plInfo->jobHandle);
                         releaseResourceByWorkloadWeight(plInfo->suggestedWeight);
-                        replyRunError(ptr->commHandle, 500, "Unable to construct the specified pipeline", ptr->jobHandle);
+                        replyLoadError(ptr->commHandle, 500, errorDescription.empty() ? "Unable to construct the specified pipeline" : errorDescription,
+                                       ptr->jobHandle);
 
                         // erase the element in waiting queue
                         // iter = m_waitingQueue.erase(iter);
@@ -569,32 +571,59 @@ hceAiStatus_t GrpcPipelineManager::submitUnloadPipeline(Handle jobHandle, GrpcSe
  * step3. pl->prepare();
  * step4. pl->start();
 */
-GrpcPipelineManager::hvaPipelinePtr GrpcPipelineManager::run(PipelineInfo::Ptr plInfo, const std::string& pipelionConfig){
+GrpcPipelineManager::hvaPipelinePtr GrpcPipelineManager::run(PipelineInfo::Ptr plInfo, const std::string& pipelionConfig,
+                                                            std::string *errorDescription){
     HCE_AI_CHECK_RETURN_IF_FAIL((!pipelionConfig.empty()), hvaPipelinePtr());
 
-    hva::hvaPipelineParser_t parser;
-    hvaPipelinePtr pl(m_pipelinePool.construct(), [this](hva::hvaPipeline_t* ptr){m_pipelinePool.destroy(ptr);});
-    HCE_AI_ASSERT(pl);
+    auto setError = [errorDescription](const std::string &message) {
+        if (errorDescription) {
+            *errorDescription = message;
+        }
+    };
 
-    if(parser.parseFromString(pipelionConfig, *pl) != hva::hvaSuccess){
-        return hvaPipelinePtr();
+    try {
+        hva::hvaPipelineParser_t parser;
+        hvaPipelinePtr pl(m_pipelinePool.construct(), [this](hva::hvaPipeline_t* ptr){m_pipelinePool.destroy(ptr);});
+        HCE_AI_ASSERT(pl);
+
+        if(parser.parseFromString(pipelionConfig, *pl) != hva::hvaSuccess){
+            setError("Unable to parse the pipeline configuration");
+            return hvaPipelinePtr();
+        }
+
+        // std::shared_ptr<_restReplyListener> listener(m_rrlPool.construct(plInfo),
+        //         [this](_restReplyListener* ptr){m_rrlPool.destroy(ptr);});
+
+        // grpc
+        std::shared_ptr<_grpcReplyListener> listener(m_grlPool.construct(plInfo),
+                [this](_grpcReplyListener* ptr){m_grlPool.destroy(ptr);});
+
+        HCE_AI_ASSERT(listener);
+        dynamic_cast<baseResponseNode&>(pl->getNodeHandle("Output")).registerEmitListener(std::move(listener));
+
+        if (pl->prepare() != hva::hvaSuccess) {
+            setError("Pipeline preparation failed");
+            _ERR("Pipeline preparation failed");
+            return hvaPipelinePtr();
+        }
+
+        if (pl->start() != hva::hvaSuccess) {
+            setError("Pipeline start failed");
+            _ERR("Pipeline start failed");
+            return hvaPipelinePtr();
+        }
+
+        return pl;
     }
-
-    // std::shared_ptr<_restReplyListener> listener(m_rrlPool.construct(plInfo), 
-    //         [this](_restReplyListener* ptr){m_rrlPool.destroy(ptr);});
-
-    // grpc
-    std::shared_ptr<_grpcReplyListener> listener(m_grlPool.construct(plInfo), 
-            [this](_grpcReplyListener* ptr){m_grlPool.destroy(ptr);});
-
-    HCE_AI_ASSERT(listener);
-    dynamic_cast<baseResponseNode&>(pl->getNodeHandle("Output")).registerEmitListener(std::move(listener));
-
-    pl->prepare();
-
-    pl->start();
-
-    return pl;
+    catch (const std::exception &e) {
+        setError("Pipeline initialization failed: " + std::string(e.what()));
+        _ERR("Pipeline initialization failed: {}", e.what());
+    }
+    catch (...) {
+        setError("Pipeline initialization failed with an unknown exception");
+        _ERR("Pipeline initialization failed with an unknown exception");
+    }
+    return hvaPipelinePtr();
 }
 
 void GrpcPipelineManager::replyLoadPipeline(GrpcServer::Handle client, unsigned code, const std::string& description, Handle jobHandle){
@@ -632,6 +661,22 @@ void GrpcPipelineManager::replyUnloadPipeline(GrpcServer::Handle client, unsigne
 
     baseResponseNode::Response res;
     res.status = 0;
+    res.message = ss.str();
+    GrpcServer::getInstance().reply(client, res);
+}
+
+void GrpcPipelineManager::replyLoadError(GrpcServer::Handle client, unsigned code, const std::string& description, Handle jobHandle){
+    boost::property_tree::ptree jsonTree;
+
+    jsonTree.put("description", description);
+    jsonTree.put("request", "load_pipeline");
+    jsonTree.put("handle", jobHandle);
+
+    std::stringstream ss;
+    boost::property_tree::json_parser::write_json(ss, jsonTree);
+
+    baseResponseNode::Response res;
+    res.status = -5;
     res.message = ss.str();
     GrpcServer::getInstance().reply(client, res);
 }
