@@ -20,6 +20,7 @@ The sample application is based on the Video Processing Platform SDK. It can run
 **Software:**
 
 - Video Processing Platform SDK
+- python and python-venv
 
 ## Installation Guide
 
