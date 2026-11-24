@@ -83,7 +83,11 @@ cd /home/dlstreamer/metro-suite/
 
 mkdir -p crowd-analytics/src/dlstreamer-pipeline-server/models/public
 export MODELS_PATH=/home/dlstreamer/metro-suite/crowd-analytics/src/dlstreamer-pipeline-server/models
-/home/open-edge-platform/dlstreamer/samples/download_public_models.sh yolo11s coco128
+if [ ! -e "\$MODELS_PATH/public/yolo11s/FP16/yolo11s.xml" ]; then
+    uv venv /tmp/ultra-venv
+    uv pip install --python /tmp/ultra-venv/bin/python --index-strategy unsafe-best-match -r "/opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt"
+    /tmp/ultra-venv/bin/python "/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py" --model yolo11s.pt --outdir "\$MODELS_PATH/public/yolo11s/FP16" --half
+fi
 
 echo "Fix ownership..."
 chown -R "$(id -u):$(id -g)" crowd-analytics/src/dlstreamer-pipeline-server/models crowd-analytics/src/dlstreamer-pipeline-server/videos 2>/dev/null || true

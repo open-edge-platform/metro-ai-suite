@@ -161,7 +161,7 @@ and `classification-properties` with additional parameters:
     "pipeline": "object_tracking_gpu",
     "payload": {
         "source": {
-            "uri": "file:///home/pipeline-server/videos/VIRAT_S_000101_looped.mp4",
+            "uri": "file:///home/pipeline-server/resources/VIRAT_S_000101_looped.mp4",
             "type": "uri"
         },
         "destination": {
