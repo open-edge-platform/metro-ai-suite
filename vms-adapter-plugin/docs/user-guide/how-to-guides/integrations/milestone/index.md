@@ -167,6 +167,12 @@ Follow the pages in order:
 4. [Reference and Troubleshooting](./reference.md): configuration reference,
    how registration works, capabilities, limitations, and troubleshooting.
 
+## Disclaimer
+
+Milestone, XProtect and Milestone AI Bridge are trademarks of Milestone Systems A/S.
+AI Bridge is licensed separately under the Milestone EULA and is not distributed by Intel.
+You are responsible for its licensing, configuration, security hardening, and support.
+
 <!--hide_directive
 :::{toctree}
 :hidden:
