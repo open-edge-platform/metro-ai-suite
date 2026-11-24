@@ -137,6 +137,65 @@ Synchronize system time using Network Time Protocol (NTP):
    systemctl status systemd-timesyncd
    ```
 
+### 7. `scene-uploader` fails to due to `import-timeout`
+
+```
+ Container metro-vision-ai-app-recipe-web-1 Healthy 
+ Container metro-vision-ai-app-recipe-scene-uploader-1 Starting 
+ Container metro-vision-ai-app-recipe-scene-uploader-1 Started 
+ Container metro-vision-ai-app-recipe-scene-uploader-1 Waiting 
+ Container metro-vision-ai-app-recipe-web-1 Waiting 
+ Container metro-vision-ai-app-recipe-scene-uploader-1 Waiting 
+ Container metro-vision-ai-app-recipe-web-1 Waiting 
+ Container metro-vision-ai-app-recipe-web-1 Healthy 
+ Container metro-vision-ai-app-recipe-web-1 Healthy 
+ Container metro-vision-ai-app-recipe-scene-uploader-1 Error service "scene-uploader" didn't complete successfully: exit 1
+ Container metro-vision-ai-app-recipe-scene-uploader-1 Error service "scene-uploader" didn't complete successfully: exit 1
+service "scene-uploader" didn't complete successfully: exit 1
+```
+
+The `scene-uploader` service imports the scene zip file into the Scene
+Controller at startup. If the import takes longer than the configured timeout,
+the service fails and the stack does not come up. Import time depends on the
+size of your scene zip file, so you might need to increase the timeout.
+
+1. **Check the import timeout** in the `scene-uploader` section of
+   `docker-compose.yml`:
+
+   ```yaml
+   scene-uploader:
+     command:
+       - --restauth
+       - /run/secrets/controller.auth
+       - --rootcert
+       - /run/secrets/certs/scenescape-ca.pem
+       - --wait
+       - "300"
+       - --import-timeout
+       - "150"
+       - https://web.scenescape.intel.com/api/v1
+       - /scenes
+   ```
+
+2. **Increase the `--import-timeout` value** (in seconds) based on the size of
+   your scene zip file. For example, change `"150"` to `"300"`.
+
+   > [!NOTE]
+   > Larger scene zip files need a higher timeout. Choose a value that suits
+   > the scene files you use.
+
+3. **Restart the stack** to apply the change:
+
+   ```bash
+   docker compose down -v
+   docker compose --progress plain up -d
+   ```
+
+### 8. Machine runs out of memory while `scene-uploader` container is getting deployed
+
+Container `metro-vision-ai-app-recipe-scene-uploader-1` memory consumption spikes above recommended value.
+If Out of Memory in the form of machine restart or unexpected exit of container `metro-vision-ai-app-recipe-scene-uploader-1` appears, then try to increase swap file by 8GB.
+
 ## Troubleshooting Docker Deployments
 
 ### 1. Containers Fail to Start
@@ -172,7 +231,7 @@ rm ./smart-corridor/src/secrets/browser.auth
 docker compose down
 rm ./smart-corridor/src/secrets/browser.auth
 ./install.sh smart-corridor   # regenerates missing secrets via init.sh
-docker compose up -d
+docker compose --progress plain up -d
 ```
 
 ### 5. Cannot Access the Application on a Remote Host

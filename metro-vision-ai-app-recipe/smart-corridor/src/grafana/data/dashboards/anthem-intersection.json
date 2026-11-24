@@ -97,7 +97,7 @@
       },
       "id": 101,
       "options": {
-        "displayMode": "lcd",
+        "displayMode": "gradient",
         "legend": {
           "calcs": [],
           "displayMode": "list",
@@ -127,7 +127,7 @@
             "type": "influxdb",
             "uid": "xU6Z19aVk"
           },
-          "query": "from(bucket: \"SS-Anthem\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r[\"_measurement\"] == \"region_obj_dwell_2\")\r\n  |> filter(fn: (r) => r[\"location\"] == \"$intersection\")\r\n  |> filter(fn: (r) => r[\"object\"] == \"vehicle\")\r\n  |> filter(fn: (r) => r[\"_field\"] == \"dwell_time\")\r\n  |> group(columns: [\"region\"])\r\n  |> aggregateWindow(every: v.windowPeriod, fn: count, createEmpty: false)\r\n  |> yield(name: \"count\")",
+          "query": "from(bucket: \"SS-Anthem\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r[\"_measurement\"] == \"region_obj_dwell_2\")\r\n  |> filter(fn: (r) => r[\"location\"] == \"$intersection\")\r\n  |> filter(fn: (r) => r[\"object\"] == \"vehicle\")\r\n  |> filter(fn: (r) => r[\"_field\"] == \"dwell_time\")\r\n  |> filter(fn: (r) => r[\"region\"] =~ /LANE$/)\r\n  |> group(columns: [\"region\"])\r\n  |> count()\r\n  |> yield(name: \"count\")",
           "refId": "A"
         }
       ],

@@ -29,6 +29,10 @@ To get started:
 > `Smart-Corridor-Intersection-04` and `Smart-Corridor-Intersection-05`. Intersections 01, 02,
 > and 03 are not part of this dataset, so their absence does not indicate a deployment problem.
 
+> [!NOTE]
+> Smart Corridor uses a heterogeneous pipeline that runs on the CPU, GPU, and NPU together.
+> There are no separate deployments for GPU and NPU.
+
 ## Prerequisites
 
 - Verify that your system meets the [minimum requirements](./get-started/system-requirements.md).
@@ -99,7 +103,7 @@ If you are deploying multiple child nodes, number each deployment
 
 2. The Smart Corridor deployment must identify which child node it represents. Configure
    `REMOTE_CHILD_DEPLOY` as `1`, `2`, or `3` in the [.env](https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/metro-vision-ai-app-recipe/.env) file to select the
-   corresponding child scene data and pipeline configuration:
+   corresponding child scene data and pipeline configuration. So insert the below line in [.env]:
 
    ```bash
    REMOTE_CHILD_DEPLOY=1
@@ -140,7 +144,7 @@ If you are deploying multiple child nodes, number each deployment
      Compose tool:
 
      ```bash
-     docker compose up -d
+     docker compose --progress plain up -d 
      ```
 
 - Repeat the steps in the [Deploy a Child Node](#deploy-a-child-node) section for each child
@@ -155,7 +159,7 @@ child nodes exist:
 
 2. Configure the [.env](https://github.com/open-edge-platform/metro-ai-suite/blob/release-2026.3.0/metro-vision-ai-app-recipe/.env) file with the remote child IP addresses:
 
-   For a single-node deployment with no child nodes:
+   For a single-node deployment with no child nodes, insert the below line in [.env]:
 
    ```bash
    TOTAL_REMOTE_CHILD=0
@@ -211,7 +215,7 @@ child nodes exist:
      Compose tool:
 
      ```bash
-     docker compose up -d
+     docker compose --progress plain up -d
      ```
 
    <details>

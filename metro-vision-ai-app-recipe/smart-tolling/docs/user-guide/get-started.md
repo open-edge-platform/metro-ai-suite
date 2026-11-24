@@ -66,7 +66,7 @@ Start the application stack using Docker Compose:
 
 ```bash
 export SUPASS=$(cat ./smart-tolling/src/secrets/supass)
-docker compose up -d
+docker compose --progress plain up -d
 ```
 
 To **stop** the application:
