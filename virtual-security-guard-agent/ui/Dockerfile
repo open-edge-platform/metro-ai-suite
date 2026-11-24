@@ -16,7 +16,7 @@ COPY --chown=node:node . .
 # An image is only built from code that passes lint and tests.
 RUN npm run lint && npm test && npm run build
 
-FROM nginxinc/nginx-unprivileged:1.30.6-alpine
+FROM nginxinc/nginx-unprivileged:1.31.7-alpine
 
 LABEL org.opencontainers.image.title="vsg-ui" \
       org.opencontainers.image.description="Virtual Security Guard Agent UI and Hermes/VSS proxy" \
@@ -31,6 +31,9 @@ COPY third-party-programs.txt /licenses/third-party-programs.txt
 
 # Build-time only; the container runs as uid 101.
 USER root
+
+# Stop Gap fix to pick up Alpine security fixes published after the base image was built.
+RUN apk upgrade --no-cache
 
 RUN sed -i 's/^worker_processes  auto;/worker_processes  1;/' /etc/nginx/nginx.conf \
     && grep -q '^worker_processes  1;' /etc/nginx/nginx.conf \

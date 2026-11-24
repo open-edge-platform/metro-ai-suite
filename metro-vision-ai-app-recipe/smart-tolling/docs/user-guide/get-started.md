@@ -75,6 +75,10 @@ To **stop** the application:
 docker compose down -v
 ```
 
+> **Note**: `down -v` also removes the volume that holds the Node-RED InfluxDB
+> plugin, so the next `docker compose up -d` downloads it again and needs
+> internet access.
+
 ### 5. Verify Deployment
 
 Check the status of all containers:

@@ -46,15 +46,16 @@ production deployment routes them through the AI Bridge proxy; see the
 
 ## Step 1: Install XProtect and add a camera
 
-1. Install XProtect by following Milestone's
-   [XProtect installation guide](https://doc.milestonesys.com/xprotect/xprotect-management-client/2026r2/en/install-a-new-xprotect-system.html). This guide was tested
-   with XProtect Professional+ 2026 R1 on a single computer running Win 11 Pro 25H2.
+> [!IMPORTANT]
+> You must have a Milestone account to download the required software. Contact your business unit if you don't have one.
 
-   Management Client is automatically installed automatically.
-
-2. In Management Client, go to **Recording Servers**, right-click your recording server,
-   and choose **Add Hardware** to add your camera. If your camera requires a username password, add those during the wizard setup when asked.
-3. Open the camera in Smart Client and check that live video plays.
+1. Log in to the [download portal](https://web.milestonesys.com/my-milestone/download-software/) and download the **XProtect** installer and the **AI Bridge resources**. Filter by product type and version to choose each. This guide was tested with XProtect Professional+ 2026 R1 on a single computer running Win 11 Pro 25H2. See [tested versions](./index.md#tested-versions) for more.
+2. Install XProtect by following Milestone's
+   [XProtect installation guide](https://doc.milestonesys.com/xprotect/xprotect-management-client/2026r2/en/install-a-new-xprotect-system.html).
+   Management Client is installed automatically.
+3. In Management Client, go to **Recording Servers**, right-click your recording server,
+   and choose **Add Hardware** to add your camera. If your camera requires a username and password, enter them in the wizard when asked.
+4. Open the camera in Smart Client and check that live video plays.
 
 <!-- SCREENSHOT TODO: ../../../_assets/milestone-mc-add-hardware.png
      Management Client > Recording Servers, with the camera added under the recording server. -->
@@ -62,7 +63,7 @@ production deployment routes them through the AI Bridge proxy; see the
 > [!NOTE]
 > VAP needs each camera's resolution to place the loitering zone, and reads it from
 > XProtect through AI Bridge. Cameras added with a real driver, such as the AXIS camera
-> used in testing, report it. A simulated camera may not.; see
+> used in testing, report it. A simulated camera may not; see
 > [Use a simulated camera](#use-a-simulated-camera).
 
 ## Step 2: Create a user for AI Bridge
@@ -71,7 +72,7 @@ AI Bridge signs in to XProtect with its own account.
 
 1. In Management Client, go to **Security → Basic Users** and add a user, for example
    `vapuser`. **Remember the password**. You would need that while configuring AI Bridge.
-   Also, uncheck **Force Basic User to change password on next login** since login with be done via APIs automatically.
+   Also, uncheck **Force Basic User to change password on next login**, because AI Bridge signs in through the API and cannot change it.
 2. Go to **Security → Roles**, and add the user to a role that can see the cameras you
    want to analyze. We added the user to both **AIBridge** and **Administrator**
 
@@ -88,7 +89,8 @@ this account can see.
 Management Client needs the **Milestone XProtect Processing Server Admin Plugin** to show
 AI Bridge apps and their topics.
 
-1. Download `VideoOS.ProcessingServer.Plugin.Admin.Installer.exe` from Milestone.
+1. Download the AI Bridge resource file as described in [Step 1](#step-1-install-xprotect-and-add-a-camera),
+   and extract `VideoOS.ProcessingServer.Plugin.Admin.Installer.exe` from its `aibridge_xprotect_plugin` folder.
 2. Install it on every machine where Management Client runs.
 3. Restart Management Client.
 
@@ -98,26 +100,31 @@ To learn more, see AI Bridge docs on [Install the Milestone XProtect Processing 
 
 ## Step 4: Deploy AI Bridge and attach it to XProtect
 
-1. Download the AI Bridge resources as described
-   in the [AI Bridge documentation](https://doc.milestonesys.com/AIB/Help/latest/en-us/). It downloads a zip file that has compose deployment resource along with others.
+1. Make sure you have downloaded the AI Bridge resources in [Step 1](#step-1-install-xprotect-and-add-a-camera).
+2. Extract the AI Bridge resource file, `Milestone_AI_Bridge_<Version>_Resources.zip`. It contains the
+   `aibridge_compose_deployment` folder used below and the `aibridge_xprotect_plugin` folder used in Step 3.
+   For details, see [Milestone AI Bridge resource location](https://doc.milestonesys.com/AIB/Help/latest/en-us/feature_flags/ff_aibridge/aibi_downloadresources.htm)
+   and [Installing Milestone AI Bridge](https://doc.milestonesys.com/AIB/Help/latest/en-us/feature_flags/ff_aibridge/aibi_dc_install_aib.htm).
+   The container images are pulled automatically from the
+   [Amazon ECR Public Gallery](https://gallery.ecr.aws/milestonesys/aibridge), which needs no account.
 
-2. Navigate to the `aibridge_compose_deployment/aws` folder In its configuration. Edit the .env file with the XProtect Management Server address and the AI Bridge host and user credentials from Step 2.
+3. Go to the `aibridge_compose_deployment/aws` folder. Edit the `.env` file with the XProtect Management Server address, the AI Bridge host, and the user credentials from Step 2.
 
       ```sh
       # XProtect endpoint and credentials (use https to connect with TLS)
       VMS_URL="http://server-name"  # value can be found from checking the Management server address in Milestone Server Configurator
-      VMS_USER="vapuser"      # user name created in Step 4
-      VMS_PASS="Vapuser@1234" # user password set in Step 4
+      VMS_USER="vapuser"            # user name created in Step 1
+      VMS_PASS="<vapuser-password>" # user password set in Step 1
 
       # External IP address and hostname through which the AI Bridge services can be reached
-      EXTERNAL_IP="<AIB-HOST>"   # AI Bridge HOST IP
-      EXTERNAL_HOSTNAME="AIB-HOST"  # AI Bridge HOST IP
+      EXTERNAL_IP="<AIB-HOST>"   # AI Bridge host IP
+      EXTERNAL_HOSTNAME="AIB-HOST"  # AI Bridge host name
       ```
 
-3. For a first setup, run AI Bridge in **debug mode**, so the GraphQL, RTSP and topic
+4. For a first setup, run AI Bridge in **debug mode**, so the GraphQL, RTSP and topic
    ports in [Network](#network) are reachable directly.
 
-The machine running the Milestone AI Bridge must be able to access all XProtect machines using machine IP addresses or hostnames. See [Setting up in a proxy environment section](#proxy)
+The machine running the Milestone AI Bridge must be able to access all XProtect machines using machine IP addresses or hostnames. See the [Proxy](#proxy) section.
 
 ## Step 5: Enable analytics events in XProtect
 
@@ -146,17 +153,16 @@ with the AI Bridge host address.
 
    ```json
    {
-   "data": {
-      "about": {
+     "data": {
+       "about": {
          "videoManagementSystems": [
-         {
-            "id": "a898a7b5-fee8-46b3-aa13-ec8203f55e0c"
-         }
+           {
+             "id": "a898a7b5-fee8-46b3-aa13-ec8203f55e0c"
+           }
          ]
-      }
+       }
+     }
    }
-   }
-
    ```
 
 2. AI Bridge lists your cameras, with an RTSP address and a resolution for each stream:
@@ -233,7 +239,8 @@ and the pipeline runs with its own default zone instead of the one you set.
 3. Repeat the checks in [Step 6](#step-6-check-ai-bridge). If the stream has no
    resolution in AI Bridge, the zone set in VAP is not applied for this camera.
 
-[!IMPORTANT] We strongly recommend using an actual physical camera supported by Milestone XProtect. For our integration development, we used AXIS P3265-LVE Dome Camera.
+> [!IMPORTANT]
+> We strongly recommend using an actual physical camera supported by Milestone XProtect. For our integration development, we used AXIS P3265-LVE Dome Camera.
 
 ## Proxy
 
@@ -247,7 +254,7 @@ In a proxied environment, do the following
    $ sudo service docker restart
    ```
 
-* set/unset the follwoing proxy variable in the respective services environments in `docker-compose.yml`
+* set/unset the following proxy variables in the respective services environments in `docker-compose.yml`
   * **AI Bridge docker compose file**
 
       For each service in the compose file set the following environment variables:

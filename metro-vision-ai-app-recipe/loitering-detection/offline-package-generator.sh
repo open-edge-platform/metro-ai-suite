@@ -97,6 +97,61 @@ if ! grep -q '^  mqtt-table-flattener:' docker-compose.yml; then
   ' docker-compose.yml > docker-compose.yml.tmp && mv docker-compose.yml.tmp docker-compose.yml
 fi
 
+# Add the Console UI service (opt-in via "loitering-detection-ui" variant) to
+# the parent ../docker-compose.yml used by online installs; without this block
+# the offline package shipped an nginx that proxies /console/ to ui-console:8091
+# but no backing console service, so the Console UI 502'd on the host.
+# Mirrors install.sh's definition with offline-package adjustments: resolved
+# image, no ${SAMPLE_APP}/ prefix in paths (flattened out of the local copy
+# above), console-addon copied alongside this compose file, and no proxy
+# variables (offline target has none).
+if [ "$ENABLE_UI" = "true" ] && ! grep -q '^  console:' docker-compose.yml; then
+  echo "Adding Console UI service to docker-compose.yml..."
+  DLSPS_IMAGE=$(grep "^DLSTREAMER_PIPELINE_SERVER_IMAGE=" .env | cut -d'=' -f2)
+  awk -v image="$DLSPS_IMAGE" '
+    /^networks:/ && !inserted {
+      print "  console:"
+      print "    image: " image
+      print "    container_name: ui-console"
+      print "    restart: unless-stopped"
+      print "    env_file:"
+      print "      - ./console-addon/.env"
+      print "    environment:"
+      print "      - UI_PORT=8091"
+      print "      - HOST_IP=${HOST_IP}"
+      print "      - PIPELINE_SERVER_URL=http://dlstreamer-pipeline-server:8080"
+      print "      - MQTT_HOST=broker"
+      print "      - MQTT_PORT=1883"
+      print "      - MEDIAMTX_URL=http://mediamtx-server:8889"
+      print "      - PROMETHEUS_URL=http://prometheus:9090/prometheus"
+      print "      - MODEL_ROOT=/home/pipeline-server/models"
+      print "      - no_proxy=localhost,127.0.0.1,${HOST_IP},dlstreamer-pipeline-server,mediamtx-server,prometheus,broker"
+      print "      - NO_PROXY=localhost,127.0.0.1,${HOST_IP},dlstreamer-pipeline-server,mediamtx-server,prometheus,broker"
+      print "    volumes:"
+      print "      - ./console-addon/console:/app:ro"
+      print "      - \"./src/dlstreamer-pipeline-server/models:/home/pipeline-server/models:ro\""
+      print "      - \"./src/dlstreamer-pipeline-server/zones:/home/pipeline-server/zones:ro\""
+      print "      - \"/dev:/dev:ro\""
+      print "    working_dir: /app"
+      print "    entrypoint: [\"/bin/sh\", \"./entrypoint.sh\"]"
+      print "    healthcheck:"
+      print "      test: [\"CMD\", \"python3\", \"-c\", \"import urllib.request; urllib.request.urlopen('"'"'http://localhost:8091/'"'"')\"]"
+      print "      interval: 10s"
+      print "      timeout: 5s"
+      print "      retries: 3"
+      print "      start_period: 10s"
+      print "    networks:"
+      print "      - app_network"
+      print "    depends_on:"
+      print "      - dlstreamer-pipeline-server"
+      print "      - broker"
+      print ""
+      inserted=1
+    }
+    { print }
+  ' docker-compose.yml > docker-compose.yml.tmp && mv docker-compose.yml.tmp docker-compose.yml
+fi
+
 # Run install.sh to download all required models and videos
 echo "Running install.sh to download models and videos..."
 ENABLE_UI="$ENABLE_UI" ./install.sh 127.0.0.1

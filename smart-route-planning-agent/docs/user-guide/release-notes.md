@@ -17,6 +17,7 @@
 - Added configurable reasoning request timeouts and OVMS KV-cache sizing, with persistent model caching in Docker Compose.
 - Updated the Docker Compose OVMS image to `2026.4.0` and increased the default reasoning timeout to 120 seconds to accommodate CPU inference with the documented Qwen models.
 - Updated documentation links and sparse-checkout instructions for the Metro AI Suite repository.
+- Updated container image system packages to address High severity vulnerabilities in zlib and APT.
 
 **Upgrade Notes**:
 

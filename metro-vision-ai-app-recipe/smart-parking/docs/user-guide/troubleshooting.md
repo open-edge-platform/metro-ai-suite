@@ -69,4 +69,11 @@ to file new tickets there (after learning about the guidelines for
       https://<HOST_IP>/mediamtx/
       ```
 
+5. **Node-RED fails to start without internet (Scenescape mode)**
+
+   - `docker compose down -v` removes the volume that holds the
+     `node-red-contrib-influxdb` plugin, and Node-RED downloads it again on the
+     next start. Reconnect to the internet and run `docker compose up -d` again,
+     or use the offline package, which bundles the plugin.
+
 
