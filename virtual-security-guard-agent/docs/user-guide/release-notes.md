@@ -2,7 +2,7 @@
 ```{eval-rst}
 .. meta::
   :description: Release notes for the Virtual Security Guard Agent.
-  :keywords: Virtual Security Guard Agent, release notes, 2026.3.0-rc1.
+  :keywords: Virtual Security Guard Agent, release notes, 2026.3.0-rc2.
 ```
 hide_directive-->
 
