@@ -99,7 +99,7 @@ export SUPASS=$(cat ./smart-intersection/src/secrets/supass)
 Download container images with Application microservices and run with Docker Compose:
 
 ```bash
-docker compose up -d
+docker compose --progress plain up -d
 ```
 
 <details>
@@ -178,7 +178,7 @@ export SUPASS=$(cat ./smart-intersection/src/secrets/supass)
 Download container images with Application microservices and run with Docker Compose:
 
 ```bash
-docker compose up -d
+docker compose --progress plain up -d
 ```
 
 <details>
@@ -273,7 +273,7 @@ export SUPASS=$(cat ./smart-intersection/src/secrets/supass)
 Download container images with Application microservices and run with Docker Compose:
 
 ```bash
-docker compose up -d
+docker compose --progress plain up -d
 ```
 
 <details>

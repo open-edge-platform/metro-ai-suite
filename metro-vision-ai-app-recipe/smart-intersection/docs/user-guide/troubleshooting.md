@@ -92,7 +92,7 @@ This is a [known issue](https://github.com/open-edge-platform/edge-ai-suites/iss
 
     ```bash
     unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY no_proxy NO_PROXY
-    docker compose up -d
+    docker compose --progress plain up -d
     ```
 
 ## 2. Docker Deployments

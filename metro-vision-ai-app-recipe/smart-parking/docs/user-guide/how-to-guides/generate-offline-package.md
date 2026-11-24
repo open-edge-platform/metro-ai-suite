@@ -108,18 +108,25 @@ docker images | grep -E "(grafana|influxdb|nginx|dlstreamer)"
 
 ### 3.3 Start the Application
 
+Runtime secrets are not part of the package and must exist before the containers start.
+`./load-images.sh` already generates them by calling `./init-secrets.sh` (requires only `bash`
+and `openssl`, plus `python3` in SceneScape mode; no Docker image or internet access).
+If `docker compose up -d` fails with `bind source path does not exist: .../src/secrets/...`,
+run `./init-secrets.sh` explicitly. It is safe to re-run and never overwrites existing secrets:
+
 - **Default Mode**:
   ```bash
+  ./init-secrets.sh
   docker compose up -d
   docker ps
   ```
 
 - **SceneScape Mode (`ss`)**:
-  Before starting SceneScape microservices, ensure runtime secrets are generated and export the SceneScape admin password:
+  Generate the runtime secrets and export the SceneScape admin password before starting the microservices:
   ```bash
-  ./init-scenescape.sh
+  ./init-secrets.sh
   export SUPASS=$(cat ./src/secrets/supass)
-  docker compose up -d
+  docker compose --progress plain up -d
   docker ps
   ```
 

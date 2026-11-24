@@ -21,4 +21,4 @@ Also, set `"auto_start": false` for the other pipelines in the same configuratio
 - intersection-cam4
 
 Start the application with:
-`docker compose up -d`
+`docker compose --progress plain up -d`
