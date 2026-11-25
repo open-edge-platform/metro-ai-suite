@@ -114,7 +114,7 @@ Run these checks from the analytics host. Replace `<NX_HOST_IP>`, `<NX_USERNAME>
    Server container:
 
    ```bash
-   docker run -it --rm --net host --entrypoint bash intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24
+   docker run -it --rm --net host --entrypoint bash intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24-rc3
    ```
 
    In the container, run the following, with a camera `id` from the previous check as

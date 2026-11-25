@@ -51,6 +51,8 @@ run the application.
 - Python 3 programming language
 - OpenSSL toolkit
 - jq tool
+- Internet access every time the stack starts, including after a restart or reboot.
+  The `scene-narrator` container installs its dependencies at each start.
 - Install the Git Large File Storage (LFS) extension **before** cloning, for video file storage:
 
   ```bash

@@ -15,7 +15,6 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
 
 import cv2
@@ -152,6 +151,7 @@ class SegmentExtractor:
             try:
                 os.unlink(self._current_path)
             except OSError:
+                # file may already be gone
                 pass
             self._reset()
             return None

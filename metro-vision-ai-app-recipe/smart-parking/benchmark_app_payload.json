@@ -3,7 +3,7 @@
         "pipeline": "yolov11s",
         "payload": {
             "source": {
-                "uri": "file:///home/pipeline-server/videos/new_video_1_looped.mp4",
+                "uri": "file:///home/pipeline-server/resources/new_video_1_looped.mp4",
                 "type": "uri"
             },
             "destination": {
@@ -37,7 +37,7 @@
         "pipeline": "yolov11s_gpu",
         "payload": {
             "source": {
-                "uri": "file:///home/pipeline-server/videos/new_video_1_looped.mp4",
+                "uri": "file:///home/pipeline-server/resources/new_video_1_looped.mp4",
                 "type": "uri"
             },
             "destination": {
@@ -71,7 +71,7 @@
         "pipeline": "yolov11s_npu",
         "payload": {
             "source": {
-                "uri": "file:///home/pipeline-server/videos/new_video_1_looped.mp4",
+                "uri": "file:///home/pipeline-server/resources/new_video_1_looped.mp4",
                 "type": "uri"
             },
             "destination": {

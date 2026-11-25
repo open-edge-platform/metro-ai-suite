@@ -11,7 +11,6 @@ class EventSink(ABC):
     @abstractmethod
     def emit(self, event: dict) -> bool:
         """Emit an event. Returns True if successfully delivered."""
-        ...
 
     def close(self) -> None:
         """Release resources. Called on shutdown."""

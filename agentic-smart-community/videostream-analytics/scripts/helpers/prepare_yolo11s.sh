@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 IR_XML=${IR_XML:-${HOME}/models/openvino/yolo11s/FP16/yolo11s.xml}
 IR_BIN="${IR_XML%.xml}.bin"
 
@@ -16,6 +17,7 @@ echo "Build YOLO11s OpenVINO IR for NPU (1280x704 FP16 static)"
 
 if [[ -f "$IR_XML" && -f "$IR_BIN" ]]; then
     info "Already present: $IR_XML"
+    # shellcheck disable=SC2317 # sourced -> return; executed -> exit
     return 0 2>/dev/null || exit 0
 fi
 
@@ -80,13 +82,13 @@ if [[ ! -f "$weights" ]]; then
     step "Downloading yolo11s.pt → $weights"
     weights_tmp="${weights}.download"
     rm -f "$weights_tmp"
-    run wget --https-only --quiet \
+    if ! { run wget --https-only --quiet \
         https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11s.pt \
-        -O "$weights_tmp" && mv "$weights_tmp" "$weights" || {
-            rm -f "$weights_tmp"
-            err "Downloading yolo11s.pt failed"
-            exit 2
-        }
+        -O "$weights_tmp" && mv "$weights_tmp" "$weights"; }; then
+        rm -f "$weights_tmp"
+        err "Downloading yolo11s.pt failed"
+        exit 2
+    fi
 fi
 
 step "Converting to FP16 static-shape OpenVINO IR (1280x704)"

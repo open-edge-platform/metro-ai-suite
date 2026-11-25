@@ -208,6 +208,7 @@ services:
       - ./${SAMPLE_APP}/src/dlstreamer-pipeline-server/config.json:/home/pipeline-server/config.json
       - ./${SAMPLE_APP}/src/dlstreamer-pipeline-server/user_scripts:/home/pipeline-server/user_scripts
       - ./${SAMPLE_APP}/src/dlstreamer-pipeline-server/videos:/home/pipeline-server/videos
+      - ./${SAMPLE_APP}/src/dlstreamer-pipeline-server/videos:/home/pipeline-server/resources
       - ./${SAMPLE_APP}/src/dlstreamer-pipeline-server/${SS_MODELS_SRC:-models/intersection}:${SS_MODELS_TARGET:-/home/pipeline-server/models/object_detection/intersection}
       - dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
       - dlstreamer-pipeline-server-tmp:/tmp
@@ -476,7 +477,7 @@ services:
     restart: on-failure:5
 
   metrics-manager:
-    image: intel/metrics-manager:2026.3.0-rc1
+    image: intel/metrics-manager:2026.3.0-rc2
     container_name: metrics-manager
     privileged: true
     volumes:

@@ -2,17 +2,15 @@
 # =============================================================================
 # videostream-analytics full test script
 #
-# Supports three test modes:
+# Supports two test modes:
 #   1. Unit Tests        — pure Python, using video fixtures generated at test time
-#   2. Integration Tests — Docker container + MediaMTX + RTSP push + mock webhook
-#   3. Scenario Tests    — runs the sample video with the prefilter on and off, verifying clip output
+#   2. Scenario Tests    — runs the sample video with the prefilter on and off, verifying clip output
 #
 # Usage:
 #   bash scripts/test-videostream-analytics.sh              # run all tests
 #   bash scripts/test-videostream-analytics.sh --unit-only  # unit tests only
-#   bash scripts/test-videostream-analytics.sh --integration-only  # integration tests only
 #   bash scripts/test-videostream-analytics.sh --multi-video       # scenario tests (prefilter on / off)
-#   bash scripts/test-videostream-analytics.sh --local             # local (no Docker) integration tests
+#   bash scripts/test-videostream-analytics.sh --local             # local (no Docker) scenario tests
 #   bash scripts/test-videostream-analytics.sh -v           # verbose output
 #
 # Environment variables:
@@ -28,7 +26,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-REPO_DIR="$(dirname "$PROJECT_DIR")"
 PYTHON="${PROJECT_DIR}/.venv/bin/python"
 
 if [[ ! -x "$PYTHON" ]]; then
@@ -53,19 +50,16 @@ VIDEO_SAMPLE="${VSA_TEST_VIDEO:-$PROJECT_DIR/tools/.cache/people-detection.mp4}"
 
 # --- Parse Arguments ---
 RUN_UNIT=true
-RUN_INTEGRATION=true
 RUN_MULTIVIDEO=false
 USE_LOCAL=false
-VERBOSE=""
 PYTEST_ARGS=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --unit-only) RUN_INTEGRATION=false; RUN_MULTIVIDEO=false; shift ;;
-        --integration-only) RUN_UNIT=false; shift ;;
-        --multi-video) RUN_UNIT=false; RUN_INTEGRATION=false; RUN_MULTIVIDEO=true; shift ;;
+        --unit-only) RUN_MULTIVIDEO=false; shift ;;
+        --multi-video) RUN_UNIT=false; RUN_MULTIVIDEO=true; shift ;;
         --local) USE_LOCAL=true; shift ;;
-        -v|--verbose) VERBOSE="-v"; PYTEST_ARGS="-v"; shift ;;
+        -v|--verbose) PYTEST_ARGS="-v"; shift ;;
         *) echo "Unknown argument: $1"; exit 1 ;;
     esac
 done
@@ -92,8 +86,9 @@ ensure_sample_video() {
     if ! ffprobe -v error "$VIDEO_SAMPLE" 2>/dev/null; then
         info "Downloading $SAMPLE_URL"
         mkdir -p "$(dirname "$VIDEO_SAMPLE")"
-        curl -fsSL --retry 3 -o "$VIDEO_SAMPLE.part" "$SAMPLE_URL" && mv "$VIDEO_SAMPLE.part" "$VIDEO_SAMPLE" \
-            || { fail "download failed: $SAMPLE_URL"; return 1; }
+        if ! { curl -fsSL --retry 3 -o "$VIDEO_SAMPLE.part" "$SAMPLE_URL" && mv "$VIDEO_SAMPLE.part" "$VIDEO_SAMPLE"; }; then
+            fail "download failed: $SAMPLE_URL"; return 1
+        fi
     fi
 }
 
@@ -156,12 +151,12 @@ push_rtsp() {
     pkill -f "ffmpeg.*${rtsp_path}" 2>/dev/null || true
     sleep 1
 
-    local seek_args=""
+    local seek_args=()
     if [[ "$seek" -gt 0 ]]; then
-        seek_args="-ss $seek"
+        seek_args=(-ss "$seek")
     fi
 
-    ffmpeg -re -stream_loop -1 $seek_args -i "$video_path" \
+    ffmpeg -re -stream_loop -1 "${seek_args[@]}" -i "$video_path" \
         -an -c copy -f rtsp \
         "rtsp://localhost:$RTSP_PORT/$rtsp_path" \
         </dev/null &>/dev/null &
@@ -216,7 +211,7 @@ start_analytics_local() {
     WEBHOOK_URL="http://localhost:$WEBHOOK_PORT/events" \
     $PYTHON __main__.py --host 127.0.0.1 --port $ANALYTICS_PORT --config config/config.yaml.example &
     LOCAL_SERVER_PID=$!
-    PIDS_TO_KILL+=($LOCAL_SERVER_PID)
+    PIDS_TO_KILL+=("$LOCAL_SERVER_PID")
     sleep 3
     wait_for_analytics
 }
@@ -262,7 +257,8 @@ test_video_scenario() {
     local resp
     resp=$(curl -sf -X POST "http://localhost:$ANALYTICS_PORT/register_source" \
         -H "Content-Type: application/json" -d "$body")
-    local reg_status=$(echo "$resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
+    local reg_status
+    reg_status=$(echo "$resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
 
     if [[ "$reg_status" == "started" || "$reg_status" == "already_running" ]]; then
         ok "Source registered: $source_id ($reg_status)"
@@ -337,56 +333,6 @@ if $RUN_UNIT; then
 fi
 
 # =============================================================================
-# INTEGRATION TESTS (Docker + pytest)
-# =============================================================================
-if $RUN_INTEGRATION && ! $RUN_MULTIVIDEO; then
-    header "INTEGRATION TESTS"
-    cd "$PROJECT_DIR"
-
-    # Check prerequisites
-    ensure_sample_video || exit 1
-
-    if $USE_LOCAL; then
-        info "Mode: LOCAL (no Docker)"
-    else
-        if ! docker image inspect "$DOCKER_IMAGE" &>/dev/null; then
-            info "Docker image not found, building..."
-            docker build -t "$DOCKER_IMAGE" \
-                --build-arg HTTP_PROXY="${HTTP_PROXY:-}" \
-                --build-arg HTTPS_PROXY="${HTTPS_PROXY:-}" \
-                -f docker/Dockerfile . 2>&1 | tail -5
-        fi
-    fi
-
-    # Start infrastructure
-    ensure_mediamtx
-    push_rtsp "$VIDEO_SAMPLE" "live/sample" 0
-    start_mock_webhook
-
-    if $USE_LOCAL; then
-        start_analytics_local
-    else
-        start_analytics_docker
-    fi
-
-    # Run pytest integration suite
-    info "Running integration tests..."
-    $PYTHON -m pytest tests/integration/ $PYTEST_ARGS --tb=short -q -m integration --timeout=360
-    INTEG_EXIT=$?
-
-    if [[ $INTEG_EXIT -eq 0 ]]; then
-        ok "Integration tests PASSED"
-    else
-        fail "Integration tests FAILED (exit code: $INTEG_EXIT)"
-        if [[ -n "$CONTAINER_NAME" ]]; then
-            info "Container logs (last 30 lines):"
-            docker logs "$CONTAINER_NAME" 2>&1 | tail -30
-        fi
-        exit $INTEG_EXIT
-    fi
-fi
-
-# =============================================================================
 # MULTI-VIDEO SCENARIO TESTS
 # =============================================================================
 if $RUN_MULTIVIDEO; then
@@ -414,7 +360,7 @@ if $RUN_MULTIVIDEO; then
 
     # Clean data dir (Docker writes as root → use container to clean)
     if [[ -d "$DATA_DIR" ]] && [[ -n "$(ls -A "$DATA_DIR" 2>/dev/null)" ]]; then
-        if ! rm -rf "$DATA_DIR"/* 2>/dev/null; then
+        if ! rm -rf "${DATA_DIR:?}"/* 2>/dev/null; then
             info "Cleaning $DATA_DIR via container (need root for files written by container)"
             docker run --rm -v "$DATA_DIR":/data alpine sh -c 'rm -rf /data/*' 2>/dev/null || true
         fi

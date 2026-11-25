@@ -1,4 +1,4 @@
-
+#!/usr/bin/env bash
 # 1. initialize（第一条 curl）
 # 告诉服务器"我是一个新客户端，我们建立连接吧"。服务器会分配一个 session id，放在响应的 mcp-session-id 这个 HTTP 响应头里返回给你。这条命令用 -D -（打印响应头）配合 grep/cut，把这个 id 抠出来存进 $SID 变量。这一步之后你才有 $SID 可用。
 SID=$(curl -sS -D - -o /tmp/init_body.json -X POST http://localhost:3100/mcp \
@@ -18,7 +18,7 @@ curl -sS -X POST http://localhost:3100/mcp -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" -H "mcp-session-id: $SID" \
   -d '{"jsonrpc":"2.0","id":2,"method":"resources/subscribe","params":{"uri":"smart-community://monitor/cam_child/alerts"}}'
 
-echo $SID
+echo "$SID"
 
 # 初次查阅
 curl -sS -X POST http://localhost:3100/mcp -H "Content-Type: application/json" \

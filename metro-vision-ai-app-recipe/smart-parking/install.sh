@@ -122,7 +122,7 @@ docker run --rm --user=root \
   -e http_proxy -e https_proxy -e no_proxy \
   -e YOLOV11S_DOWNLOAD_CONFIRMED=1 \
   -v "${APP_DIR}:/opt/project" \
-   intel/dlstreamer:2026.2.0-ubuntu24 bash -c "$(cat <<EOF
+   intel/dlstreamer:2026.3.0-ubuntu24-rc2 bash -c "$(cat <<EOF
 
 cd /opt/project
 export HOST_IP="${1:-$(hostname -I | cut -f1 -d' ')}"
@@ -137,23 +137,28 @@ echo "Configuring application to use \$HOST_IP"
 mkdir -p src/dlstreamer-pipeline-server/models/public
 
 export MODELS_PATH=/opt/project/src/dlstreamer-pipeline-server/models
-chmod +x /home/dlstreamer/dlstreamer/samples/download_public_models.sh
-if [ ! -e "src/dlstreamer-pipeline-server/models/public/yolo11s/INT8/yolo11s.xml" ]; then
+if [ ! -e "\${MODELS_PATH}/public/yolo11s/INT8/yolo11s.xml" ]; then
     if [ "\${YOLOV11S_DOWNLOAD_CONFIRMED:-0}" != "1" ]; then
         echo "YOLOv11s model download requires explicit confirmation."
         exit 1
     fi
 
+    uv venv /tmp/ultra-venv
+    uv pip install --python /tmp/ultra-venv/bin/python --index-strategy unsafe-best-match -r "/opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt"
+
     for attempt in {1..3}; do
-        echo "Attempt $attempt: Running model download and quantization..."
-        if /home/dlstreamer/dlstreamer/samples/download_public_models.sh yolo11s coco128; then
-            echo "Model download and quantization successful!"
+        echo "Attempt \${attempt}: Running YOLOv11s export and INT8 quantization..."
+        if /tmp/ultra-venv/bin/python "/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py" --model yolo11s.pt --outdir "\${MODELS_PATH}/public/yolo11s/INT8" --int8 --data coco128.yaml; then
             break
-        else
-            echo "Download attempt $attempt failed. Retrying..."
-            sleep 2
         fi
+        echo "Export attempt \${attempt} failed. Retrying..."
+        sleep 2
     done
+
+    if [ ! -e "\${MODELS_PATH}/public/yolo11s/INT8/yolo11s.xml" ]; then
+        echo "Error: YOLOv11s model export failed"
+        exit 1
+    fi
 fi
 
 ##############################################################################

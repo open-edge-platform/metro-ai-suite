@@ -66,7 +66,7 @@ Start the application stack using Docker Compose:
 
 ```bash
 export SUPASS=$(cat ./smart-tolling/src/secrets/supass)
-docker compose up -d
+docker compose --progress plain up -d
 ```
 
 To **stop** the application:
@@ -74,6 +74,10 @@ To **stop** the application:
 ```bash
 docker compose down -v
 ```
+
+> **Note**: `down -v` also removes the volume that holds the Node-RED InfluxDB
+> plugin, so the next `docker compose up -d` downloads it again and needs
+> internet access.
 
 ### 5. Verify Deployment
 

@@ -27,10 +27,14 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
     // Not plain JSON; continue with fenced block parse.
   }
 
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if (!fenced?.[1]) return null;
+  const open = trimmed.indexOf("```");
+  if (open < 0) return null;
+  const afterOpen = trimmed.slice(open + 3).replace(/^json/i, "");
+  const close = afterOpen.indexOf("```");
+  const fenced = close < 0 ? "" : afterOpen.slice(0, close).trim();
+  if (!fenced) return null;
   try {
-    const parsed = JSON.parse(fenced[1]);
+    const parsed = JSON.parse(fenced);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       return parsed as Record<string, unknown>;
     }

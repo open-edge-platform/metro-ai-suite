@@ -10,7 +10,6 @@ import logging
 from typing import Any
 
 from fastapi import FastAPI
-from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [mock-webhook] %(message)s")
 logger = logging.getLogger(__name__)

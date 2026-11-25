@@ -58,7 +58,11 @@ fi
 # ─── Step 1: stop the gateway ───────────────────────────────────────
 title "Step 1: stop the gateway"
 if command -v openclaw >/dev/null 2>&1; then
-  openclaw gateway stop 2>/dev/null && info "Gateway stopped" || warn "Gateway not running (continuing)"
+  if openclaw gateway stop 2>/dev/null; then
+    info "Gateway stopped"
+  else
+    warn "Gateway not running (continuing)"
+  fi
 else
   warn "openclaw CLI not found on PATH — skipping"
 fi
@@ -119,8 +123,11 @@ if ! $YES; then
 fi
 if $purge_cli; then
   if command -v npm >/dev/null 2>&1; then
-    npm uninstall -g openclaw && info "Removed the 'openclaw' npm CLI" \
-      || warn "npm uninstall -g openclaw failed (removed already? or needs sudo)"
+    if npm uninstall -g openclaw; then
+      info "Removed the 'openclaw' npm CLI"
+    else
+      warn "npm uninstall -g openclaw failed (removed already? or needs sudo)"
+    fi
   else
     warn "npm not found on PATH — cannot remove the CLI"
   fi

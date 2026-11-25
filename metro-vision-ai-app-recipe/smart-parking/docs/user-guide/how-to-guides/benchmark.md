@@ -115,7 +115,7 @@ Here is an example of a GPU pipeline configuration that includes both `detection
     "pipeline": "yolov11s_gpu",
     "payload": {
         "source": {
-            "uri": "file:///home/pipeline-server/videos/new_video_1_looped.mp4",
+            "uri": "file:///home/pipeline-server/resources/new_video_1_looped.mp4",
             "type": "uri"
         },
         "destination": {

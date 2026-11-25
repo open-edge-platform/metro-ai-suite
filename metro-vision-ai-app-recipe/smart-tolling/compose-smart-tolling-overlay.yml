@@ -78,36 +78,5 @@ services:
       - https://web.scenescape.intel.com/api/v1
       - /scenes
 
-  prometheus:
-    image: prom/prometheus:v3.12.0
-    container_name: prometheus
-    environment:
-      - HTTP_PROXY=${http_proxy}
-      - HTTPS_PROXY=${https_proxy}
-      - NO_PROXY=$no_proxy,localhost,127.0.0.1,metrics-manager
-    volumes:
-      - ./${SAMPLE_APP}/configs/open_telemetry/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus-data:/prometheus
-    command: >
-      --config.file=/etc/prometheus/prometheus.yml
-      --storage.tsdb.path=/prometheus
-    networks:
-      - scenescape
-    restart: on-failure:5
-
-  metrics-manager:
-    image: intel/metrics-manager:2026.2.0
-    container_name: metrics-manager
-    privileged: true
-    volumes:
-      - /sys:/sys
-      - /dev:/dev
-      - ./${SAMPLE_APP}/configs/supervisord/qmmd.conf:/etc/supervisor/conf.d/qmmd.conf:ro
-      - ./${SAMPLE_APP}/configs/metrics-manager/custom-metrics/hw_info.py:/app/custom-metrics/hw_info.py:ro
-    restart: unless-stopped
-    networks:
-      - scenescape
-
 volumes:
   smart_tolling_images:
-  prometheus-data:

@@ -56,9 +56,9 @@ read_cpu_aggregate() {
 
 sample_cpu_pct() {
   local t1 i1 t2 i2 dt di
-  read t1 i1 <<< "$(read_cpu_aggregate)"
+  read -r t1 i1 <<< "$(read_cpu_aggregate)"
   sleep "$SAMPLE_WINDOW"
-  read t2 i2 <<< "$(read_cpu_aggregate)"
+  read -r t2 i2 <<< "$(read_cpu_aggregate)"
   dt=$(( t2 - t1 ))
   di=$(( i2 - i1 ))
   if (( dt > 0 )); then
@@ -151,7 +151,7 @@ while true; do
   # both windows are well-defined. Memory is an instantaneous read.
   cpu_pct=$(sample_cpu_pct)
   npu_pct=$(sample_npu_pct)
-  read mem_pct mem_used_gib mem_total_gib swap_pct swap_used_gib swap_total_gib <<< "$(sample_mem_swap)"
+  read -r mem_pct mem_used_gib mem_total_gib swap_pct swap_used_gib _ <<< "$(sample_mem_swap)"
   ts=$(date '+%Y-%m-%d %H:%M:%S')
   echo "${ts},${cpu_pct},${mem_pct},${mem_used_gib},${mem_total_gib},${swap_pct},${swap_used_gib},${npu_pct}" >> "$OUT_FILE"
   echo "[monitor-system] ${ts}  cpu=${cpu_pct}%  mem=${mem_pct}% (${mem_used_gib}/${mem_total_gib} GiB)  swap=${swap_pct}% (${swap_used_gib} GiB)  npu=${npu_pct:-N/A}%"

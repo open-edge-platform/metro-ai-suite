@@ -56,7 +56,7 @@ FETCH_ONLY=false
 # the stack at an external OpenAI-compatible serving. Driven by VLM/LLM base URL.
 VLLM_ENDPOINT="${VLM_BASE_URL:-${LLM_BASE_URL:-http://model-serving:8000/v1}}"
 case "$VLLM_ENDPOINT" in
-  http://model-serving:8000/v1|http://model-serving:8000/v1/|http://model-serving-${MODEL_SERVING_BACKEND}:8000/v1|http://model-serving-${MODEL_SERVING_BACKEND}:8000/v1/)
+  http://model-serving:8000/v1|http://model-serving:8000/v1/|http://model-serving-"${MODEL_SERVING_BACKEND}":8000/v1|http://model-serving-"${MODEL_SERVING_BACKEND}":8000/v1/)
     USE_LOCAL_VLLM=true ;;
   *) USE_LOCAL_VLLM=false ;;
 esac
@@ -129,7 +129,9 @@ resolve_serving_models() {
 # direct setup and demo launchers produce the same runtime configuration.
 prepare_mcp_config() {
   local config_path template_path temporary_path content mcp_vlm_url
+  # shellcheck disable=SC2016 # literal placeholder text matched in the template
   local url_placeholder='${VLM_BASE_URL:-http://localhost:41091/v1}'
+  # shellcheck disable=SC2016
   local model_placeholder='${VLM_MODEL_NAME:-Qwen/Qwen3.6-35B-A3B}'
 
   config_path="${SMART_COMMUNITY_DATA_DIR}/config.yaml"

@@ -5,6 +5,8 @@ export type ConnectionStatus = "disconnected" | "connecting" | "connected";
 const CONNECT_FAILED_CLOSE_CODE = 4008;
 const CONNECT_DELAY_MS = 750;
 const HISTORY_LIMIT = 200;
+// Gateway text is untrusted; keep it on one line so it cannot forge log entries.
+const oneLine = (text: string) => text.replace(/\n|\r/g, "");
 const OPENCLAW_GATEWAY_PROTOCOL = 4;
 const CONTROL_UI_OPERATOR_ROLE = "operator";
 const CONTROL_UI_OPERATOR_SCOPES = [
@@ -682,7 +684,7 @@ export class WebSocketChatService {
     const messages = this.parseIncomingMessages(raw);
 
     if (messages.length === 0) {
-      console.warn("parse error:", raw);
+      console.warn("parse error:", oneLine(raw));
       return;
     }
 
@@ -766,7 +768,7 @@ export class WebSocketChatService {
         try {
           messages.push(JSON.parse(chunk) as GenericRecord);
         } catch (_chunkError) {
-          console.warn("parse chunk error:", chunk);
+          console.warn("parse chunk error:", oneLine(chunk));
         }
         startIndex = -1;
       }

@@ -42,6 +42,7 @@ services:
       - dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
       - "./${SAMPLE_APP}/src/dlstreamer-pipeline-server/models:/home/pipeline-server/models"
       - "./${SAMPLE_APP}/src/dlstreamer-pipeline-server/videos:/home/pipeline-server/videos"
+      - "./${SAMPLE_APP}/src/dlstreamer-pipeline-server/videos:/home/pipeline-server/resources"
       - "./${SAMPLE_APP}/src/dlstreamer-pipeline-server/config.json:/home/pipeline-server/config.json"
       - "./${SAMPLE_APP}/src/dlstreamer-pipeline-server/zones:/home/pipeline-server/zones"
       - "./${SAMPLE_APP}/src/dlstreamer-pipeline-server/plugins:/home/pipeline-server/plugins:ro"
@@ -198,7 +199,7 @@ services:
       - app_network
 
   metrics-manager:
-    image: intel/metrics-manager:2026.3.0-rc1
+    image: intel/metrics-manager:2026.3.0-rc2
     container_name: metrics-manager
     privileged: true
     volumes:

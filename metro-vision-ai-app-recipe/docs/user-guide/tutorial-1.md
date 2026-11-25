@@ -79,13 +79,17 @@ Create and run the model download script to install all required AI models:
 docker run --rm --user=root \
   -e http_proxy -e https_proxy -e no_proxy \
   -v "$PWD:/home/dlstreamer/metro-suite" \
-  intel/dlstreamer:2026.2.0-ubuntu24 bash -c "$(cat <<EOF
+  intel/dlstreamer:2026.3.0-ubuntu24-rc2 bash -c "$(cat <<EOF
 
 cd /home/dlstreamer/metro-suite/
 
 mkdir -p ai-tolling/src/dlstreamer-pipeline-server/models/public
 export MODELS_PATH=/home/dlstreamer/metro-suite/ai-tolling/src/dlstreamer-pipeline-server/models
-/home/open-edge-platform/dlstreamer/samples/download_public_models.sh yolov10s
+if [ ! -e "\$MODELS_PATH/public/yolov10s/FP32/yolov10s.xml" ]; then
+    uv venv /tmp/ultra-venv
+    uv pip install --python /tmp/ultra-venv/bin/python --index-strategy unsafe-best-match -r "/opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt"
+    /tmp/ultra-venv/bin/python "/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py" --model yolov10s.pt --outdir "\$MODELS_PATH/public/yolov10s/FP32"
+fi
 
 mkdir -p ai-tolling/src/dlstreamer-pipeline-server/models/intel
 
@@ -278,7 +282,7 @@ Start the AI pipeline and process the sample video:
 curl -k -s https://localhost/api/pipelines/user_defined_pipelines/car_plate_recognition_1 -X POST -H 'Content-Type: application/json' -d '
 {
     "source": {
-        "uri": "file:///home/pipeline-server/videos/cars_extended.mp4",
+        "uri": "file:///home/pipeline-server/resources/cars_extended.mp4",
         "type": "uri"
     },
     "destination": {

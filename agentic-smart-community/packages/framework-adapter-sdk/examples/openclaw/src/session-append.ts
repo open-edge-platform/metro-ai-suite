@@ -83,7 +83,7 @@ function resolveOrCreateSessionId(
 
   const newJsonl = sessionJsonlPath(agentId, newSid);
   try {
-    if (!fs.existsSync(newJsonl)) fs.writeFileSync(newJsonl, "", "utf-8");
+    fs.writeFileSync(newJsonl, "", { encoding: "utf-8", flag: "a" });
   } catch (err) {
     logger.warn(`[sb-alerts] failed to create jsonl for ${newSid}: ${err}`);
     return null;
@@ -123,11 +123,11 @@ export function appendAlertTurns(params: InjectParams): AppendResult {
   const jsonlPath = sessionJsonlPath(agentId, sid);
   // Recreate the transcript file if missing (e.g. sid from an existing entry whose jsonl was swept)
   // instead of failing. lastId then stays null and this alert becomes the first turn.
-  if (!fs.existsSync(jsonlPath)) {
-    try {
-      fs.writeFileSync(jsonlPath, "", "utf-8");
-      logger.info(`[sb-alerts] recreated missing jsonl for ${sessionKey} (sid=${sid})`);
-    } catch (err) {
+  try {
+    fs.writeFileSync(jsonlPath, "", { encoding: "utf-8", flag: "wx" });
+    logger.info(`[sb-alerts] recreated missing jsonl for ${sessionKey} (sid=${sid})`);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EEXIST") {
       return { ok: false, sessionKey, reason: `jsonl missing and recreate failed: ${jsonlPath}: ${err}` };
     }
   }

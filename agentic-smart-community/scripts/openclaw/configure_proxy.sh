@@ -65,7 +65,11 @@ show_status() {
 	if [[ "${pid:-0}" =~ ^[0-9]+$ ]] && [[ "${pid:-0}" -gt 0 ]] && [[ -r "/proc/$pid/environ" ]]; then
 		local env_out
 		env_out="$(tr '\0' '\n' <"/proc/$pid/environ" | grep -i '_proxy=' | sort || true)"
-		[[ -n "$env_out" ]] && sed 's/^/    /' <<<"$env_out" || echo "    (none)"
+		if [[ -n "$env_out" ]]; then
+			while IFS= read -r line; do echo "    $line"; done <<<"$env_out"
+		else
+			echo "    (none)"
+		fi
 	else
 		echo "    (gateway not running)"
 	fi

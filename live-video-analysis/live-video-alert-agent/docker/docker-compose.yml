@@ -112,7 +112,7 @@ services:
       - app_network
 
   live-video-alert-agent:
-    image: ${REGISTRY:-}live-video-alert-agent:${TAG:-2026.3.0-rc1}
+    image: ${REGISTRY:-}live-video-alert-agent:${TAG:-2026.3.0-rc2}
     build:
       context: ..
       dockerfile: docker/Dockerfile

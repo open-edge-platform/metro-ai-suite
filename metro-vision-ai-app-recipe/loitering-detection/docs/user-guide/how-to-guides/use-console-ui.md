@@ -104,7 +104,9 @@ detections for it; re-export the model with a fixed input size to use it on ever
 
 Add a source to the **Camera / stream** dropdown by adding an entry to `SOURCES_JSON` in
 `console-addon/.env` (id, label, and a `file://` or `rtsp://` URI), then restart the `console`
-service. For a one-off source there is no need to edit anything - use the RTSP field instead.
+service. `file://` URIs must point under `/home/pipeline-server/resources/` (for example
+`file:///home/pipeline-server/resources/<video-file>`); DL Streamer Pipeline Server rejects any
+other local path. For a one-off source there is no need to edit anything - use the RTSP field instead.
 
 ### Change the zone
 

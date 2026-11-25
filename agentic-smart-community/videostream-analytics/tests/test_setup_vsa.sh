@@ -48,6 +48,7 @@ trap cleanup EXIT
 before_link_state="-"
 [[ -L "$LINK" ]] && before_link_state="$(readlink "$LINK")"
 (
+  # shellcheck source=/dev/null
   source "$SETUP"
   declare -F vsa_prepare >/dev/null || exit 1
   declare -F vsa_seed_config >/dev/null || exit 1

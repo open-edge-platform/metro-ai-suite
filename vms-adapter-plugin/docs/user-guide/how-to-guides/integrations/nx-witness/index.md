@@ -135,6 +135,12 @@ Follow the pages in order:
 5. [Reference and Troubleshooting](./reference.md): configuration reference, how the
    integration works, limitations, and troubleshooting.
 
+## Disclaimer
+
+Nx Witness is a trademark of Network Optix, Inc. It is licensed separately and is not
+distributed by Intel. You are responsible for its licensing, configuration, security
+hardening, and support.
+
 <!--hide_directive
 :::{toctree}
 :hidden:
