@@ -85,7 +85,11 @@ cd /home/dlstreamer/metro-suite/
 
 mkdir -p ai-tolling/src/dlstreamer-pipeline-server/models/public
 export MODELS_PATH=/home/dlstreamer/metro-suite/ai-tolling/src/dlstreamer-pipeline-server/models
-/home/open-edge-platform/dlstreamer/samples/download_public_models.sh yolov10s
+if [ ! -e "\$MODELS_PATH/public/yolov10s/FP32/yolov10s.xml" ]; then
+    uv venv /tmp/ultra-venv
+    uv pip install --python /tmp/ultra-venv/bin/python --index-strategy unsafe-best-match -r "/opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt"
+    /tmp/ultra-venv/bin/python "/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py" --model yolov10s.pt --outdir "\$MODELS_PATH/public/yolov10s/FP32"
+fi
 
 mkdir -p ai-tolling/src/dlstreamer-pipeline-server/models/intel
 
