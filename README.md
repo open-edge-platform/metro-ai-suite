@@ -1,4 +1,4 @@
-# Metro AI Suite
+# Metro AI Suite 
 
 The **Metro AI Suite** accelerates application development for sophisticated edge AI video safety, security, and smart city use cases.
 
