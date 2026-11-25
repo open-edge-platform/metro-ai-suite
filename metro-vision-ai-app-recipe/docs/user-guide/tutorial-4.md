@@ -941,7 +941,7 @@ Navigate to `https://<HOST_IP>/grafana` (Username: `admin`, Password: `admin`).
      curl -k -s https://localhost/api/pipelines/user_defined_pipelines/yolov11s_crowd_analytics -X POST -H 'Content-Type: application/json' -d '
      {
          "source": {
-             "uri": "file:///home/pipeline-server/videos/easy1.mp4",
+             "uri": "file:///home/pipeline-server/resources/easy1.mp4",
              "type": "uri"
          },
          "destination": {
@@ -1011,7 +1011,7 @@ Navigate to `https://<HOST_IP>/grafana` (Username: `admin`, Password: `admin`).
      curl -k -s https://localhost/api/pipelines/user_defined_pipelines/yolov11s_crowd_analytics -X POST -H 'Content-Type: application/json' -d '
      {
          "source": {
-             "uri": "file:///home/pipeline-server/videos/easy1.mp4",
+             "uri": "file:///home/pipeline-server/resources/easy1.mp4",
              "type": "uri"
          },
          "destination": {

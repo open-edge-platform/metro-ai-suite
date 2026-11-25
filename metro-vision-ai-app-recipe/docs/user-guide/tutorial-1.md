@@ -282,7 +282,7 @@ Start the AI pipeline and process the sample video:
 curl -k -s https://localhost/api/pipelines/user_defined_pipelines/car_plate_recognition_1 -X POST -H 'Content-Type: application/json' -d '
 {
     "source": {
-        "uri": "file:///home/pipeline-server/videos/cars_extended.mp4",
+        "uri": "file:///home/pipeline-server/resources/cars_extended.mp4",
         "type": "uri"
     },
     "destination": {

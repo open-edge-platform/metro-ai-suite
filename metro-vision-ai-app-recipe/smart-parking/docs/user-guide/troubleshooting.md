@@ -127,7 +127,14 @@ to file new tickets there (after learning about the guidelines for
     Container `metro-vision-ai-app-recipe-scene-uploader-1` memory consumption spikes above recommended value.
     If OOM or unexpected exit of container `metro-vision-ai-app-recipe-scene-uploader-1` appears then try to increase swap file by 8GB.
 
-5. **Node-RED fails to start without internet (Scenescape mode)**
+7. **Pipeline start fails with `Invalid source URI: path outside allowed resources directory`**
+
+   - DL Streamer Pipeline Server only accepts `file://` sources under
+     `/home/pipeline-server/resources`. Use
+     `file:///home/pipeline-server/resources/<video-file>` in the pipeline start request
+     (the app's `src/dlstreamer-pipeline-server/videos/` folder is mounted there).
+
+8. **Node-RED fails to start without internet (Scenescape mode)**
 
    - `docker compose down -v` removes the volume that holds the
      `node-red-contrib-influxdb` plugin, and Node-RED downloads it again on the

@@ -194,6 +194,12 @@ usage; the issues below are specific to it.
      the pipeline server's logs for errors around that model's load, since that points at a
      model or device-compatibility problem rather than either cause above.
 
+   - **Request rejected with `Invalid source URI: path outside allowed resources directory`**:
+     DL Streamer Pipeline Server only accepts `file://` sources under
+     `/home/pipeline-server/resources`. Use
+     `file:///home/pipeline-server/resources/<video-file>` (the app's `videos/` folder is
+     mounted there), for example in `SOURCES_JSON` in `console-addon/.env`.
+
 6. **GPU utilization always shows "n/a" even while a GPU stream is running**
 
    - The gauge reads Prometheus's `qmmd_gpu_engine_utilization_ratio` compute-engine series,
