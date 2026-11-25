@@ -6,6 +6,7 @@ import subprocess
 import sys
 import re
 import logging
+import shlex
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
@@ -23,7 +24,9 @@ for p in sys_path_entries:
    if p and p not in sys.path:
        sys.path.append(p)
 
-hostIP = subprocess.check_output("ip route get 1 | awk '{print $7}'|head -1", shell=True).decode('utf-8').strip()
+host_route = subprocess.check_output(["ip", "route", "get", "1"], text=True)
+host_match = re.search(r"\bsrc\s+(\S+)", host_route)
+hostIP = host_match.group(1) if host_match else ""
 
 class utils:
     def __init__(self):
@@ -97,8 +100,7 @@ class utils:
         """
         try:
             logging.info(f"Executing {description}: {command}")
-            result = subprocess.check_output(command, shell=True, executable='/bin/bash')
-            return result.decode('utf-8')
+            return subprocess.check_output(shlex.split(command), text=True)
         except subprocess.CalledProcessError as e:
             error_msg = f"Failed to execute {description}: {e}"
             logging.error(error_msg)
@@ -153,7 +155,44 @@ class utils:
             # Execute install command
             install_command = app_config["install_command"]
             logging.info(f"Executing: {install_command}")
-            subprocess.call(install_command, shell=True)
+            install_env = os.environ.copy()
+            install_env["YOLOV11S_DOWNLOAD_CONFIRMED"] = "1"
+            subprocess.run(
+                ["./install.sh", app_config["name"]],
+                cwd=self.metro_path,
+                env=install_env,
+                check=True,
+            )
+
+            if app_type == "SP":
+                required_secret_files = [
+                    os.path.join(
+                        self.metro_path,
+                        "smart-parking",
+                        "src",
+                        "secrets",
+                        "nodered",
+                        "nodered-admin-username",
+                    ),
+                    os.path.join(
+                        self.metro_path,
+                        "smart-parking",
+                        "src",
+                        "secrets",
+                        "nodered",
+                        "nodered-admin-password",
+                    ),
+                ]
+                missing_secret_files = [
+                    path for path in required_secret_files if not os.path.isfile(path)
+                ]
+                if missing_secret_files:
+                    logging.error(
+                        "Required Node-RED secret files were not generated: %s",
+                        ", ".join(missing_secret_files),
+                    )
+                    return False
+
             # Check 1: docker-compose.yml file exists
             if not os.path.exists("docker-compose.yml"):
                 logging.error("docker-compose.yml file not found")
@@ -221,7 +260,11 @@ class utils:
             start_time = time.time()
             while time.time() - start_time < max_wait_time:
                 # Execute docker ps to get container status
-                result = subprocess.run("docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'",   shell=True, capture_output=True, text=True)
+                result = subprocess.run(
+                    ["docker", "ps", "--format", "table {{.Names}}\t{{.Status}}\t{{.Ports}}"],
+                    capture_output=True,
+                    text=True,
+                )
                 if result.returncode != 0:
                     logging.error("Failed to execute docker ps command")
                     return False
@@ -265,19 +308,18 @@ class utils:
         logging.info("Checking pipeline status with sample_status.sh before starting pipeline")
 
         if value.get("app") == "SP" or value.get("app") == "LD":
-                status_output = subprocess.check_output("./sample_status.sh", shell=True, executable='/bin/bash').decode('utf-8')
+                status_output = subprocess.check_output(["./sample_status.sh"], text=True)
                 logging.info(f"sample_status.sh output: {status_output}")
                 if "No running pipelines" not in status_output:
                     raise Exception("Pipelines are already running")
                 logging.info("No pipelines are currently running - ready to start new pipeline")
                 
-                cmd = "./sample_start.sh cpu"
+                cmd = ["./sample_start.sh", "cpu"]
                 
                 # Use subprocess.run to capture both stdout and stderr
-                result = subprocess.run(cmd, shell=True, executable='/bin/bash', 
-                                      capture_output=True, text=True)
+                result = subprocess.run(cmd, capture_output=True, text=True)
                 
-                logging.info(f"sample_start.sh command: {cmd}")
+                logging.info(f"sample_start.sh command: {' '.join(cmd)}")
                 logging.info(f"sample_start.sh return code: {result.returncode}")
                 logging.info(f"sample_start.sh stdout: {result.stdout}")
                 if result.stderr:
@@ -316,7 +358,7 @@ class utils:
         try:
             os.chdir(self.metro_path)
             logging.info("Checking pipeline status with sample_status.sh")
-            with subprocess.Popen("./sample_status.sh", shell=True, stdout=subprocess.PIPE,  stderr=subprocess.PIPE, text=True, executable='/bin/bash') as process:
+            with subprocess.Popen(["./sample_status.sh"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as process:
                 fps_reports = []
                 start_time = time.time()
                 # Monitor for up to 15 seconds or until we get sufficient data
@@ -413,8 +455,14 @@ class utils:
         log_file = f"logs_{container}_{tc}.txt"
         logging.info(f"Checking container: {container}")
         try:
-            subprocess.run(f"docker compose logs --tail=1000 {container} | tee {log_file}", 
-                         shell=True, executable='/bin/bash', check=True)
+            result = subprocess.run(
+                ["docker", "compose", "logs", "--tail=1000", container],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            with open(log_file, "w", encoding="utf-8") as file:
+                file.write(result.stdout)
         except subprocess.CalledProcessError as e:
             raise Exception(f"Failed to get container logs: {e}")
         keywords = value.get("dlsps_log_param", [])
@@ -625,7 +673,7 @@ class utils:
                 return
             logging.info("Stopping pipeline with sample_stop.sh")
             cmd = "./sample_stop.sh"
-            output = subprocess.check_output(cmd, shell=True, executable='/bin/bash').decode('utf-8')
+            output = subprocess.check_output(shlex.split(cmd), text=True)
             logging.info(f"sample_stop.sh output: {output}")
             # Check for successful stop message
             success_message = "All running pipelines stopped"
@@ -654,7 +702,7 @@ class utils:
         try:
             logging.info("Verifying no pipelines are running...")
             # Check status to confirm no running pipelines
-            status_output = subprocess.check_output("./sample_status.sh", shell=True, executable='/bin/bash').decode('utf-8')
+            status_output = subprocess.check_output(["./sample_status.sh"], text=True)
             logging.info(f"Status verification output: {status_output}")
             for indicator in "No running pipelines":
                 if indicator in status_output:
