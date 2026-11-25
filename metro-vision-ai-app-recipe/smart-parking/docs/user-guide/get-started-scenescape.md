@@ -63,7 +63,7 @@ By following this guide, you will learn how to:
    - Download container images with Application microservices and run with Docker Compose:
 
      ```bash
-     docker compose up -d
+     docker compose --progress plain up -d
      ```
 
      <details>

@@ -22,7 +22,7 @@ This guide covers the rapid deployment of the Live Video Alert Agent system usin
 
    ```bash
    export REGISTRY="intel/"
-   export TAG="2026.3.0-rc1"
+   export TAG="2026.3.0-rc2"
    export OVMS_TARGET_DEVICE=GPU
    export RENDER_DEVICE_GID=$(stat -c "%g" /dev/dri/render*) #run this when deploying for GPU or NPU
    export HF_TOKEN=<your-huggingface-token>

@@ -147,10 +147,6 @@ bash tools/run_eval.sh --keep
     --source-id cam_eval --ss 0
 ```
 
-(The same flow works against `scripts/test-videostream-analytics.sh --local
---integration-only`, but that suite registers short-lived `test_*` sources
-rather than `cam_eval`, so pass the matching `--source-id`.)
-
 ### Offline replay (after service shut down)
 
 Dump events to disk before the test script's cleanup runs, then replay anytime:

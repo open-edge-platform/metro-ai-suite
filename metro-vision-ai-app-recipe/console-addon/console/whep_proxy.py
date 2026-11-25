@@ -47,7 +47,10 @@ def _proxy_whep(upstream_url, peer_id):
     excluded = {"host", "content-length"}
     headers = {k: v for k, v in request.headers.items() if k.lower() not in excluded}
     try:
-        resp = requests.request(
+        # upstream_url is MEDIAMTX_URL (trusted config) with peer_id/session
+        # appended, both already restricted to _SAFE_SEGMENT_RE by every
+        # caller - the host is never attacker-controlled.
+        resp = requests.request(  # nosemgrep: python.django.security.injection.ssrf.ssrf-injection-requests.ssrf-injection-requests,python.flask.security.injection.ssrf-requests.ssrf-requests
             request.method,
             upstream_url,
             headers=headers,
@@ -85,6 +88,9 @@ def _proxy_whep(upstream_url, peer_id):
     if content_type:
         out_headers.append(("Content-Type", content_type))
 
+    # Not a blind passthrough: body is forwarded (required for WHEP SDP/ICE
+    # signalling to function), but only the Link/Location/Content-Type
+    # headers above are reflected, each already allowlisted/validated.
     return Response(resp.content, status=resp.status_code, headers=out_headers)
 
 
@@ -108,7 +114,9 @@ def api_stream_ready(peer_id):
         abort(404)
     url = f"{MEDIAMTX_URL}/{peer_id}/whep"
     try:
-        r = requests.options(url, timeout=5)
+        # url is MEDIAMTX_URL (trusted config) + peer_id, already restricted
+        # to _SAFE_SEGMENT_RE; only status_code is read, never forwarded.
+        r = requests.options(url, timeout=5)  # nosemgrep: python.flask.security.injection.ssrf-requests.ssrf-requests
         return jsonify({"ready": r.status_code != 404, "status": r.status_code})
     except requests.RequestException:
         return jsonify({"ready": False, "status": 0})

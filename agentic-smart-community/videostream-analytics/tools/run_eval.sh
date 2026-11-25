@@ -24,7 +24,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-REPO_DIR="$(dirname "$PROJECT_DIR")"
 PYTHON="${PROJECT_DIR}/.venv/bin/python"
 
 SAMPLE_URL="https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/people-detection.mp4"
@@ -81,14 +80,14 @@ cleanup() {
         return
     fi
     info "Cleaning up..."
-    [[ -n "$FFMPEG_PID" ]] && kill "$FFMPEG_PID" 2>/dev/null || true
+    if [[ -n "$FFMPEG_PID" ]]; then kill "$FFMPEG_PID" 2>/dev/null || true; fi
     pkill -f "ffmpeg.*live/" 2>/dev/null || true
     # Stop any source we registered (best effort)
     for sid in "${ACTIVE_SOURCES[@]}"; do
         curl -sf -X POST "http://localhost:$ANALYTICS_PORT/sources/$sid/stop" >/dev/null 2>&1 || true
     done
-    [[ -n "$ANALYTICS_PID" ]] && kill "$ANALYTICS_PID" 2>/dev/null || true
-    [[ -n "$MOCK_PID" ]] && kill "$MOCK_PID" 2>/dev/null || true
+    if [[ -n "$ANALYTICS_PID" ]]; then kill "$ANALYTICS_PID" 2>/dev/null || true; fi
+    if [[ -n "$MOCK_PID" ]]; then kill "$MOCK_PID" 2>/dev/null || true; fi
     if $MEDIAMTX_OWNED && [[ -n "$MEDIAMTX_PID" ]]; then
         kill "$MEDIAMTX_PID" 2>/dev/null || true
     fi
@@ -107,8 +106,9 @@ if [[ -z "$VIDEO_SAMPLE" ]]; then
     if ! ffprobe -v error "$VIDEO_SAMPLE" 2>/dev/null; then
         info "Downloading $SAMPLE_URL"
         mkdir -p "$(dirname "$VIDEO_SAMPLE")"
-        curl -fsSL --retry 3 -o "$VIDEO_SAMPLE.part" "$SAMPLE_URL" && mv "$VIDEO_SAMPLE.part" "$VIDEO_SAMPLE" \
-            || { fail "download failed: $SAMPLE_URL"; exit 1; }
+        if ! { curl -fsSL --retry 3 -o "$VIDEO_SAMPLE.part" "$SAMPLE_URL" && mv "$VIDEO_SAMPLE.part" "$VIDEO_SAMPLE"; }; then
+            fail "download failed: $SAMPLE_URL"; exit 1
+        fi
     fi
 fi
 

@@ -415,15 +415,19 @@ function writeTextArtifact(
   warnings: string[],
 ): "written" | "unchanged" | "skipped" {
   if (content === undefined) return "skipped";
-  if (existsSync(path)) {
-    const current = readFileSync(path, "utf-8");
-    if (current === content) return "unchanged";
+  const text = content.endsWith("\n") ? content : `${content}\n`;
+  mkdirSync(dirname(path), { recursive: true });
+  try {
+    // "wx" fails if the file exists, so create-vs-exists is decided by the open itself.
+    writeFileSync(path, text, { encoding: "utf-8", flag: "wx" });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+    if (readFileSync(path, "utf-8") === content) return "unchanged";
     if (!overwrite) {
       throw new Error(`${path} already exists; pass overwrite=true to replace it`);
     }
+    writeFileSync(path, text, "utf-8");
   }
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, content.endsWith("\n") ? content : `${content}\n`, "utf-8");
   warnings.push(`artifact written: ${path}`);
   return "written";
 }

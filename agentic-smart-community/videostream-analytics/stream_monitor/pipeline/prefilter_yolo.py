@@ -50,6 +50,7 @@ def labels_from_ov_model(ov_model) -> tuple[list[str], str]:
         if names:
             return names, "embedded"
     except Exception:
+        # labels are optional rt_info; fall through to other sources
         pass
     return list(_COCO_CLASSES), "fallback_coco"
 

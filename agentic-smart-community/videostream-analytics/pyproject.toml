@@ -37,9 +37,7 @@ testpaths = ["tests"]
 pythonpath = ["."]
 markers = [
     "unit: Unit tests (no Docker, no network)",
-    "integration: Integration tests (require Docker + RTSP + webhook)",
 ]
-addopts = "-m 'not integration'"
 timeout = 60
 
 [tool.setuptools]

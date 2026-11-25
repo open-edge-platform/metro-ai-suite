@@ -276,6 +276,7 @@ class ContinuousRecorder(BaseMonitor):
                 os.remove(list_path)
                 os.remove(list_path + ".log")
             except OSError:
+                # temp files may already be gone
                 pass
 
     def _watch_copy_session(
@@ -309,6 +310,7 @@ class ContinuousRecorder(BaseMonitor):
             try:
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
+                # still alive after kill; nothing more to do
                 pass
 
     def _drain_segment_list(self, list_path: str, emitted: set[str]) -> None:
@@ -421,8 +423,10 @@ class ContinuousRecorder(BaseMonitor):
                     try:
                         os.remove(os.path.join(self._output_dir, name))
                     except OSError:
+                        # stale list file may already be gone
                         pass
         except OSError:
+            # output dir unreadable; skip cleanup
             pass
 
     @staticmethod

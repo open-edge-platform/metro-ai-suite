@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Copyright (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -37,8 +38,9 @@ unset _sc_host
 # =========================================================================
 # llm-scaler model serving
 # =========================================================================
-export VIDEO_GROUP_ID=$(getent group video  | awk -F: '{print $3}')
-export RENDER_GROUP_ID=$(getent group render | awk -F: '{print $3}')
+VIDEO_GROUP_ID=$(getent group video  | awk -F: '{print $3}')
+RENDER_GROUP_ID=$(getent group render | awk -F: '{print $3}')
+export VIDEO_GROUP_ID RENDER_GROUP_ID
 
 # Host directory that caches downloaded Hugging Face weights.
 HF_HOME=${HF_HOME:=~/models/huggingface}
@@ -81,7 +83,8 @@ export SERVICE_PORT=8192
 
 # Run multilevel-video-understanding as the host user
 # To ensure bind-mount directories (e.g. ~/.cache/...) are available in container
-export USER_GROUP_ID="$(id -g "$USER")"
+USER_GROUP_ID="$(id -g "$USER")"
+export USER_GROUP_ID
 
 # Both roles are served by the same on-device llm-scaler endpoint by default. The
 # caller may instead set these standard MLVU variables to reuse another serving.
@@ -113,8 +116,9 @@ export SMART_COMMUNITY_DATA_DIR=${SMART_COMMUNITY_DATA_DIR:-${HOME}/.mcp-smart-c
 mkdir -p "${SMART_COMMUNITY_DATA_DIR}"
 
 # Run smart-community-mcp-server and videostream-analytics as the host user
-export HOST_UID=$(id -u)
-export HOST_GID=$(id -g)
+HOST_UID=$(id -u)
+HOST_GID=$(id -g)
+export HOST_UID HOST_GID
 
 # Host timezone, passed into the MCP server container so SQLite's
 # datetime('now','localtime') (used for every event/alert created_at) matches host

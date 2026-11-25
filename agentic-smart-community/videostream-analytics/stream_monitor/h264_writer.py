@@ -82,6 +82,7 @@ class H264SegmentWriter:
             if proc.stdin:
                 proc.stdin.close()
         except (BrokenPipeError, ValueError):
+            # ffmpeg already closed its stdin
             pass
 
         try:

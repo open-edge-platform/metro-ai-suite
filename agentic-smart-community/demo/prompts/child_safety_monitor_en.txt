@@ -1,0 +1,206 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+"""English dynamic task registration content for child_safety_monitor.
+
+Two execution modes share this single task name:
+
+  1. **Realtime danger detection** (worker → /v1/summary, method=SIMPLE,
+     levels=1, level_sizes=[-1]).
+     - Only LOCAL_PROMPT is invoked (single chunk per motion clip).
+     - LOCAL produces three structured lines: SEVERITY / EVENT / DESC.
+     - The plugin's src/summary-parser.ts (parseChildSafety) decodes them
+       for the rule engine. Do not switch to JSON — parser is regex-based
+       on these exact labels.
+
+  2. **Daily-report aggregation** (smart-community-video plugin daily_report tool
+     → /v1/summary in caption-only mode with SRT containing the day's
+     danger alerts).
+     - LOCAL is skipped (caption-only feeds pre-built SRT).
+     - MACRO_CHUNK_PROMPT + GLOBAL_PROMPT consume the SRT and emit a
+     5-block prose report (overview / breakdown / key event / advice /
+     trend) for the parent.
+
+Template placeholders (auto-filled by the video-summary service):
+  {question}      — optional user prompt
+  {st_tm}         — chunk start time in seconds
+  {end_tm}        — chunk end time in seconds
+  {dur}           — previous chunk duration (T_MINUS_1)
+  {past_summary}  — previous chunk summary (T_MINUS_1)
+"""
+
+GLOBAL_PROMPT = '''## Task:
+Summarize the day's dangerous events from a child-safety camera into a short daily report for parents.
+Write the entire report in English.
+
+**Timestamp format (essential to avoid misleading parents):**
+- Each SRT timestamp line has the form `HH:MM:SS,mmm --> HH:MM:SS,mmm`. **HH:MM represents actual Beijing clock time in 24-hour format.** For example, `03:30:39,323` means **03:30:39 in the morning**.
+- **Never** convert HH:MM:SS into "seconds since midnight" or a "video frame number". For example, `03:30:39` means the clock time 03:30, not "at 12639 seconds".
+- **Never** include expressions such as "<number> seconds", "at second <number>", or "video timeline <number>" in the output. Always use `HH:MM` for event times (for example, "03:30", "09:42 in the morning", or "22:15 in the evening") and `HH:MM-HH:MM` for time ranges (for example, "11:37-11:50").
+- Self-check: rewrite the output if it contains the word "second" or "seconds", or a sequence of four or more digits, unless that sequence is an example or a year.
+
+**Event vocabulary (use these exact meanings rather than guessing from the labels):** Each SRT entry starts with `[danger:<severity>:<event>]`. Interpret `<event>` according to the list below. **Do not mistake an event label for an accident outcome; for example, `fire` does not mean a fire incident, and `climb` does not mean a fall.**
+- `fall`        = A child falling forcefully, with the body leaving the ground and hitting the floor; not a fall from a building.
+- `choking`     = A child choking on a foreign object that obstructs breathing.
+- `drowning`    = A child drowning or having their head submerged in liquid.
+- `climb`       = A child climbing a windowsill, balcony railing, or high furniture; **the climbing action only**, not a fall that has already occurred.
+- `near_stove`  = A child approaching a stove or an open flame.
+- `run`         = A child tripping, colliding with furniture, or losing balance while running fast.
+- `knife`       = A child holding or playing with a knife, scissors, or another sharp tool; **this includes ordinary paper-cutting activities**, because young children should not hold sharp tools.
+- `fire`        = **A child playing with fire:** holding or playing with a lighter, matches, or an igniter. Describe this as "playing with a lighter", "playing with matches", or "playing with fire". **Do not call it a "fire incident" or a "fire hazard".** Mention an actual fire only if something is visibly burning.
+- `jump`        = A child bouncing on a sofa, bed, or table, or jumping down from a height.
+- `outlet`      = A child pulling electrical cords or touching an electrical outlet.
+- `normal`      = No dangerous behavior; this should not appear in the daily-report SRT.
+
+The same event type may occur multiple times in one day. Aggregate the counts by type.
+
+User question: {question}
+
+## Follow this output template exactly (replace the angle-bracketed text; omit any section with no content):
+
+Today's child-safety overview: <Two or three sentences summarizing the most serious event types and peak periods; use HH:MM for all times.>
+
+Event breakdown:
+- <Event type A>: <Count> — <Times, for example, "once at 09:30 and once at 15:42"> — <Severity distribution, for example, "1 critical, 2 warn">
+- <Event type B>: <Count> — <Times> — <Severity distribution>
+
+Most critical event: <One sentence identifying the day's most dangerous event, including its HH:MM time and a description of the scene.>
+
+Advice for parents: <One or two sentences with specific, actionable supervision or home-safety recommendations.>
+
+Risk trend: <One sentence, for example, "Dangerous events were frequent/infrequent today, mainly during HH:MM-HH:MM ..."; a comparison with yesterday may be included.>
+
+## Example output:
+
+Today's child-safety overview: There were three dangerous windowsill-climbing events today, concentrated between 14:00-16:30. These involved a high risk of falling, so closer supervision is recommended during this period.
+
+Event breakdown:
+- climb: 3 events — 14:12, 15:08, 16:25 — all critical
+- knife: 1 event — 11:42 — critical
+- fire: 1 event — 16:55 (child playing with a lighter) — critical
+- run: 2 events — 10:33, 17:50 — warn
+
+Most critical event: At 14:12, the child climbed onto the windowsill alone and tried to push the window open, creating a risk of falling; install a window guard immediately.
+
+Advice for parents: Provide direct adult supervision during 14:00-16:00 and install child-safety locks on the windows. Keep scissors, lighters, and other dangerous objects out of the child's reach.
+
+Risk trend: Dangerous events were frequent today, mainly around the windowsill during 14:00-16:30; pay particular attention to this area.
+
+## Rules:
+- Aggregate events instead of repeating each SRT entry individually.
+- Limit the prose in each section to two or three sentences.
+- **Use only HH:MM or HH:MM-HH:MM for times. Expressions such as "X seconds", "at second X", or "video timeline X" are incorrect.**
+- Explicitly mention any critical event type with fewer than three occurrences in the "Most critical event" section.
+- Describe `fire` events as "playing with a lighter" or "playing with fire", **not as a "fire incident"**. Likewise, do not turn other event types into descriptions of disasters that did not occur.
+
+## Content to summarize:
+The following sub-events are separated by ">|<". Each part begins with its start and end times in the video, expressed as actual Beijing clock time in HH:MM:SS format.
+'''
+
+
+MACRO_CHUNK_PROMPT = '''## Task:
+Aggregate the following dangerous events into a two- or three-sentence summary of this period.
+Write the entire summary in English.
+**Timestamps:** The SRT timestamp `HH:MM:SS,mmm` represents Beijing clock time in 24-hour format. **Never** convert it into seconds or "seconds since midnight". **Never** include expressions such as "<number> seconds", "at second <number>", or "video timeline <number>" in the output. Use `HH:MM` for event times (for example, 03:30 or 14:25) and `HH:MM-HH:MM` for time ranges.
+**Event meanings:** `fire` = a child playing with a lighter or matches, not a fire incident; `climb` = climbing, not falling; `knife` = holding a sharp tool; `run` = losing control while running; `jump` = bouncing or jumping; `fall` = falling over. Describe actions rather than consequences.
+Start time (internal reference only; do not mention this value in the output): {st_tm} seconds
+End time (internal reference only; do not mention this value in the output): {end_tm} seconds
+User question: {question}
+
+## Output format (exactly two or three sentences):
+Sentence 1: There were N dangerous events during this period, with <event_type> (critical/warn) being the most serious.
+Sentence 2: The most frequent event type was <event_type>, with <count> occurrences concentrated during <HH:MM-HH:MM>.
+Sentence 3 (optional): <An unusual detail or something parents should watch for; continue to use HH:MM for times.>
+
+## Example output:
+There were four dangerous events during this period, with climb (critical) being the most serious.
+The most frequent event type was climb, with three occurrences around the windowsill during 14:12-16:25.
+At 14:12, the child tried to push the window open alone; check the window's child-safety lock immediately.
+
+## Rules:
+- Combine repeated event types and report only their aggregate counts.
+- Do not list SRT entries individually.
+- Do not output "[" or "]".
+- **Use HH:MM for times and HH:MM-HH:MM for ranges. Do not include the word "second" or "seconds", or any sequence of four or more digits.**
+
+## Content to summarize:
+The following sub-events are separated by ">|<".
+'''
+
+
+LOCAL_PROMPT = '''
+## Task:
+You are a child-safety monitoring AI. Analyze this home-camera clip and determine whether the child is engaging in dangerous behavior.
+Write all natural-language output in English.
+Start time: {st_tm} seconds
+End time: {end_tm} seconds
+User question: {question}
+
+## Severity definitions (apply these strictly):
+critical — Assign immediately if any of the following is observed:
+  - Holding or playing with a knife or scissors, even if the child appears to be doing crafts.
+  - Holding or playing with a lighter or matches, or approaching a flame at the stove.
+  - Climbing a windowsill or balcony railing, or standing on a chair by a window to reach it.
+  - Falling forcefully, with the body leaving the ground and hitting the floor.
+  - Drowning or having the head submerged in liquid.
+
+warn — Assign if any of the following is observed:
+  - Bouncing on a sofa, bed, or table, or jumping down from one.
+  - Climbing onto a high stool, table, or cabinet alone.
+  - Tripping or colliding with furniture while running fast.
+  - Pulling electrical cords or touching an electrical outlet.
+  - Approaching the stove without touching a flame.
+
+info — None of the dangerous behaviors above is observed:
+  - Sitting and reading, eating, playing with toys, watching television, or walking normally.
+
+## Key assessment principles:
+- Prefer a false alarm to a missed danger. If uncertain whether an action is dangerous, choose the higher severity.
+- Do not overlook a dangerous object in the child's hand just because the child appears calm.
+- A visible loss of balance followed by falling to the floor is enough to identify a fall; do not wait for a subsequent reaction.
+- Classify a child holding scissors as critical even during ordinary paper cutting, because young children should not hold sharp tools.
+
+## Event vocabulary (use in the EVENT: line):
+- fall (falling forcefully)
+- choking (choking on an object)
+- drowning (drowning or head submerged in liquid)
+- climb (climbing a windowsill or balcony railing)
+- near_stove (approaching a stove)
+- run (colliding with something while running or chasing)
+- knife (playing with a knife or scissors)
+- fire (playing with a lighter or flame)
+- jump (bouncing on a sofa or bed)
+- outlet (touching an electrical outlet or cord)
+- normal (no dangerous behavior)
+
+## Output format (follow strictly; output exactly these three lines):
+SEVERITY: critical or warn or info
+EVENT: one label from the vocabulary above
+DESC: one English sentence describing the child's **specific visible action**, without consequences or disaster-related wording
+
+## DESC wording rules (important: daily reports reuse this text):
+- Describe only the child's action and the objects or location involved. Do not add imagined disastrous consequences.
+- Incorrect: "The child is holding a lighter and setting the curtains alight, creating a severe fire hazard." The fire-hazard claim describes a consequence, not an action.
+- Correct: "The child is holding a lighter near the curtains and trying to ignite it."
+- Incorrect: "The child is climbing the windowsill and is at risk of falling." The fall is a hypothetical consequence.
+- Correct: "The child is climbing onto the windowsill alone while holding the window frame."
+- Incorrect: "The child is holding scissors and is at risk of cuts."
+- Correct: "The child is holding scissors and cutting paper beside the table."
+- Do not use evaluative or consequence-based terms such as "fire incident", "falling from a building", "risk of falling", "severe danger", "life-threatening", or "fatal".
+
+## Prohibited output:
+- Do not output JSON.
+- Do not add Markdown formatting or square brackets.
+- Do not include your reasoning or a step-by-step checklist.
+- Output only the SEVERITY, EVENT, and DESC lines, with no additional content.
+'''
+
+
+T_MINUS_1_PROMPT = '''
+## Context (assessment from the previous {dur} seconds; reference only, do not copy into the output):
+Start time: {st_tm} seconds
+End time: {end_tm} seconds
+{past_summary}
+
+Note: Use the previous clip as context, but assess the current clip's SEVERITY independently. If the dangerous behavior from the previous clip continues in the current clip, do not lower the severity. Keep all natural-language output in English.
+'''

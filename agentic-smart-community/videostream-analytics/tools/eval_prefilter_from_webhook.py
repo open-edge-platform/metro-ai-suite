@@ -131,7 +131,7 @@ def parse_srt(path: str, exclude_pattern: Optional[str] = None) -> List[GTCue]:
             idx = int(lines[0])
         except ValueError:
             continue
-        tc_parts = re.split(r"\s*-->\s*", lines[1])
+        tc_parts = [p.strip() for p in lines[1].split("-->")]
         if len(tc_parts) != 2:
             continue
         label = " ".join(lines[2:])

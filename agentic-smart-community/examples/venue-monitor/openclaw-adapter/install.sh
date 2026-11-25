@@ -10,6 +10,7 @@
 #   OPENCLAW_HOME  target home                (default: ~/.openclaw)
 #   MCP_URL        Smart Community MCP endpoint  (default: http://localhost:3100/mcp)
 #   AGENT_MODEL    model for the new agent    (default: agents.defaults.model.primary)
+# shellcheck disable=SC2016 # jq programs are single-quoted on purpose; $vars are jq variables
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"

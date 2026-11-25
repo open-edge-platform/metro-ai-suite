@@ -63,6 +63,13 @@ sed -i "s/\${DLSTREAMER_PIPELINE_SERVER_IMAGE}/$(grep "DLSTREAMER_PIPELINE_SERVE
 echo "Running install.sh to download models, videos, and link configuration files..."
 ./install.sh "$HOST_IP" "$MODE"
 
+# install.sh writes the mode-specific settings (SS_*, COMPOSE_PROFILES) to ../.env,
+# so refresh the package copy taken earlier, otherwise ss mode ships without them
+echo "Refreshing .env with mode-specific settings..."
+cp ../.env ./.env
+sed -i 's/^SAMPLE_APP=.*/SAMPLE_APP=smart-parking/' .env
+sed -i "s/^HOST_IP=.*/HOST_IP=${HOST_IP}/" .env
+
 # Run docker compose to pull all the images and download the grafana plugins
 mkdir -p ./src/grafana/plugins
 chown -R "$(id -u):$(id -g)" ./src/grafana/plugins 2>/dev/null || true
@@ -92,7 +99,11 @@ fi
 
 if [ "$MODE" = "ss" ]; then
   # SceneScape mode uses Grafana 11.6+ provisioning and bash /data/install_package.sh in entrypoint
+  # Node-RED here only mounts individual files, so the saved modules need their own mount
+  sed -i '/install_package\.sh:\/data\/install_package\.sh/a\      - ./src/node-red/node-modules:/data/node-modules:ro' docker-compose.yml
   sed -i 's#bash /data/install_package.sh && #cp -r /data/node-modules/* /usr/src/node-red/node_modules/ 2>/dev/null || true \&\& #' docker-compose.yml
+  # Without internet the WebRTC sender stalls resolving the default public STUN server; fail fast instead
+  sed -i '/^  dlstreamer-pipeline-server:$/a\    extra_hosts:\n      - "stun.l.google.com:127.0.0.1"' docker-compose.yml
 else
   # Default mode uses grafana-mqtt-datasource plugin and /data/install_package.sh in entrypoint
   sed -i '/datasources\.yml.*datasources\.yml/a\      - "./src/grafana/plugins:/var/lib/grafana/plugins"' docker-compose.yml
@@ -110,6 +121,11 @@ tar --exclude='./offline-package' \
   --exclude='./src/secrets/pgserver' --exclude='./src/secrets/influxdb2' --exclude='./src/secrets/nodered' \
   --exclude='./src/secrets/*.auth' --exclude='./src/secrets/supass' \
   -cf - . | (cd offline-package && tar -xf -)
+
+# In the package the .env lives next to the scripts, not in the parent directory
+sed -i 's#/\.\./\.env"#/.env"#' offline-package/sample_start.sh
+grep -q 'ENV_FILE=.*/\.env"' offline-package/sample_start.sh && ! grep -q '/\.\./\.env' offline-package/sample_start.sh \
+  || { echo "Error: failed to point sample_start.sh at the packaged .env"; exit 1; }
 
 # Create a new directory inside it called docker-images and save all the docker images available in docker compose .yml file
 echo "Creating docker-images directory and saving Docker images..."
@@ -223,11 +239,63 @@ fi
 echo "Verifying loaded images..."
 docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
 
+# Runtime secrets are not shipped in the package; docker compose fails without them
+echo "Generating runtime secrets..."
+bash "$(dirname "$(readlink -f "$0")")/init-secrets.sh"
+
 EOF
 
 # Make the script executable
 chmod +x offline-package/load-images.sh
 echo "load-images.sh script created and made executable."
+
+# Runtime secrets are excluded from the package, so create a host-side script that
+# generates them on the offline machine (no Docker image or internet access needed)
+echo "Creating init-secrets.sh script..."
+cat > offline-package/init-secrets.sh << 'EOF'
+#!/bin/bash
+
+#################
+# Generates the runtime secrets required by docker-compose.yml on the offline machine.
+# Requires only bash, openssl and python3 (SceneScape mode); no Docker or internet access.
+#
+# Usage: ./init-secrets.sh
+# Run this from the offline-package directory before 'docker compose up -d'.
+#
+#################
+
+set -e
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+cd "$SCRIPT_DIR"
+
+for tool in bash openssl; do
+    if ! command -v "$tool" &> /dev/null; then
+        echo "Error: '$tool' is required to generate secrets but was not found."
+        exit 1
+    fi
+done
+
+bash src/secrets/generate_nodered_secret.sh
+
+if [ "__MODE__" = "ss" ]; then
+    if ! command -v python3 &> /dev/null; then
+        echo "Error: 'python3' is required to generate SceneScape secrets but was not found."
+        exit 1
+    fi
+    if [ ! -f src/secrets/browser.auth ]; then
+        bash src/secrets/generate_secrets.sh
+    else
+        echo "SceneScape secrets already exist, skipping generation."
+    fi
+    echo "Before starting the application, run: export SUPASS=\$(cat ./src/secrets/supass)"
+fi
+
+echo "Secrets are ready."
+EOF
+sed -i "s/__MODE__/${MODE}/" offline-package/init-secrets.sh
+chmod +x offline-package/init-secrets.sh
+echo "init-secrets.sh script created and made executable."
 
 
 echo "Offline package generation completed successfully!"

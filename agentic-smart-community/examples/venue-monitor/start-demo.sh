@@ -64,8 +64,10 @@ persist_config "$SCRIPT_DIR/config.example.yaml" "$DATA_DIR/config.yaml"
 persist_config "$MONITORS_SRC" "$DATA_DIR/monitors.yaml"
 
 # 3. Bring up the stack; bounce the app tier first if running so it reloads the config.
-if [ -n "$(docker compose -f "$REPO_DIR/docker/compose.yaml" ps -q \
-    smart-community-mcp-server multilevel-video-understanding videostream-analytics 2>/dev/null)" ]; then
+if [ -n "$(docker ps -q \
+    --filter name='^smart-community-mcp-server$' \
+    --filter name='^multilevel-video-understanding$' \
+    --filter name='^videostream-analytics$')" ]; then
   echo "app tier already running — bouncing it (--light-down) to reload the config…"
   bash "$REPO_DIR/setup_docker.sh" --light-down
 fi

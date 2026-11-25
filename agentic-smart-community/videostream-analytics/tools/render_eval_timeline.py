@@ -52,7 +52,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from urllib.request import urlopen
 
 
@@ -116,7 +116,7 @@ def parse_srt(path: str, exclude_pattern: Optional[str]) -> List[GTCue]:
             idx = int(lines[0])
         except ValueError:
             continue
-        tc = re.split(r"\s*-->\s*", lines[1])
+        tc = [p.strip() for p in lines[1].split("-->")]
         if len(tc) != 2:
             continue
         label = " ".join(lines[2:])

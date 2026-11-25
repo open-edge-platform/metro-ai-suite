@@ -55,6 +55,7 @@ def transcode_h264_in_place(path: str) -> bool:
             if os.path.exists(h264_path):
                 os.remove(h264_path)
         except OSError:
+            # best-effort removal of partial output
             pass
         return False
 

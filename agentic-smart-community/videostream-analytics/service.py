@@ -547,7 +547,8 @@ def create_app(
             # The rejection reason embeds absolute server paths, and this API has
             # no authentication — log it, and answer with the selectable names
             # only. `GET /capabilities/prefilter` is where reasons are reported.
-            logger.warning("prefilter model %r unavailable: %s", name, e)
+            safe_name = name.replace("\r", "").replace("\n", "")
+            logger.warning("prefilter model %r unavailable: %s", safe_name, e)
             available, _ = model_registry.list_models(config)
             raise HTTPException(
                 status_code=422,

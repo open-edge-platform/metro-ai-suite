@@ -295,6 +295,7 @@ class SourceManager:
                 try:
                     bundle.sink.close()
                 except Exception:
+                    # best-effort close during teardown
                     pass
         logger.info("Source auto-removed by health policy: %s", source_id)
 

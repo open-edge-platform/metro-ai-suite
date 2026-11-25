@@ -1,8 +1,10 @@
 #!/bin/bash
 
-if ! npm list -g node-red-contrib-influxdb | grep -q "node-red-contrib-influxdb"; then
-    npm install node-red-contrib-influxdb
-    apk update
-fi
+set -e
 
-exit 0
+# The package is installed locally (not globally) into the persistent
+# node-red-node-modules volume, so check there to skip reinstalling on restart.
+cd /usr/src/node-red
+if [ ! -d node_modules/node-red-contrib-influxdb ]; then
+    npm install --no-audit --no-fund node-red-contrib-influxdb
+fi

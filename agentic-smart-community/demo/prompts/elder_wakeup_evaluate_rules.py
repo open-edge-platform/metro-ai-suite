@@ -69,6 +69,7 @@ def evaluate_rules(parsed: dict) -> dict | None:
         try:
             extra["wakeupTime"] = float(wakeup_time)
         except (ValueError, TypeError):
+            # wakeup_time is optional; omit it when not numeric
             pass
 
     return {

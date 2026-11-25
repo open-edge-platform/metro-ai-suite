@@ -10,7 +10,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 import service as service_module
-from service import create_app
 from shared.config import AppConfig
 from source_worker import SourceManager
 
@@ -36,7 +35,7 @@ def app_and_client(mock_manager, monkeypatch):
     handler creates a real SourceManager on startup. Patching before would
     be overwritten.
     """
-    app = create_app(AppConfig(model_dir="/tmp/models"))
+    app = service_module.create_app(AppConfig(model_dir="/tmp/models"))
     with TestClient(app, raise_server_exceptions=False) as tc:
         monkeypatch.setattr(service_module, "_manager", mock_manager)
         yield tc, mock_manager
@@ -52,75 +51,26 @@ def mock_mgr(app_and_client):
     return app_and_client[1]
 
 
-# Lifespan startup re-binds _manager. Re-patch in each test that needs it,
-# or use the fixture above which patches AFTER `with TestClient(...)` enters.
-
-
-class TestHealthEndpoint:
-    def test_health_returns_200(self, client):
-        resp = client.get("/health")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "ok"
-        assert data["service"] == "videostream-analytics"
-
-
-class TestListSources:
-    def test_empty_sources(self, client, mock_mgr):
-        mock_mgr.get_sources.return_value = []
-        resp = client.get("/sources")
-        assert resp.status_code == 200
-        # /sources returns a bare array, not {"sources": [...]}
-        assert resp.json() == []
-
-    def test_with_sources(self, client, mock_mgr):
-        mock_mgr.get_sources.return_value = [
-            {
-                "source_id": "cam1",
-                "source_url": "rtsp://localhost:8554/live/cam1",
-                "status": "online",
-                "running": True,
-            }
-        ]
-        resp = client.get("/sources")
-        assert resp.status_code == 200
-        sources = resp.json()
-        assert isinstance(sources, list)
-        assert len(sources) == 1
-        assert sources[0]["source_id"] == "cam1"
-
-
-class TestGetSource:
-    def test_existing_source(self, client, mock_mgr):
-        mock_mgr.get_source_status.return_value = {
-            "source_id": "cam1",
-            "source_url": "rtsp://localhost:8554/live/cam1",
-            "status": "online",
-            "running": True,
-        }
-        resp = client.get("/sources/cam1")
-        assert resp.status_code == 200
-        assert resp.json()["source_id"] == "cam1"
-
-    def test_status_endpoint_alias(self, client, mock_mgr):
-        """MCP's analyticsSourceExists hits /sources/{id}/status."""
-        mock_mgr.get_source_status.return_value = {
-            "source_id": "cam1",
-            "status": "online",
-        }
-        resp = client.get("/sources/cam1/status")
-        assert resp.status_code == 200
-        assert resp.json()["source_id"] == "cam1"
-
-    def test_nonexistent_source(self, client, mock_mgr):
-        mock_mgr.get_source_status.return_value = None
-        resp = client.get("/sources/nonexistent")
-        assert resp.status_code == 404
-
-    def test_nonexistent_status_returns_404(self, client, mock_mgr):
-        mock_mgr.get_source_status.return_value = None
-        resp = client.get("/sources/nonexistent/status")
-        assert resp.status_code == 404
+# Success paths of the plain source endpoints are covered by
+# tests/test_api/test_videostream_analytics_api.py; only the 404 mapping is kept here.
+@pytest.mark.parametrize(
+    ("method", "path", "manager_call"),
+    [
+        ("get", "/sources/ghost", "get_source_status"),
+        ("get", "/sources/ghost/status", "get_source_status"),
+        ("delete", "/sources/ghost", "unregister_source"),
+        ("post", "/sources/ghost/stop", "unregister_source"),
+        ("post", "/sources/ghost/restart", "restart_source"),
+        ("post", "/sources/ghost/pause", "pause_source"),
+        ("post", "/sources/ghost/resume", "resume_source"),
+    ],
+)
+def test_unknown_source_returns_404(client, mock_mgr, method, path, manager_call):
+    getattr(mock_mgr, manager_call).return_value = (
+        None if manager_call == "get_source_status"
+        else {"status": "not_found", "source_id": "ghost"}
+    )
+    assert getattr(client, method)(path).status_code == 404
 
 
 class TestGetSourcePipeline:
@@ -233,109 +183,6 @@ class TestRegisterSource:
     def test_register_missing_source_url_returns_422(self, client, mock_mgr):
         resp = client.post("/register_source", json={"source_id": "cam1"})
         assert resp.status_code == 422
-
-
-class TestUnregisterSource:
-    def test_unregister_success(self, client, mock_mgr):
-        mock_mgr.unregister_source.return_value = {
-            "status": "stopped",
-            "source_id": "cam1",
-        }
-        resp = client.delete("/sources/cam1")
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "stopped"
-
-    def test_unregister_not_found(self, client, mock_mgr):
-        mock_mgr.unregister_source.return_value = {
-            "status": "not_found",
-            "source_id": "nonexistent",
-        }
-        resp = client.delete("/sources/nonexistent")
-        assert resp.status_code == 404
-
-
-class TestStopSource:
-    def test_stop_success(self, client, mock_mgr):
-        mock_mgr.unregister_source.return_value = {
-            "status": "stopped",
-            "source_id": "cam1",
-        }
-        resp = client.post("/sources/cam1/stop")
-        assert resp.status_code == 200
-
-    def test_stop_not_found(self, client, mock_mgr):
-        mock_mgr.unregister_source.return_value = {
-            "status": "not_found",
-            "source_id": "cam1",
-        }
-        resp = client.post("/sources/cam1/stop")
-        assert resp.status_code == 404
-
-
-class TestRestartSource:
-    """Restart is delegated to `SourceManager.restart_source`.
-
-    The endpoint used to reach into `mgr._bundles` and drive stop/start itself,
-    which meant it ran outside the per-source lock and could interleave with an
-    unregister. The stop/start sequencing is covered by
-    `test_source_manager.py`; here we only assert the delegation.
-    """
-
-    def test_restart_success(self, client, mock_mgr):
-        mock_mgr.restart_source.return_value = {
-            "status": "restarted",
-            "source_id": "cam1",
-        }
-        resp = client.post("/sources/cam1/restart")
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "restarted"
-        mock_mgr.restart_source.assert_called_once_with("cam1")
-
-    def test_restart_not_found(self, client, mock_mgr):
-        mock_mgr.restart_source.return_value = {
-            "status": "not_found",
-            "source_id": "nonexistent",
-        }
-        resp = client.post("/sources/nonexistent/restart")
-        assert resp.status_code == 404
-
-
-class TestPauseSource:
-    def test_pause_success(self, client, mock_mgr):
-        mock_mgr.pause_source.return_value = {
-            "status": "paused",
-            "source_id": "cam1",
-        }
-        resp = client.post("/sources/cam1/pause")
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "paused"
-
-    def test_pause_not_found(self, client, mock_mgr):
-        mock_mgr.pause_source.return_value = {
-            "status": "not_found",
-            "source_id": "cam1",
-        }
-        resp = client.post("/sources/cam1/pause")
-        assert resp.status_code == 404
-
-
-class TestResumeSource:
-    def test_resume_success(self, client, mock_mgr):
-        mock_mgr.resume_source.return_value = {
-            "status": "online",
-            "source_id": "cam1",
-        }
-        resp = client.post("/sources/cam1/resume")
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "online"
-
-    def test_resume_not_found(self, client, mock_mgr):
-        mock_mgr.resume_source.return_value = {
-            "status": "not_found",
-            "source_id": "cam1",
-        }
-        resp = client.post("/sources/cam1/resume")
-        assert resp.status_code == 404
 
 
 def register_model(
@@ -798,15 +645,9 @@ class TestSourceUrlSchemeAllowlist:
 
     def test_file_source_allowed_when_opted_in(self, mock_manager, monkeypatch):
         """`allow_file_source` exists for offline evaluation against local clips."""
-        from fastapi.testclient import TestClient
-
-        import service as service_module
-        from service import create_app
-        from shared.config import AppConfig
-
         config = AppConfig(model_dir="/tmp/models")
         config.security.allow_file_source = True
-        app = create_app(config)
+        app = service_module.create_app(config)
         with TestClient(app, raise_server_exceptions=False) as tc:
             monkeypatch.setattr(service_module, "_manager", mock_manager)
             mock_manager.register_source.return_value = {

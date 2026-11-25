@@ -16,6 +16,7 @@ a prefilter.
 
 from __future__ import annotations
 
+import errno
 import logging
 import os
 from dataclasses import dataclass, field
@@ -82,6 +83,12 @@ class ModelNotAvailable(ValueError):
     """Raised by `resolve` for an unregistered or non-validating key."""
 
 
+# The validators report a rejection by returning its reason rather than raising.
+# `list_models` hands reasons to API callers, and building them from a caught
+# exception would carry exception text (CodeQL: py/stack-trace-exposure) into
+# the response; a returned string is exactly what the code wrote.
+
+
 # Validated entries keyed by (model_path, mtime_ns, size). `/capabilities/prefilter`
 # is a conversational tool call an agent may make repeatedly while helping a user
 # pick a model, and read_model on every entry each time is wasted work. Keying on
@@ -106,19 +113,18 @@ def _stat_key(path: str) -> tuple[str, int, int] | None:
 
 def _validate_openvino(
     name: str, entry: PrefilterModelConfig, resolved_path: str
-) -> ModelInfo:
+) -> ModelInfo | str:
     """OpenVINO-specific checks: IR pair on disk, readable, detection-shaped."""
     if not resolved_path.endswith(".xml"):
-        raise ModelNotAvailable(
-            f"backend 'openvino' expects an IR .xml, got {resolved_path}"
-        )
+        return f"backend 'openvino' expects an IR .xml, got {resolved_path}"
     weights = resolved_path[: -len(".xml")] + ".bin"
     for required in (resolved_path, weights):
         try:
-            if os.path.getsize(required) == 0:
-                raise ModelNotAvailable(f"{required} is empty")
+            size = os.path.getsize(required)
         except OSError as e:
-            raise ModelNotAvailable(f"cannot read {required}: {e.strerror or e}") from e
+            return f"cannot read {required}: {os.strerror(e.errno or errno.EIO)}"
+        if size == 0:
+            return f"{required} is empty"
 
     stat_key = _stat_key(resolved_path)
     if stat_key is not None and stat_key in _cache:
@@ -141,11 +147,9 @@ def _validate_openvino(
 
     info = inspect_model(resolved_path)
     if info is None:
-        raise ModelNotAvailable(f"openvino could not read {resolved_path}")
+        return f"openvino could not read {resolved_path}"
     if not info.is_detection:
-        raise ModelNotAvailable(
-            f"not a usable detection model: {info.detection_error}"
-        )
+        return f"not a usable detection model: {info.detection_error}"
 
     resolved = ModelInfo(
         name=name,
@@ -170,14 +174,16 @@ def _validate_openvino(
 _VALIDATORS = {"openvino": _validate_openvino}
 
 
-def _validate(config: AppConfig, name: str, entry: PrefilterModelConfig) -> ModelInfo:
+def _validate(
+    config: AppConfig, name: str, entry: PrefilterModelConfig
+) -> ModelInfo | str:
     if entry.kind not in SUPPORTED_MODEL_KINDS:
-        raise ModelNotAvailable(
+        return (
             f"kind '{entry.kind}' is not supported "
             f"(supported: {', '.join(SUPPORTED_MODEL_KINDS)})"
         )
     if entry.backend not in SUPPORTED_MODEL_BACKENDS:
-        raise ModelNotAvailable(
+        return (
             f"backend '{entry.backend}' is not supported "
             f"(supported: {', '.join(SUPPORTED_MODEL_BACKENDS)})"
         )
@@ -190,10 +196,8 @@ def _validate(config: AppConfig, name: str, entry: PrefilterModelConfig) -> Mode
         resolved_path = resolve_contained_file(
             [config.model_dir], entry.model_path, "model"
         )
-    except ValueError as e:
-        raise ModelNotAvailable(
-            f"{entry.model_path} is not under PREFILTER_MODEL_DIR ({config.model_dir}): {e}"
-        ) from e
+    except ValueError:
+        return f"{entry.model_path} is not under PREFILTER_MODEL_DIR ({config.model_dir})"
 
     return _VALIDATORS[entry.backend](name, entry, resolved_path)
 
@@ -203,12 +207,13 @@ def list_models(config: AppConfig) -> tuple[list[ModelInfo], list[dict]]:
     available: list[ModelInfo] = []
     rejected: list[dict] = []
     for name, entry in config.prefilter_models.items():
-        try:
-            available.append(_validate(config, name, entry))
-        except ModelNotAvailable as e:
+        result = _validate(config, name, entry)
+        if isinstance(result, str):
             rejected.append(
-                {"name": name, "model_path": entry.model_path, "reason": str(e)}
+                {"name": name, "model_path": entry.model_path, "reason": result}
             )
+        else:
+            available.append(result)
     return available, rejected
 
 
@@ -220,4 +225,7 @@ def resolve(config: AppConfig, name: str) -> ModelInfo:
         raise ModelNotAvailable(
             f"prefilter model '{name}' is not registered (registered: {known})"
         )
-    return _validate(config, name, entry)
+    result = _validate(config, name, entry)
+    if isinstance(result, str):
+        raise ModelNotAvailable(result)
+    return result

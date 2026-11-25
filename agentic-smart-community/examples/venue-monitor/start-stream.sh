@@ -32,7 +32,9 @@ mkdir -p "$RUN_DIR"
 
 # 1. Download the video (re-download if missing or corrupt); VIDEO_FILE is never downloaded.
 if [[ -n "${VIDEO_FILE:-}" ]]; then
-  [[ -f "$VIDEO" ]] && ffprobe -v error "$VIDEO" 2>/dev/null || { echo "VIDEO_FILE is missing or not a valid video: $VIDEO" >&2; exit 1; }
+  if ! [[ -f "$VIDEO" ]] || ! ffprobe -v error "$VIDEO" 2>/dev/null; then
+    echo "VIDEO_FILE is missing or not a valid video: $VIDEO" >&2; exit 1
+  fi
 elif ! ffprobe -v error "$VIDEO" 2>/dev/null; then
   echo "downloading $VIDEO_URL"
   curl -fsSL --retry 3 -o "$VIDEO.part" "$VIDEO_URL"

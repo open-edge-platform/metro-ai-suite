@@ -18,7 +18,6 @@ export interface EventsEndpointOptions {
 }
 
 const DEFAULT_MAX_BODY_BYTES = 1024 * 1024;
-const KNOWN_TYPES = new Set<VideoEvent["type"]>(["motion", "static", "recording"]);
 
 type DispatchOutcome =
   | { kind: "ok"; body: Record<string, unknown> }

@@ -45,6 +45,8 @@ RUN apt-get update \
 # variable of the same name) to embed exact copyleft Debian source packages.
 # Keep this before application source is copied so npm changes reuse this layer.
 ARG COPYLEFT_SOURCES=false
+# `apt-get update` feeds `apt-get source --download-only` here, not an install.
+# trivy:ignore:DS-0017
 RUN case "$COPYLEFT_SOURCES" in \
         true) \
             sed -Ei "s/Types: deb/Types: deb deb-src/g" /etc/apt/sources.list.d/debian.sources \

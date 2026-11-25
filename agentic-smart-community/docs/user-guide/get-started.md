@@ -192,6 +192,8 @@ Open `http://localhost:3100/` to use the Agentic Smart Community Web UI. It prov
 Agents can now use the MCP tools when you ask them to create a use case, analyze a monitor, or generate a report. Try the following examples in the OpenClaw Control UI (`http://localhost:18789`) or Agentic Smart Community Web UI(`http://localhost:3100/`).
 
 To use OpenClaw from the Agentic Smart Community Web UI, open `http://localhost:3100/`, select **OpenClaw** in the chat panel (as the figure shows below), and enter the gateway URL and token. After connecting, select an OpenClaw session to chat alongside the live video and activity views. Alternatively, you can use the standalone OpenClaw Control UI at `http://localhost:18789/`.
+> [!NOTE]
+> After a fresh installation, connecting OpenClaw in the Web UI (`http://localhost:3100/`) may show **No session**, which prevents chatting. Start an initial conversation in the OpenClaw Control UI at `http://localhost:18789/`, then return to the Web UI and select that session to chat.
 
 ![Configure the Agent Chat Session from Dashboard](_assets/configure-openclaw-session-from-webui.png)
 **Figure: Configure the Agent Chat Session from Dashboard**

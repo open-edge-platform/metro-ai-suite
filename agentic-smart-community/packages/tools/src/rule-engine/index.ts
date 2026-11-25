@@ -1,7 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { existsSync } from "node:fs";
-import { parseSummaryFields, normalizeSummaryTextBySchema } from "./summary-parser.js";
 import { formatAlertMessage } from "./alert-message.js";
 
 export { parseSummaryFields } from "./summary-parser.js";

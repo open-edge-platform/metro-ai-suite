@@ -24,7 +24,6 @@ import cv2
 from shared.config import (
     MotionConfig,
     SegmentConfig,
-    StaticConfig,
     PrefilterConfig,
     RoiConfig,
     HealthConfig,
@@ -537,6 +536,7 @@ class StreamPipeline(BaseMonitor):
                 try:
                     os.remove(result.path)
                 except FileNotFoundError:
+                    # segment already removed
                     pass
                 logger.debug("[%s] Segment discarded by prefilter: %s", self.source_id, result.path)
                 return

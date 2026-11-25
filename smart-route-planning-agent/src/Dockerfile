@@ -34,10 +34,17 @@ RUN pnpm install --frozen-lockfile --ignore-scripts && \
   /opt/build-venv/bin/python -m build --wheel --outdir /dist && \
   python3 -c 'import glob, zipfile; wheels = glob.glob("/dist/gradio-*.whl"); assert len(wheels) == 1; assert "gradio/templates/frontend/index.html" in zipfile.ZipFile(wheels[0]).namelist()'
 
-FROM python:3.12-slim AS builder
+FROM python:3.12-slim AS python-base
 
-# Set working directory
 WORKDIR /app
+
+RUN apt-get --error-on=any update && \
+  apt-get upgrade -y && \
+  apt-get satisfy -y --no-install-recommends --no-remove \
+    'apt (>= 3.0.4)' 'zlib1g (>= 1:1.3.dfsg+really1.3.1-1+deb13u1)' && \
+  rm -rf /var/lib/apt/lists/*
+
+FROM python-base AS builder
 
 # Copy code into the container
 RUN pip install --no-cache-dir "uv>=0.9.22,<1.0.0"
@@ -47,12 +54,10 @@ RUN uv sync --frozen --no-install-project --no-install-package gradio && \
   uv pip install --python /app/.venv/bin/python --no-deps /tmp/gradio-dist/gradio-*.whl && \
   /app/.venv/bin/python -c 'from importlib.resources import files; assert files("gradio").joinpath("templates/frontend/index.html").is_file()'
 
-FROM python:3.12-slim AS runtime
+FROM python-base AS runtime
 
 ARG USER_ID=1000
 ARG USER_GROUP_ID=1000
-
-WORKDIR /app
 
 COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
 COPY --from=builder /app /app

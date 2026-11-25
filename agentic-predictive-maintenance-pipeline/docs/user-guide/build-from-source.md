@@ -59,7 +59,7 @@ via `docker/compose.agents.yaml`. See the [agent-service integration
 guide](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/agent-quality-handler/agent-service-integration-guide.html) for its contract.
 
 `TAG` controls only the three APM application images. The external agent image
-uses `AGENT_QUALITY_HANDLER_TAG` (default: `2026.3.0-rc1`) independently.
+uses `AGENT_QUALITY_HANDLER_TAG` (default: `2026.3.0-rc2`) independently.
 
 ### 4. Verify the Build
 

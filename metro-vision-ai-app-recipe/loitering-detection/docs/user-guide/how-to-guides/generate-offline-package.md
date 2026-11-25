@@ -29,9 +29,44 @@ cloud-dependent deployments are not feasible.
 
 ```bash
 cd metro-ai-suite/metro-vision-ai-app-recipe/loitering-detection
+```
 
+Choose **one** generation command, matching the mode you want to run on the offline system:
+
+<!--hide_directive ::::{tab-set} hide_directive-->
+<!--hide_directive :::{tab-item} hide_directive--> **CLI mode**
+<!--hide_directive :sync: cli hide_directive-->
+
+Use the sample scripts and access the application through Grafana:
+
+```bash
 ./offline-package-generator.sh
 ```
+
+<!--hide_directive ::: hide_directive-->
+<!--hide_directive :::{tab-item} hide_directive--> **Console UI mode**
+<!--hide_directive :sync: console-ui hide_directive-->
+
+This is the same package as CLI mode, plus the optional Console UI for starting and stopping
+pipelines, selecting models and devices, and drawing zones. Grafana remains available.
+
+```bash
+./offline-package-generator.sh loitering-detection-ui
+```
+
+This bundles the `console-addon/` directory into the package, adds the `console` service to the
+packaged `docker-compose.yml` (it reuses the DL Streamer Pipeline Server image, so no extra image
+is downloaded) and adds the "UI Console" link to the nginx landing page.
+
+> [!IMPORTANT]
+> The mode is fixed when the package is generated. A CLI mode package does not contain the
+> `console` service, so `https://<HOST_IP>/console/` cannot be used with it. Generate a Console UI
+> mode package if you need the Console UI on the offline system.
+
+<!--hide_directive
+:::
+::::
+hide_directive-->
 
 **What happens during generation:**
 - Downloads and packages all Docker images (~2-3 GB)
@@ -101,23 +136,45 @@ docker compose up -d
 docker ps
 ```
 
+The `ui-console` container is present only in a Console UI mode package.
+
 ## Step 4: Run the Application
 
-### 4.1 Start Video Streams
+Follow the workflow that matches the mode the package was generated for. When accessing the
+application remotely, replace `127.0.0.1` in the browser addresses with the host IP.
 
-Start video streams to run video inference pipelines:
+> [!CAUTION]
+> Both workflows use the same Pipeline Server. `./sample_start.sh` stops **all** existing
+> pipeline instances before launching its four sample pipelines. `./sample_stop.sh` also
+> stops all instances, including those started in the Console UI. Do not run these scripts
+> while you want to keep Console pipelines running.
 
-```bash
-./sample_start.sh
-```
+<!--hide_directive ::::{tab-set} hide_directive-->
+<!--hide_directive :::{tab-item} hide_directive--> **CLI mode**
+<!--hide_directive :sync: cli hide_directive-->
 
-### 4.2 Check Pipeline Status
+Run the predefined samples and view Grafana:
 
-To check the status of the pipelines:
+1. Start the video streams to run the video inference pipelines:
 
-```bash
-./sample_status.sh
-```
+   ```bash
+   ./sample_start.sh
+   ```
+
+2. Check the status of the pipelines:
+
+   ```bash
+   ./sample_status.sh
+   ```
+
+3. Open `https://127.0.0.1/grafana` and log in with username `admin` and password `admin`.
+
+   > [!NOTE]
+   > If you experience issues while streaming videos on Grafana dashboard on
+   > Firefox, it is recommended to use Google Chrome.
+
+4. Check under the Dashboards section for the application-specific preloaded dashboard.
+   **Expected Results**: The dashboard displays real-time video streams with AI overlays and detection metrics.
 
 <details>
 <summary>Stop Pipelines</summary>
@@ -133,25 +190,42 @@ To stop the pipelines without waiting for video streams to finish replay:
 
 </details>
 
-### 4.3 View Application Output
+<!--hide_directive ::: hide_directive-->
+<!--hide_directive :::{tab-item} hide_directive--> **Console UI mode**
+<!--hide_directive :sync: console-ui hide_directive-->
 
-1. Open a browser and navigate to `https://127.0.0.1/grafana` to access the Grafana dashboard.
-   - Change `127.0.0.1` to your host IP if accessing remotely.
+This workflow requires a package generated with `./offline-package-generator.sh loitering-detection-ui`.
+Start and view a pipeline in the Console UI:
 
-     > [!NOTE]
-     > If you experience issues while streaming videos on grafana dashboard on
-     > Firefox, it is recommended to use Google Chrome.
+1. Open `https://127.0.0.1/console/`.
+2. Leave **Number of pipelines** at `1`. The **Pipeline 1** card has a prefilled source,
+   model, and device; select a device supported by your hardware if necessary.
+3. Click **Start pipelines**.
+4. Expect a panel titled **Pipeline N · source · model · device** with live WebRTC video
+   and a per-object loitering table.
 
-2. Log in with the following credentials:
-   - **Username**: `admin`
-   - **Password**: `admin`
-3. Check under the Dashboards section for the application-specific preloaded dashboard.
-4. **Expected Results**: The dashboard displays real-time video streams with AI overlays and detection metrics.
+To stop a Console pipeline, click **X** in the top-right corner of its panel; use **Stop all**
+for all pipelines shown in the Console.
+
+Grafana remains available at `https://127.0.0.1/grafana` (`admin` / `admin`). For details on
+using the Console UI, see [Use the Console UI](./use-console-ui.md).
+
+<!--hide_directive
+:::
+::::
+hide_directive-->
 
 ## Access Application Components
 
 ### Nginx Dashboard
 - **URL**: `https://127.0.0.1`
+
+### UI Console (Console UI mode packages only)
+- **URL**: `https://127.0.0.1/console/`
+- Start/stop streams, draw a zone, and view live loitering analytics.
+- Only available if the package was generated with
+  `./offline-package-generator.sh loitering-detection-ui`; CLI mode packages
+  do not contain the `console` service.
 
 ### Grafana UI
 - **URL**: `https://127.0.0.1/grafana`

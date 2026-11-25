@@ -7,6 +7,7 @@
 
 **Software:**
 * Video Processing Platform SDK
+* python and python-venv
 
 ## Build Docker image
 

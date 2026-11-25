@@ -11,10 +11,13 @@ const LEVELS: Record<Level, number> = { debug: 0, info: 1, warn: 2, error: 3 };
 const configured = (process.env.LOG_LEVEL ?? "info").toLowerCase() as Level;
 const minLevel = LEVELS[configured] ?? LEVELS.info;
 
+// Callers pass request-derived text; a newline would forge a separate log entry.
+const oneLine = (msg: string) => msg.replace(/\n|\r/g, "");
+
 function log(level: Level, msg: string): void {
   if (LEVELS[level] >= minLevel) {
     const tag = level.toUpperCase().padEnd(5);
-    console.error(`[${tag}] ${msg}`);
+    console.error(`[${tag}] ${oneLine(msg)}`);
   }
 }
 
@@ -41,6 +44,17 @@ export interface MonitorLogger {
 }
 
 const oversizedWarned = new Set<string>();
+// Bytes written per file this process; seeded from disk once so appends need no stat.
+const fileSizes = new Map<string, number>();
+
+function knownSize(file: string): number {
+  let size = fileSizes.get(file);
+  if (size === undefined) {
+    try { size = statSync(file).size; } catch { size = 0; /* file may not exist yet */ }
+    fileSizes.set(file, size);
+  }
+  return size;
+}
 
 export function monitorLogger(monitorId: string, monitorsLogsDir: string, maxFileMb: number): MonitorLogger {
   const baseDir = join(monitorsLogsDir, monitorId);
@@ -58,11 +72,9 @@ export function monitorLogger(monitorId: string, monitorsLogsDir: string, maxFil
   const writeLine = (level: Level, msg: string) => {
     const now = new Date();
     const file = pathFor(now);
-    const line = `${now.toISOString()} [${level.toUpperCase().padEnd(5)}] ${msg}\n`;
+    const line = `${now.toISOString()} [${level.toUpperCase().padEnd(5)}] ${oneLine(msg)}\n`;
     try {
-      let size = 0;
-      try { size = statSync(file).size; } catch { /* file may not exist yet */ }
-      if (size + line.length > maxBytes) {
+      if (knownSize(file) + line.length > maxBytes) {
         if (!oversizedWarned.has(file)) {
           oversizedWarned.add(file);
           logger.warn(`[monitor-logger] ${file} exceeded ${maxFileMb} MB, suppressing further writes for today`);
@@ -70,6 +82,7 @@ export function monitorLogger(monitorId: string, monitorsLogsDir: string, maxFil
         return;
       }
       appendFileSync(file, line);
+      fileSizes.set(file, knownSize(file) + line.length);
     } catch (err) {
       // Don't let logger failure crash the caller; surface to stderr once.
       logger.error(`[monitor-logger] failed to write ${file}: ${err}`);
