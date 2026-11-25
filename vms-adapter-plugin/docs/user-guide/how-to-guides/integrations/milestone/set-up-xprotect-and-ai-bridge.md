@@ -35,6 +35,8 @@ Ports between the hosts:
 Ports 4000, 8382 and 8554 are exposed directly when AI Bridge runs in debug mode. A
 production deployment routes them through the AI Bridge proxy; see the
 [AI Bridge documentation](https://doc.milestonesys.com/AIB/Help/latest/en-us/).
+These connections are not encrypted, so run AI Bridge and VAP on the same node; see
+[Security considerations](#security-considerations).
 
 > [!IMPORTANT]
 > **Name resolution.** XProtect gives AI Bridge the Management Server's *hostname*, and
@@ -43,6 +45,41 @@ production deployment routes them through the AI Bridge proxy; see the
 > name. If it is not in DNS, add it to the AI Bridge containers' `extra_hosts` or the
 > host's `/etc/hosts`. Likewise, the XProtect host must resolve the VAP hostname you set
 > as `AIB_APP_HOSTNAME`. Read further to understand more.
+
+## Security considerations
+
+> [!IMPORTANT]
+> **Securing XProtect and AI Bridge is the responsibility of the administrator who
+> installs them.** VAP does not connect to XProtect, and it does not configure XProtect
+> or AI Bridge. The installing administrator must secure the connections between
+> XProtect and AI Bridge, including:
+>
+> - XProtect server encryption for the Management, Recording and Event Servers, set in
+>   the XProtect Server Configurator.
+> - TLS from AI Bridge to XProtect (`VMS_URL=https://…`, `TLS_ENABLED`, `TLS_SCHEME`),
+>   with trusted server and CA certificates.
+> - Running AI Bridge in production mode. Debug mode publishes AI Bridge's internal
+>   services with no authentication or encryption.
+> - An XProtect account for AI Bridge limited to the cameras you analyze.
+>
+> See the [AI Bridge documentation](https://doc.milestonesys.com/AIB/Help/V2_0/en-US/feature_flags/ff_aibridge/aibi_sslcerts_existingca.htm?tocpath=Create%20a%20processing%20server%7C_AIB-Integrator_%7CGenerating%20the%20server%20SSL%20certificates%7C_____2).
+
+> [!WARNING]
+> **Run AI Bridge and VAP on the same node.** The connection between VAP and AI Bridge is
+> neither authenticated nor encrypted: AI Bridge offers no TLS for its GraphQL API
+> (port 4000) or topic sinks (port 8382), and no RTSPS for the camera restream (port
+> 8554) that Loitering Detection reads. For security, deploy AI Bridge, VAP and Loitering
+> Detection on the same node, and block these ports from other hosts, for example with
+> a host firewall. If they must run on separate nodes, connect them only through a
+> dedicated, trusted network segment. Protecting this traffic is then your
+> responsibility.
+
+These recommendations reduce exposure but do not by themselves make a deployment
+secure. You are responsible for hardening every host, network and component in it.
+
+Milestone, XProtect and Milestone AI Bridge are trademarks of Milestone Systems A/S.
+AI Bridge is licensed separately under the Milestone EULA and is not distributed with
+VAP.
 
 ## Step 1: Install XProtect and add a camera
 
