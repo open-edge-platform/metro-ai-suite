@@ -80,12 +80,12 @@ By following this guide, you will learn how to:
       mkdir -p src/dlstreamer-pipeline-server/models/public
 
       export MODELS_PATH=/output
-      if [ ! -e "src/dlstreamer-pipeline-server/models/public/yolo11s/FP16/yolo11s.xml" ]; then
+      if [ ! -e "src/dlstreamer-pipeline-server/models/public/yolo11s/INT8/yolo11s.xml" ]; then
           uv venv /tmp/ultra-venv
           uv pip install --python /tmp/ultra-venv/bin/python --index-strategy unsafe-best-match -r "/opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt"
           for attempt in 1 2 3; do
-              echo "Attempt \$attempt: Running YOLOv11s export (FP16)..."
-              if /tmp/ultra-venv/bin/python "/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py" --model yolo11s.pt --outdir "src/dlstreamer-pipeline-server/models/public/yolo11s/FP16" --half; then
+              echo "Attempt \$attempt: Running YOLOv11s export (INT8)..."
+              if /tmp/ultra-venv/bin/python "/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py" --model yolo11s.pt --outdir "src/dlstreamer-pipeline-server/models/public/yolo11s/INT8" --int8 --data coco128.yaml; then
                   echo "Model export successful!"
                   break
               else
@@ -135,12 +135,12 @@ By following this guide, you will learn how to:
 
         export MODELS_PATH=/output
 
-        if [ ! -e "src/dlstreamer-pipeline-server/models/public/yolo11s/FP16/yolo11s.xml" ]; then
+        if [ ! -e "src/dlstreamer-pipeline-server/models/public/yolo11s/INT8/yolo11s.xml" ]; then
           uv venv /tmp/ultra-venv
           uv pip install --python /tmp/ultra-venv/bin/python --index-strategy unsafe-best-match -r "/opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt"
           for attempt in 1 2 3; do
-            echo "Attempt $attempt: Running YOLOv11s export (FP16)..."
-            if /tmp/ultra-venv/bin/python "/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py" --model yolo11s.pt --outdir "src/dlstreamer-pipeline-server/models/public/yolo11s/FP16" --half; then
+            echo "Attempt $attempt: Running YOLOv11s export (INT8)..."
+            if /tmp/ultra-venv/bin/python "/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py" --model yolo11s.pt --outdir "src/dlstreamer-pipeline-server/models/public/yolo11s/INT8" --int8 --data coco128.yaml; then
 
               break
             else

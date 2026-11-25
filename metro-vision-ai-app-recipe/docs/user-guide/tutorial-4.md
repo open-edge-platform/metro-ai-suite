@@ -83,10 +83,10 @@ cd /home/dlstreamer/metro-suite/
 
 mkdir -p crowd-analytics/src/dlstreamer-pipeline-server/models/public
 export MODELS_PATH=/home/dlstreamer/metro-suite/crowd-analytics/src/dlstreamer-pipeline-server/models
-if [ ! -e "\$MODELS_PATH/public/yolo11s/FP16/yolo11s.xml" ]; then
+if [ ! -e "\$MODELS_PATH/public/yolo11s/INT8/yolo11s.xml" ]; then
     uv venv /tmp/ultra-venv
     uv pip install --python /tmp/ultra-venv/bin/python --index-strategy unsafe-best-match -r "/opt/intel/dlstreamer/scripts/download_models/requirements_download_ultralytics_models.txt"
-    /tmp/ultra-venv/bin/python "/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py" --model yolo11s.pt --outdir "\$MODELS_PATH/public/yolo11s/FP16" --half
+    /tmp/ultra-venv/bin/python "/opt/intel/dlstreamer/scripts/download_models/download_ultralytics_models.py" --model yolo11s.pt --outdir "\$MODELS_PATH/public/yolo11s/INT8" --int8 --data coco128.yaml
 fi
 
 echo "Fix ownership..."
@@ -114,7 +114,7 @@ cat > ./crowd-analytics/src/dlstreamer-pipeline-server/config.json << 'EOF'
                 "name": "yolov11s_crowd_analytics",
                 "source": "gstreamer",
                 "queue_maxsize": 50,
-                "pipeline": "{auto_source} name=source ! decodebin ! gvaattachroi roi=1000,550,1800,800 ! gvadetect model=/home/pipeline-server/models/public/yolo11s/FP16/yolo11s.xml device=CPU pre-process-backend=opencv name=detection inference-region=1 ! queue ! gvatrack tracking-type=short-term-imageless ! queue ! gvametaconvert add-empty-results=true name=metaconvert ! gvametapublish file-format=2 file-path=/tmp/easy1_test1.jsonl ! queue ! gvafpscounter ! appsink name=destination",
+                "pipeline": "{auto_source} name=source ! decodebin ! gvaattachroi roi=1000,550,1800,800 ! gvadetect model=/home/pipeline-server/models/public/yolo11s/INT8/yolo11s.xml device=CPU pre-process-backend=opencv name=detection inference-region=1 ! queue ! gvatrack tracking-type=short-term-imageless ! queue ! gvametaconvert add-empty-results=true name=metaconvert ! gvametapublish file-format=2 file-path=/tmp/easy1_test1.jsonl ! queue ! gvafpscounter ! appsink name=destination",
                 "description": "Vehicle detection and tracking for crowd analytics",
                 "parameters": {
                     "type": "object",
@@ -144,7 +144,7 @@ The GStreamer pipeline configuration defines the crowd analytics AI processing w
 - **Source**: Accepts video input from parking lot video file
 - **Decode**: Converts video format to raw frames for processing
 - **gvaattachroi**: Defines a region of interest (ROI) with coordinates thus improving performance by processing only the relevant portion of the frame
-- **gvadetect**: Runs the YOLO11s object detection model (FP16 optimized) on CPU to identify and locate vehicles in each frame
+- **gvadetect**: Runs the YOLO11s object detection model (INT8 quantized) on CPU to identify and locate vehicles in each frame
 - **gvatrack**: Tracks detected vehicles across frames using imageless tracking, assigning persistent IDs to each vehicle without storing frame images
 - **gvametaconvert**: Converts inference results to structured metadata with vehicle positions
 - **gvafpscounter**: Monitors processing performance
