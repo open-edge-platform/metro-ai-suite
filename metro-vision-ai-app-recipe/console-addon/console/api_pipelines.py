@@ -10,16 +10,35 @@ from collections import deque
 import requests
 from flask import jsonify, request
 
-from config import (DETECTIONS_TOPIC_PREFIX, LOCK, LOITER_THRESHOLD_S, MQTT_HOST,
+from config import (DETECTIONS_TOPIC_PREFIX, LOCK, LOG, LOITER_THRESHOLD_S, MQTT_HOST,
                     MQTT_PORT, PIPELINE_SERVER_URL, SESSIONS, _parse_zone, app,
                     analytics_zones_json)
 from catalog import (_extract_instance_id, _model_instance_id,
                      _resolve_source_uri, _select_pipeline, discover_models)
 
+# Client-facing text per error code; exception text itself is never returned.
+LAUNCH_ERRORS = {
+    "unknown_source": "unknown source",
+    "unknown_model": "unknown model",
+    "no_pipeline": "no pipeline available for the selected device",
+}
+
+
+class LaunchError(Exception):
+    """Input error from _launch; `code` is a key of LAUNCH_ERRORS."""
+
+    def __init__(self, code):
+        super().__init__(code)
+        self.code = code
+
+
+def launch_error_message(exc):
+    return LAUNCH_ERRORS.get(exc.code, "invalid request")
+
 
 def _launch(source_id, model_id, device, zone, rtsp=None, watermark=False):
-    """Start one pipeline instance. Raises ValueError with a user-facing
-    message on any input/DLSPS error; returns the new session dict on success.
+    """Start one pipeline instance. Raises LaunchError on invalid input and
+    requests.RequestException on a DLSPS error; returns the new session dict on success.
 
     `zone` is None until the operator customises it, in which case the
     pipeline keeps evaluating the deployment's own zones from
@@ -34,16 +53,16 @@ def _launch(source_id, model_id, device, zone, rtsp=None, watermark=False):
     """
     source_uri = _resolve_source_uri(source_id, rtsp)
     if not source_uri:
-        raise ValueError("unknown source")
+        raise LaunchError("unknown_source")
 
     catalogue = discover_models()
     model_entry = next((m for m in catalogue["models"] if m["id"] == model_id), None)
     if model_entry is None:
-        raise ValueError("unknown model")
+        raise LaunchError("unknown_model")
 
     pipeline = _select_pipeline(device)
     if pipeline is None:
-        raise ValueError(f"no pipeline available for device {device}")
+        raise LaunchError("no_pipeline")
 
     peer_id = f"console-{uuid.uuid4().hex[:12]}"
     topic = f"{DETECTIONS_TOPIC_PREFIX}_{peer_id}"
@@ -144,10 +163,11 @@ def api_pipelines_start():
     watermark = bool(body.get("watermark"))
     try:
         result = _launch(body.get("source"), body.get("model"), device, zone, body.get("rtsp"), watermark)
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
+    except LaunchError as exc:
+        return jsonify({"error": launch_error_message(exc)}), 400
     except requests.RequestException as exc:
-        return jsonify({"error": f"pipeline start failed: {exc}"}), 502
+        LOG.error("pipeline start failed: %s", exc)
+        return jsonify({"error": "pipeline start failed"}), 502
     return jsonify(result)
 
 
@@ -158,7 +178,8 @@ def api_pipelines_stop():
     try:
         sess = _stop(peer_id)
     except requests.RequestException as exc:
-        return jsonify({"error": f"pipeline stop failed: {exc}"}), 502
+        LOG.error("pipeline stop failed: %s", exc)
+        return jsonify({"error": "pipeline stop failed"}), 502
     if sess is None:
         return jsonify({"error": "unknown peer_id"}), 404
     return jsonify({"stopped": peer_id})

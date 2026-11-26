@@ -5,7 +5,7 @@
 
 import os
 
-from config import TLS_CERT, TLS_KEY, UI_PORT, app
+from config import TLS_CERT, TLS_KEY, UI_HOST, UI_PORT, app
 
 # Imported for their side effects: registering routes on the shared app and
 # starting MQTT ingestion.
@@ -20,4 +20,4 @@ if __name__ == "__main__":
     # in front of it); behind nginx the edge already terminates TLS, and
     # this process serves that upstream over plain HTTP.
     ssl_context = (TLS_CERT, TLS_KEY) if os.path.isfile(TLS_CERT) and os.path.isfile(TLS_KEY) else None
-    app.run(host="0.0.0.0", port=UI_PORT, ssl_context=ssl_context, threaded=True)
+    app.run(host=UI_HOST, port=UI_PORT, ssl_context=ssl_context, threaded=True)

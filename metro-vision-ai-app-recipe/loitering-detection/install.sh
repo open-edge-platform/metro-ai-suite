@@ -147,6 +147,7 @@ if [ "${ENABLE_UI:-false}" = "true" ] && [ -f ../docker-compose.yml ] && ! grep 
       print "      - ./console-addon/.env"
       print "    environment:"
       print "      - UI_PORT=8091"
+      print "      - UI_HOST=0.0.0.0"
       print "      - HOST_IP=${HOST_IP}"
       print "      - PIPELINE_SERVER_URL=http://dlstreamer-pipeline-server:8080"
       print "      - MQTT_HOST=broker"

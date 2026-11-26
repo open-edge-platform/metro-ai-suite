@@ -8,7 +8,7 @@ import re
 import requests
 from flask import Response, abort, jsonify, request
 
-from config import MEDIAMTX_URL, app
+from config import LOG, MEDIAMTX_URL, app
 
 _WHEP_METHODS = ["OPTIONS", "GET", "POST", "PATCH", "DELETE"]
 
@@ -19,28 +19,23 @@ _WHEP_METHODS = ["OPTIONS", "GET", "POST", "PATCH", "DELETE"]
 # not restrict legitimate use.
 _SAFE_SEGMENT_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 
-# WHEP/WHIP responses only ever carry SDP, ICE trickle fragments, or JSON
-# errors. Blindly forwarding whatever Content-Type the upstream happens to
-# send would let a compromised or malicious upstream make the browser
-# render the response body as e.g. "text/html", turning the reflected
-# resp.content into a cross-site scripting vector. Only pass through
-# content types this proxy actually expects.
-_ALLOWED_CONTENT_TYPES = {
-    "application/sdp",
-    "application/trickle-ice-sdpfrag",
-    "application/json",
-}
-
-
 def _is_safe_segment(value):
     return bool(value) and bool(_SAFE_SEGMENT_RE.match(value))
 
 
-def _safe_content_type(content_type):
-    if not content_type:
-        return None
-    base = content_type.split(";", 1)[0].strip().lower()
-    return content_type if base in _ALLOWED_CONTENT_TYPES else None
+# WHEP/WHIP responses only ever carry SDP, ICE trickle fragments, or JSON
+# errors. The upstream Content-Type is never echoed: it is mapped to one of
+# these constants, and anything else is served as an opaque download, so the
+# body can never be rendered as HTML.
+def _safe_mimetype(content_type):
+    base = (content_type or "").split(";", 1)[0].strip().lower()
+    if base == "application/sdp":
+        return "application/sdp"
+    if base == "application/trickle-ice-sdpfrag":
+        return "application/trickle-ice-sdpfrag"
+    if base == "application/json":
+        return "application/json"
+    return "application/octet-stream"
 
 
 def _proxy_whep(upstream_url, peer_id):
@@ -59,7 +54,8 @@ def _proxy_whep(upstream_url, peer_id):
             allow_redirects=False,
         )
     except requests.RequestException as exc:
-        return jsonify({"error": str(exc)}), 502
+        LOG.error("WHEP upstream request failed: %s", exc)
+        return jsonify({"error": "upstream request failed"}), 502
 
     out_headers = [("Access-Control-Expose-Headers", "Link, Location")]
     # The Link header carries the ICE server list; without it the browser
@@ -84,14 +80,12 @@ def _proxy_whep(upstream_url, peer_id):
         if _is_safe_segment(session_seg):
             out_headers.append(("Location", "whep/%s/%s" % (peer_id, session_seg)))
 
-    content_type = _safe_content_type(resp.headers.get("Content-Type"))
-    if content_type:
-        out_headers.append(("Content-Type", content_type))
+    out_headers.append(("X-Content-Type-Options", "nosniff"))
 
-    # Not a blind passthrough: body is forwarded (required for WHEP SDP/ICE
-    # signalling to function), but only the Link/Location/Content-Type
-    # headers above are reflected, each already allowlisted/validated.
-    return Response(resp.content, status=resp.status_code, headers=out_headers)
+    # The body is forwarded (WHEP SDP/ICE signalling needs it) under a
+    # non-HTML mimetype chosen by _safe_mimetype; headers are validated above.
+    return Response(resp.content, status=resp.status_code, headers=out_headers,
+                    mimetype=_safe_mimetype(resp.headers.get("Content-Type")))
 
 
 @app.route("/whep/<peer_id>", methods=_WHEP_METHODS)

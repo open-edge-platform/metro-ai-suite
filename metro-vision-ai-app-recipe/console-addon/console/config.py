@@ -35,6 +35,8 @@ TRACK_TTL_S = float(os.environ.get("TRACK_TTL_S", "30.0"))
 # console and the application dashboard agree on what counts as stale.
 TABLE_STALE_S = float(os.environ.get("TABLE_STALE_S", "10.0"))
 UI_PORT = int(os.environ.get("UI_PORT", "9443"))
+# Loopback by default; the container deployment sets UI_HOST=0.0.0.0 so the reverse proxy can reach it.
+UI_HOST = os.environ.get("UI_HOST", "127.0.0.1")
 TLS_CERT = os.environ.get("TLS_CERT", "/app/certs/console.crt")
 TLS_KEY = os.environ.get("TLS_KEY", "/app/certs/console.key")
 

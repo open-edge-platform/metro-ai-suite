@@ -13,7 +13,7 @@ from config import (DETECTIONS_TOPIC_PREFIX, DEVICES, LOCK,
                     PROMETHEUS_URL, SESSIONS, SOURCES, _parse_zone, app, default_zone)
 from snapshot import _stream_snapshot
 from catalog import discover_models
-from api_pipelines import _launch, _stop
+from api_pipelines import LaunchError, _launch, _stop, launch_error_message
 from ingest import _reconcile_sessions
 from metrics import collect_metrics
 
@@ -47,7 +47,8 @@ def api_pipelines():
         r.raise_for_status()
         return jsonify(r.json())
     except (requests.RequestException, ValueError) as exc:
-        return jsonify({"error": str(exc), "pipelines": []})
+        LOG.error("pipeline status request failed: %s", exc)
+        return jsonify({"error": "pipeline server unavailable", "pipelines": []})
 
 
 @app.route("/api/zone", methods=["POST"])
@@ -90,9 +91,13 @@ def api_zone():
         try:
             new_session = _launch(old["source"], old["model"], old["device"], zone,
                                    old.get("rtsp"), old.get("watermark", False))
-        except (ValueError, requests.RequestException) as exc:
+        except LaunchError as exc:
+            LOG.error("zone reapply failed for %s: %s", pid, exc.code)
+            failed.append({"peer_id": pid, "error": launch_error_message(exc)})
+            continue
+        except requests.RequestException as exc:
             LOG.error("zone reapply failed for %s: %s", pid, exc)
-            failed.append({"peer_id": pid, "error": str(exc)})
+            failed.append({"peer_id": pid, "error": "pipeline start failed"})
             continue
         try:
             _stop(pid)
@@ -101,7 +106,7 @@ def api_zone():
             # stop just leaves two running for this slot rather than losing
             # either - surfaced to the client rather than silently ignored.
             LOG.error("old instance %s did not stop cleanly after zone reapply: %s", pid, exc)
-            failed.append({"peer_id": pid, "error": f"replacement started but old instance did not stop: {exc}"})
+            failed.append({"peer_id": pid, "error": "replacement started but old instance did not stop"})
         relaunched.append({"old_peer_id": pid, **new_session})
 
     return jsonify({"zone": zone, "updated": relaunched, "failed": failed, "count": len(relaunched)})

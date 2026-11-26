@@ -8,10 +8,10 @@ import ipaddress
 import os
 import re
 import socket
-import xml.etree.ElementTree as ET
 from urllib.parse import urlsplit
 
 import requests
+from defusedxml import ElementTree as DefusedET
 
 from config import (MODEL_CACHE, MODEL_CACHE_TTL_S, MODEL_ROOT,
                     PIPELINE_SERVER_URL, SOURCES)
@@ -22,23 +22,11 @@ def _slug(text):
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or "model"
 
 
-class _RejectDoctypeTarget(ET.TreeBuilder):
-    """TreeBuilder target hardened against XXE/entity-expansion attacks.
-
-    This console runs inside the shared DL Streamer Pipeline Server image
-    (bind-mounted, not its own build), OpenVINO IR .xml files never
-    legitimately contain a DOCTYPE, so instead this rejects any document
-    that declares one - which is also where XXE and billion-laughs payloads
-    live - before expat gets a chance to define or resolve any entity.
-    """
-
-    def doctype(self, name, pubid, system):
-        raise ET.ParseError("DOCTYPE declarations are not allowed in IR XML files")
-
-
 def _parse_ir_xml(xml_path):
-    parser = ET.XMLParser(target=_RejectDoctypeTarget())
-    return ET.parse(xml_path, parser=parser).getroot()
+    # OpenVINO IR files never carry a DOCTYPE, so reject any that does
+    # (where XXE and entity-expansion payloads live).
+    return DefusedET.parse(xml_path, forbid_dtd=True, forbid_entities=True,
+                           forbid_external=True).getroot()
 
 
 def _ir_input_shape(xml_path):
@@ -66,7 +54,7 @@ def _ir_input_shape(xml_path):
                 dims.append(val if val > 0 else -1)
             return dims
         return None
-    except (ET.ParseError, OSError):
+    except (DefusedET.ParseError, ValueError, OSError):
         return None
 
 
