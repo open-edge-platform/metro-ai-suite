@@ -232,19 +232,19 @@
     "list": [
       {
         "current": {
-          "text": "https://10.223.24.28/mediamtx/",
-          "value": "https://10.223.24.28/mediamtx/"
+          "text": "https://10.223.22.190/mediamtx/",
+          "value": "https://10.223.22.190/mediamtx/"
         },
         "description": "",
         "name": "WEBRTC_URL",
         "options": [
           {
             "selected": true,
-            "text": "https://10.223.24.28/mediamtx/",
-            "value": "https://10.223.24.28/mediamtx/"
+            "text": "https://10.223.22.190/mediamtx/",
+            "value": "https://10.223.22.190/mediamtx/"
           }
         ],
-        "query": "https://10.223.24.28/mediamtx/",
+        "query": "https://10.223.22.190/mediamtx/",
         "type": "textbox"
       },
       {

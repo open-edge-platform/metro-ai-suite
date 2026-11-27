@@ -91,47 +91,10 @@ if [ -f ../docker-compose.yml ]; then
 fi
 
 ##############################################################################
-# Add the mqtt-table-flattener service: reshapes the raw object_tracking/<N>
-# metadata (published as-is by DLSPS/gvametaconvert, unmodified) into
-# object_tracking/<N>/<DEST_TOPIC_SUFFIX> messages Grafana's MQTT table panel can
-# render as rows (one MQTT message = one table row), filtered by LOITERING_THRESHOLD_SEC.
-# Reuses the dlstreamer-pipeline-server image (already pulled, already has paho-mqtt)
-# instead of adding a new one. Loitering-detection-specific, so this is inserted only
-# into the generated compose file (before the top-level "networks:" key, since
-# "services:" is not the last section), not the shared template.
-##############################################################################
-if [ -f ../docker-compose.yml ] && ! grep -q '^  mqtt-table-flattener:' ../docker-compose.yml; then
-  awk '
-    /^networks:/ && !inserted {
-      print "  mqtt-table-flattener:"
-      print "    image: ${DLSTREAMER_PIPELINE_SERVER_IMAGE}"
-      print "    container_name: mqtt-table-flattener"
-      print "    environment:"
-      print "      - MQTT_HOST=broker"
-      print "      - MQTT_PORT=1883"
-      print "      - SOURCE_TOPIC_PREFIX=${SOURCE_TOPIC_PREFIX}"
-      print "      - DEST_TOPIC_SUFFIX=${DEST_TOPIC_SUFFIX}"
-      print "      - LOITERING_THRESHOLD_SEC=${LOITERING_THRESHOLD_SEC}"
-      print "    volumes:"
-      print "      - \"./${SAMPLE_APP}/src/mqtt-table-flattener:/app:ro\""
-      print "    entrypoint: [\"python3\", \"/app/flatten_and_filter.py\"]"
-      print "    depends_on:"
-      print "      - broker"
-      print "    networks:"
-      print "      - app_network"
-      print "    restart: on-failure:5"
-      print ""
-      inserted=1
-    }
-    { print }
-  ' ../docker-compose.yml > ../docker-compose.yml.tmp && mv ../docker-compose.yml.tmp ../docker-compose.yml
-fi
-
-##############################################################################
 # Console UI service: operator UI to start/stop streams, draw a zone and view
 # live loitering analytics. Only for the "loitering-detection-ui" install
 # variant (ENABLE_UI=true, set by the top-level install.sh) - this is inserted
-# into the generated compose file only, same as mqtt-table-flattener,
+# into the generated compose file only,
 # so a plain "loitering-detection" install never see this service at all.
 # Reuses the dlstreamer-pipeline-server image (already pulled, already has
 # Flask, requests and paho-mqtt instead of building one.
@@ -217,3 +180,43 @@ if [ -f "$NGINX_CONF" ]; then
   fi
 fi
 
+
+##############################################################################
+# Overlays, merged into the generated compose file last, so the awk edits above still
+# match the raw template:
+# - compose-rtsp-overlay.yml: unless ENABLE_UI=true (the Console UI install stays as it was, with
+#   no RTSP containers); loops the sample videos into rtsp://rtsp-server:8554/cam-<N>, read by
+#   the pipelines (and Stream Manager). RTSP_SOURCES in .env tells sample_start.sh which to use.
+# - compose-stream-manager-overlay.yml: ENABLE_STREAM_MANAGER=true, set by the top-level
+#   install.sh for "loitering-detection-sm". Recordings are kept in the stream-manager-data volume.
+##############################################################################
+if [ -f ../docker-compose.yml ]; then
+  OVERLAYS=()
+  ENV_UPDATES=()
+  if [ "${ENABLE_UI:-false}" = "true" ]; then
+    ENV_UPDATES+=("RTSP_SOURCES=false")
+  else
+    OVERLAYS+=(-f loitering-detection/compose-rtsp-overlay.yml)
+    ENV_UPDATES+=("RTSP_SOURCES=true")
+  fi
+  if [ "${ENABLE_STREAM_MANAGER:-false}" = "true" ]; then
+    OVERLAYS+=(-f loitering-detection/compose-stream-manager-overlay.yml)
+  fi
+  for kv in "${ENV_UPDATES[@]}"; do
+    key="${kv%%=*}"
+    if grep -q "^${key}=" ../.env; then
+      sed -i "s/^${key}=.*/${kv}/" ../.env
+    else
+      echo "${kv}" >> ../.env
+    fi
+  done
+  if [ ${#OVERLAYS[@]} -gt 0 ]; then
+    if ! (cd .. && docker compose -f docker-compose.yml "${OVERLAYS[@]}" config \
+          --no-interpolate --no-normalize --no-path-resolution --no-env-resolution > docker-compose.yml.tmp); then
+      rm -f ../docker-compose.yml.tmp
+      echo "Error: failed to merge the compose overlays into docker-compose.yml"
+      exit 1
+    fi
+    mv ../docker-compose.yml.tmp ../docker-compose.yml
+  fi
+fi

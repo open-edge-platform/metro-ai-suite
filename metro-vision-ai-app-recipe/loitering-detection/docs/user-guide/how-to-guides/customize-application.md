@@ -105,9 +105,9 @@ Pipeline Server uses a messaging interface based on Message Queuing Telemetry Tr
   - `Endpoint: tcp://0.0.0.0:1883`
   - `Topics:` Each launched stream publishes its raw per-frame metadata under
     `object_tracking/<N>` (set per-instance via `destination.metadata.topic` in the REST
-    launch payload, not hardcoded; see `sample_start.sh`). The `mqtt-table-flattener` sidecar
-    republishes a reshaped, threshold-filtered summary to `object_tracking/<N>/loiterstatus`
-    for the Grafana table.
+    launch payload, not hardcoded; see `sample_start.sh`). The `loitering_events` gvapython
+    element in each pipeline republishes a reshaped, threshold-filtered summary to
+    `object_tracking/<N>/loiterstatus` for the Grafana table.
   - `Allowed Clients: *` (`*` denotes 'all', ensuring that any subscribed system can
     receive the data)
 
@@ -189,8 +189,13 @@ purely a matter of adding another entry to the `zones` array in that stream's JS
 ### Adding a new stream
 
 1. Add a video file under `src/dlstreamer-pipeline-server/videos/` and a matching zone-config
-   JSON file under `src/dlstreamer-pipeline-server/zones/`.
-2. Launch it with one more REST call (see `sample_start.sh` for the pattern), passing
+   JSON file under `src/dlstreamer-pipeline-server/zones/`. The pipeline reads video from an
+   RTSP stream, so either publish the file to the `rtsp-server` service (add another
+   `rtsp-stream-<N>` service modelled on the existing ones in
+   `loitering-detection/compose-rtsp-overlay.yml`) or use the RTSP URL of a real camera. A `file:///home/pipeline-server/videos/<file>`
+   source also still works in the launch payload.
+2. Launch it with one more REST call (see `sample_start.sh` for the pattern), setting
+   `"source": {"uri": "rtsp://...", "type": "uri"}` and passing
    `"analytics-properties": {"config": "/home/pipeline-server/zones/<your-zone-file>.json"}`
    in the `parameters` object, alongside a unique `destination.metadata.topic` /
    `destination.frame.peer-id` for the new stream.
@@ -233,27 +238,26 @@ mechanism the application already uses for object detection/tracking data. `obje
 is never modified by this application and remains available as-is for any external integration
 that wants the raw, full per-frame payload.
 
-### Grafana table data (`mqtt-table-flattener`)
+### Grafana table data (`loitering_events`)
 
 Grafana's MQTT data source maps one MQTT message to one table row, and cannot expand a nested
-JSON array (like `objects` above) into multiple rows on its own. A small sidecar service,
-`mqtt-table-flattener` (`src/mqtt-table-flattener/flatten_and_filter.py`), bridges this gap:
+JSON array (like `objects` above) into multiple rows on its own. The `loitering_events` gvapython
+element (`src/dlstreamer-pipeline-server/plugins/python/loitering_events.py`) bridges this gap
+inside each pipeline:
 
-- Subscribes read-only to `object_tracking/+` (never alters it).
+- Reads the per-frame metadata that `gvametaconvert` attaches to each frame. It does not
+  change `object_tracking/<N>`.
 - Performs no zone/dwell-time computation itself — all of that is still done exclusively by
-  `gvaanalytics`; the flattener only reshapes already-computed values for display.
+  `gvaanalytics`; the element only reshapes already-computed values for display.
 - Once a second, republishes one small flat message per currently-dwelling object whose dwell
   time has reached `LOITERING_THRESHOLD_SEC` to `<source_topic>/loiterstatus`, e.g.
   `object_tracking/1/loiterstatus` → `{"Stream": "1", "Track ID": 7, "Type": "pedestrian",
   "Zone": "region1", "Dwell Time (s)": 6.2}`. This mirrors the same threshold
   `loitering_watermark.py` uses to color overlay text red, so only objects shown red in the
   video overlay appear as table rows.
-- Stops republishing a stream once it has been silent for a few seconds (`STALE_AFTER_SEC`,
-  default 3s), so the table correctly empties out after a pipeline stops instead of repeating
-  its last-known state forever.
-- Runs as a second container from the same `dlstreamer-pipeline-server` image (already pulled
-  for the main pipeline service, and already has `paho-mqtt`) — no extra image pull and no
-  `pip install` at runtime, so it works in air-gapped deployments too.
+- Runs inside the `dlstreamer-pipeline-server` container, as a gvapython stage of each object
+  tracking pipeline. It needs no extra container, no extra image pull, and no `pip install` at
+  runtime, so it works in air-gapped deployments too.
 - The topic suffix and threshold are not hardcoded: they come from `SOURCE_TOPIC_PREFIX`,
   `DEST_TOPIC_SUFFIX`, and `LOITERING_THRESHOLD_SEC` — static entries in the root `.env`
   file. These `.env` vars are loitering-detection-specific and

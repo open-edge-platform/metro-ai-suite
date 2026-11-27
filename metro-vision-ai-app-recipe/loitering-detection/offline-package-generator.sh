@@ -59,42 +59,14 @@ awk '
 sed -i '/^      - node-red$/d' docker-compose.yml
 sed -i '/^  node-red-node-modules:$/d' docker-compose.yml
 
-# Add the mqtt-table-flattener service (reshapes object_tracking/<N> into
-# object_tracking/<N>/<DEST_TOPIC_SUFFIX> rows for the Grafana table, filtered by
-# LOITERING_THRESHOLD_SEC); path has no ${SAMPLE_APP}/ prefix since this script
-# flattens that prefix out of its local copy above.
-# Reuses the dlstreamer-pipeline-server image (already pulled, already has
-# paho-mqtt) instead of adding a new one; values read from the local .env
-# copy, same as the DLSTREAMER_PIPELINE_SERVER_IMAGE substitution above.
-if ! grep -q '^  mqtt-table-flattener:' docker-compose.yml; then
-  DLSPS_IMAGE=$(grep "^DLSTREAMER_PIPELINE_SERVER_IMAGE=" .env | cut -d'=' -f2)
-  SRC_TOPIC_PREFIX=$(grep "^SOURCE_TOPIC_PREFIX=" .env | cut -d'=' -f2)
-  DEST_TOPIC_SUFFIX_VAL=$(grep "^DEST_TOPIC_SUFFIX=" .env | cut -d'=' -f2)
-  LOITERING_THRESHOLD_VAL=$(grep "^LOITERING_THRESHOLD_SEC=" .env | cut -d'=' -f2)
-  awk -v image="$DLSPS_IMAGE" -v src_prefix="$SRC_TOPIC_PREFIX" -v dest_suffix="$DEST_TOPIC_SUFFIX_VAL" -v threshold="$LOITERING_THRESHOLD_VAL" '
-    /^networks:/ && !inserted {
-      print "  mqtt-table-flattener:"
-      print "    image: " image
-      print "    container_name: mqtt-table-flattener"
-      print "    environment:"
-      print "      - MQTT_HOST=broker"
-      print "      - MQTT_PORT=1883"
-      print "      - SOURCE_TOPIC_PREFIX=" src_prefix
-      print "      - DEST_TOPIC_SUFFIX=" dest_suffix
-      print "      - LOITERING_THRESHOLD_SEC=" threshold
-      print "    volumes:"
-      print "      - \"./src/mqtt-table-flattener:/app:ro\""
-      print "    entrypoint: [\"python3\", \"/app/flatten_and_filter.py\"]"
-      print "    depends_on:"
-      print "      - broker"
-      print "    networks:"
-      print "      - app_network"
-      print "    restart: on-failure:5"
-      print ""
-      inserted=1
-    }
-    { print }
-  ' docker-compose.yml > docker-compose.yml.tmp && mv docker-compose.yml.tmp docker-compose.yml
+# sample_start.sh reads the sample videos from rtsp://rtsp-server:8554/cam-<N>, served by
+# compose-rtsp-overlay.yml (kept as a second compose file, not merged, so the seds below still match).
+# The Console UI package stays as it was: no RTSP services, sample_start.sh reads the video files.
+if [ "$ENABLE_UI" = "true" ]; then
+  sed -i 's/^RTSP_SOURCES=.*/RTSP_SOURCES=false/' .env
+else
+  echo "COMPOSE_FILE=docker-compose.yml:compose-rtsp-overlay.yml" >> .env
+  echo "RTSP_VIDEOS_DIR=./src/dlstreamer-pipeline-server/videos" >> .env
 fi
 
 # Add the Console UI service (opt-in via "loitering-detection-ui" variant) to

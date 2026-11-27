@@ -5,11 +5,17 @@
                 "name": "object_tracking_cpu",
                 "source": "gstreamer",
                 "queue_maxsize": 50,
-                "pipeline": "{auto_source} name=source ! decodebin3 ! gvadetect inference-region=0 model=/home/pipeline-server/models/intel/pedestrian-and-vehicle-detector-adas-0001/FP16/pedestrian-and-vehicle-detector-adas-0001.xml device=CPU model-instance-id=inst0 inference-interval=1 threshold=0.7 name=detection ! queue ! gvatrack tracking-type=zero-term ! queue ! gvaanalytics name=analytics evaluation-point=bottom-center draw-zones=true ! loitering_watermark name=loitering_watermark loitering-threshold=5.0 dashboard-pos=20,40 ! gvametaconvert add-empty-results=true add-rtp-timestamp=true name=metaconvert ! queue ! gvafpscounter ! appsink name=destination",
+                "pipeline": "{auto_source} name=source ! decodebin3 ! gvadetect inference-region=0 model=/home/pipeline-server/models/intel/pedestrian-and-vehicle-detector-adas-0001/FP16/pedestrian-and-vehicle-detector-adas-0001.xml device=CPU model-instance-id=inst0 inference-interval=1 threshold=0.7 name=detection ! queue ! gvatrack tracking-type=zero-term ! queue ! gvaanalytics name=analytics evaluation-point=bottom-center draw-zones=true ! loitering_watermark name=loitering_watermark loitering-threshold=5.0 dashboard-pos=20,40 ! gvametaconvert add-empty-results=true add-rtp-timestamp=true name=metaconvert ! gvapython name=loitering_events class=LoiteringEvents function=process_frame module=/home/pipeline-server/plugins/python/loitering_events.py ! queue ! gvafpscounter ! appsink name=destination",
                 "description": "Pedestrian and vehicle detection and tracking with zone dwell-time loitering analytics",
                 "parameters": {
                     "type": "object",
                     "properties": {
+                        "loitering-events-properties": {
+                            "element": {
+                                "name": "loitering_events",
+                                "format": "element-properties"
+                            }
+                        },
                         "detection-properties": {
                             "element": {
                                 "name": "detection",
@@ -37,11 +43,17 @@
                 "name": "object_tracking_gpu",
                 "source": "gstreamer",
                 "queue_maxsize": 50,
-                "pipeline": "{auto_source} name=source ! parsebin ! vah264dec ! vapostproc ! video/x-raw(memory:VAMemory) ! gvafpsthrottle target-fps=30 ! gvadetect inference-region=0 inference-interval=1 batch-size=1 nireq=1 ie-config=\"GPU_THROUGHPUT_STREAMS=1\" threshold=0.7 model=/home/pipeline-server/models/intel/pedestrian-and-vehicle-detector-adas-0001/FP16/pedestrian-and-vehicle-detector-adas-0001.xml device=GPU model-instance-id=instgpu0 name=detection ! queue max-size-buffers=1 max-size-bytes=0 max-size-time=0 ! gvatrack tracking-type=zero-term ! gvaanalytics name=analytics evaluation-point=bottom-center draw-zones=true ! loitering_watermark name=loitering_watermark loitering-threshold=5.0 dashboard-pos=20,40 ! gvametaconvert add-empty-results=true add-rtp-timestamp=true name=metaconvert ! appsink name=destination",
+                "pipeline": "{auto_source} name=source ! parsebin ! vah264dec ! vapostproc ! video/x-raw(memory:VAMemory) ! gvafpsthrottle target-fps=30 ! gvadetect inference-region=0 inference-interval=1 batch-size=1 nireq=1 ie-config=\"GPU_THROUGHPUT_STREAMS=1\" threshold=0.7 model=/home/pipeline-server/models/intel/pedestrian-and-vehicle-detector-adas-0001/FP16/pedestrian-and-vehicle-detector-adas-0001.xml device=GPU model-instance-id=instgpu0 name=detection ! queue max-size-buffers=1 max-size-bytes=0 max-size-time=0 ! gvatrack tracking-type=zero-term ! gvaanalytics name=analytics evaluation-point=bottom-center draw-zones=true ! loitering_watermark name=loitering_watermark loitering-threshold=5.0 dashboard-pos=20,40 ! gvametaconvert add-empty-results=true add-rtp-timestamp=true name=metaconvert ! gvapython name=loitering_events class=LoiteringEvents function=process_frame module=/home/pipeline-server/plugins/python/loitering_events.py ! appsink name=destination",
                 "description": "Pedestrian and vehicle detection and tracking with zone dwell-time loitering analytics",
                 "parameters": {
                     "type": "object",
                     "properties": {
+                        "loitering-events-properties": {
+                            "element": {
+                                "name": "loitering_events",
+                                "format": "element-properties"
+                            }
+                        },
                         "detection-properties": {
                             "element": {
                                 "name": "detection",
@@ -68,11 +80,17 @@
                 "name": "object_tracking_npu",
                 "source": "gstreamer",
                 "queue_maxsize": 50,
-                "pipeline": "{auto_source} name=source ! parsebin ! vah264dec ! vapostproc ! video/x-raw(memory:VAMemory) ! gvafpsthrottle target-fps=30 ! gvadetect inference-region=0 inference-interval=1 batch-size=1 nireq=2 threshold=0.7 model=/home/pipeline-server/models/intel/pedestrian-and-vehicle-detector-adas-0001/FP16/pedestrian-and-vehicle-detector-adas-0001.xml device=NPU model-instance-id=instnpu0 name=detection ! queue max-size-buffers=1 max-size-bytes=0 max-size-time=0 ! gvatrack tracking-type=zero-term ! gvaanalytics name=analytics evaluation-point=bottom-center draw-zones=true ! loitering_watermark name=loitering_watermark loitering-threshold=5.0 dashboard-pos=20,40 ! gvametaconvert add-empty-results=true add-rtp-timestamp=true name=metaconvert ! appsink name=destination",
+                "pipeline": "{auto_source} name=source ! parsebin ! vah264dec ! vapostproc ! video/x-raw(memory:VAMemory) ! gvafpsthrottle target-fps=30 ! gvadetect inference-region=0 inference-interval=1 batch-size=1 nireq=2 threshold=0.7 model=/home/pipeline-server/models/intel/pedestrian-and-vehicle-detector-adas-0001/FP16/pedestrian-and-vehicle-detector-adas-0001.xml device=NPU model-instance-id=instnpu0 name=detection ! queue max-size-buffers=1 max-size-bytes=0 max-size-time=0 ! gvatrack tracking-type=zero-term ! gvaanalytics name=analytics evaluation-point=bottom-center draw-zones=true ! loitering_watermark name=loitering_watermark loitering-threshold=5.0 dashboard-pos=20,40 ! gvametaconvert add-empty-results=true add-rtp-timestamp=true name=metaconvert ! gvapython name=loitering_events class=LoiteringEvents function=process_frame module=/home/pipeline-server/plugins/python/loitering_events.py ! appsink name=destination",
                 "description": "Pedestrian and vehicle detection and tracking with zone dwell-time loitering analytics",
                 "parameters": {
                     "type": "object",
                     "properties": {
+                        "loitering-events-properties": {
+                            "element": {
+                                "name": "loitering_events",
+                                "format": "element-properties"
+                            }
+                        },
                         "detection-properties": {
                             "element": {
                                 "name": "detection",

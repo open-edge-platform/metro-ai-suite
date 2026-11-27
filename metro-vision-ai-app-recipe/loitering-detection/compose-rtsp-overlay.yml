@@ -1,0 +1,65 @@
+# Overlay merged into docker-compose.yml by loitering-detection/install.sh and used by
+# offline-package-generator.sh. Loops the sample videos into an RTSP server, so the pipelines
+# (and Stream Manager) read rtsp://rtsp-server:8554/cam-<N> for VIRAT_S_00010<N>.mp4.
+#
+# One ffmpeg container per camera: in a single shared process a stall at one loop restart made
+# Stream Manager reject every stream (it rejects source timestamp jumps). The codec args come
+# from RTSP_FEEDER_CODEC_ARGS (.env).
+x-rtsp-stream: &rtsp-stream
+  image: ${RTSP_FEEDER_IMAGE:-linuxserver/ffmpeg:version-9.0-cli}
+  volumes:
+    # Long form: the short form cannot be parsed when the merge keeps ${...} unresolved
+    - type: bind
+      source: ${RTSP_VIDEOS_DIR:-./${SAMPLE_APP}/src/dlstreamer-pipeline-server/videos}
+      target: /videos
+      read_only: true
+  depends_on:
+    - rtsp-server
+  networks:
+    - app_network
+  restart: always
+
+services:
+  rtsp-server:
+    image: bluenviron/mediamtx:1.11.3
+    container_name: rtsp-server
+    environment:
+      - MTX_RTMP=no
+      - MTX_HLS=no
+      - MTX_WEBRTC=no
+      - MTX_SRT=no
+    networks:
+      - app_network
+    restart: on-failure:5
+
+  rtsp-stream-1:
+    <<: *rtsp-stream
+    container_name: rtsp-stream-1
+    command: >
+      -nostdin -re -stream_loop -1 -i /videos/VIRAT_S_000101.mp4
+      -map 0:v ${RTSP_FEEDER_CODEC_ARGS:--c:v libx264 -preset veryfast -tune zerolatency -g 30 -bf 0 -pix_fmt yuv420p}
+      -f rtsp -rtsp_transport tcp rtsp://rtsp-server:8554/cam-1
+
+  rtsp-stream-2:
+    <<: *rtsp-stream
+    container_name: rtsp-stream-2
+    command: >
+      -nostdin -re -stream_loop -1 -i /videos/VIRAT_S_000102.mp4
+      -map 0:v ${RTSP_FEEDER_CODEC_ARGS:--c:v libx264 -preset veryfast -tune zerolatency -g 30 -bf 0 -pix_fmt yuv420p}
+      -f rtsp -rtsp_transport tcp rtsp://rtsp-server:8554/cam-2
+
+  rtsp-stream-3:
+    <<: *rtsp-stream
+    container_name: rtsp-stream-3
+    command: >
+      -nostdin -re -stream_loop -1 -i /videos/VIRAT_S_000103.mp4
+      -map 0:v ${RTSP_FEEDER_CODEC_ARGS:--c:v libx264 -preset veryfast -tune zerolatency -g 30 -bf 0 -pix_fmt yuv420p}
+      -f rtsp -rtsp_transport tcp rtsp://rtsp-server:8554/cam-3
+
+  rtsp-stream-4:
+    <<: *rtsp-stream
+    container_name: rtsp-stream-4
+    command: >
+      -nostdin -re -stream_loop -1 -i /videos/VIRAT_S_000104.mp4
+      -map 0:v ${RTSP_FEEDER_CODEC_ARGS:--c:v libx264 -preset veryfast -tune zerolatency -g 30 -bf 0 -pix_fmt yuv420p}
+      -f rtsp -rtsp_transport tcp rtsp://rtsp-server:8554/cam-4

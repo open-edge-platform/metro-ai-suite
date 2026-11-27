@@ -125,6 +125,73 @@ to file new tickets there (after learning about the guidelines for
 
    This should resolve the time discrepancy in Prometheus.
 
+## Troubleshooting RTSP streams and clip recording
+
+The sample videos are served as RTSP streams (`rtsp://rtsp-server:8554/cam-<N>`), except in the
+Console UI installation, which does not start the RTSP services. For the
+Stream Manager overlay, see also
+[Record Loitering Clips with Stream Manager](./how-to-guides/record-loitering-clips.md).
+
+1. **Pipelines stay in `RECONNECTING` with `Failed to connect. (Generic error)`**
+
+   - Check the logs of the pipeline server and the RTSP containers:
+
+     ```bash
+     docker compose logs dlstreamer-pipeline-server | grep -i 'rtsp\|proxy'
+     docker compose logs rtsp-server rtsp-stream-1
+     ```
+
+   - `HTTP proxy connection failed: 504` means the RTSP connection was sent through your
+     corporate proxy. The pipeline server must have `rtsp-server` in its `no_proxy` list, which
+     the provided compose template sets. Add the name of your RTSP server if you use another
+     one, because CIDR ranges in `no_proxy` are not always honoured.
+
+2. **No recordings are created**
+
+   - Confirm the Stream Manager overlay is installed (`stream-manager` appears only with
+     `./install.sh loitering-detection-sm`) and read the `loitering_events` logs from the pipeline
+     server:
+
+     ```bash
+     docker compose logs dlstreamer-pipeline-server | grep loitering-events
+     ```
+
+   - Confirm that loitering rows are published. An object must stay in a zone for longer than
+     `LOITERING_THRESHOLD_SEC` and the pipelines must be running:
+
+     ```bash
+     docker compose exec broker mosquitto_sub -t 'object_tracking/+/loiterstatus' -C 3
+     ```
+
+3. **A camera never starts recording, or its stream keeps being re-registered**
+
+   - Stream Manager logs why a stream failed:
+
+     ```bash
+     docker compose logs stream-manager | grep 'stream failed'
+     ```
+
+     - `describe RTSP source`: the RTSP stream was not up yet. `loitering_events` retries on its own.
+     - `no NTP/keyframe progress within 30s`: the source does not send regular keyframes or
+       NTP-based RTCP sender reports. For the sample videos, check `RTSP_FEEDER_CODEC_ARGS` in `.env`.
+     - `source timestamp discontinuity`: the stream timestamps jumped by more than a second, for
+       example because the feeder container restarted. `loitering_events` registers the stream again.
+
+4. **`cannot start recording` in the `loitering_events` logs**
+
+   - `capacity_exhausted` (HTTP 429) means Stream Manager has reached its limit of concurrent
+     recordings.
+   - `storage_full` (HTTP 507) means its storage quota is full. Recordings are not deleted
+     automatically, so remove old ones with `DELETE /v1/records/<id>` or recreate the volume.
+   - `history_unavailable` right after startup is normal; the element then records without
+     pre-roll.
+
+5. **The `intel/stream-manager` image cannot be pulled**
+
+   - Build it from the Stream Manager sources (`edge-ai-libraries/microservices/stream-manager`)
+     with `make docker-build`, then set `STREAM_MANAGER_IMAGE` in `.env` to the image you built
+     and run `docker compose up -d`.
+
 ## Troubleshooting the Console UI
 
 See [Use the Console UI](./how-to-guides/use-console-ui.md) for normal

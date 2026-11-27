@@ -1,0 +1,30 @@
+# Overlay merged into docker-compose.yml by loitering-detection/install.sh
+# (./install.sh loitering-detection-sm). Needs the rtsp-server service from
+# compose-rtsp-overlay.yml. The loitering_events gvapython element in DLSPS
+# starts and stops Stream Manager recordings; clips stay in Stream Manager.
+services:
+  stream-manager:
+    image: ${STREAM_MANAGER_IMAGE:-intel/stream-manager:latest}
+    container_name: stream-manager
+    # Stream Manager buffers the rolling stream history in /dev/shm (Docker's default is 64 MB)
+    shm_size: ${STREAM_MANAGER_SHM_SIZE:-1g}
+    volumes:
+      - stream-manager-data:/data
+    networks:
+      - app_network
+    depends_on:
+      - rtsp-server
+    restart: on-failure:5
+
+  dlstreamer-pipeline-server:
+    environment:
+      - SM_URL=http://stream-manager:8080/v1
+      - SM_BUFFER_LENGTH=${SM_BUFFER_LENGTH:-30}
+      - PRE_EVENT_SEC=${PRE_EVENT_SEC:-5}
+      - STOP_GRACE_SEC=${STOP_GRACE_SEC:-3}
+      - MAX_SESSION_SEC=${MAX_SESSION_SEC:-300}
+    depends_on:
+      - stream-manager
+
+volumes:
+  stream-manager-data:
