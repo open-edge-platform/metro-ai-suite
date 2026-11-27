@@ -9,6 +9,8 @@
 - Packages upgraded for CVE fixes.
 - Documentation updates: repository links updated to the Metro AI Suite repository.
 
+**Note:** Helm Chart support will be deprecated in the next release. Limited validation has been performed on the Helm charts for this release.
+
 ## Version 2026.2.0
 
 **Release Date**: September 10, 2026
