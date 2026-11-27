@@ -2,7 +2,7 @@
 
 Run Smart Community end to end with an open-source video.
 
-All files are in [examples/venue-monitor](https://github.com/open-edge-platform/metro-ai-suite/tree/2026.3.0/agentic-smart-community/examples/venue-monitor).
+All files are in [examples/venue-monitor](https://github.com/open-edge-platform/metro-ai-suite/tree/release-2026.3.0/agentic-smart-community/examples/venue-monitor).
 
 ## Prerequisites
 
@@ -93,7 +93,7 @@ To stop everything, run `bash setup_docker.sh --down`.
 | `person_present`  | info     |
 | `empty`           | info     |
 
-The prompts are in [prompts](https://github.com/open-edge-platform/metro-ai-suite/tree/2026.3.0/agentic-smart-community/examples/venue-monitor/prompts).
+The prompts are in [prompts](https://github.com/open-edge-platform/metro-ai-suite/tree/release-2026.3.0/agentic-smart-community/examples/venue-monitor/prompts).
 Re-running with a different `PROMPT_LANG` updates the registered prompt.
 
 ### Video source
