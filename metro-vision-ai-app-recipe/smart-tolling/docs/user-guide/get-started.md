@@ -115,6 +115,12 @@ test videos used during development.
 - **Username**: `admin`
 - **Password**: `admin` (You will be prompted to change it on first login.)
 
+In the Smart Toll - Vehicle Events & Axle Analysis dashboard, click a plate number in the table. The following
+details are displayed on the right side:
+
+- **License Plate Image**
+- **Vehicle Image**
+
 ### Node-RED UI
 
 - **URL**: [https://localhost/nodered/](https://localhost/nodered/)
